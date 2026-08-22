@@ -9,6 +9,7 @@ interface AuthContextType {
   user: SupabaseUser | null;
   profile: Profile | null;
   loading: boolean;
+  setDemoProfile: (profile: Profile | null) => void;
   signOut: () => Promise<void>;
 }
 
@@ -17,6 +18,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   profile: null,
   loading: true,
+  setDemoProfile: () => {},
   signOut: async () => {},
 });
 
@@ -25,11 +27,62 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(() => {
+    const saved = localStorage.getItem('osan_demo_profile');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.role === 'Super_HR' || parsed.role === 'HR')) {
+          parsed.role = 'HR';
+        }
+        return parsed;
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  });
   const [loading, setLoading] = useState(true);
 
+  const setDemoProfile = (newProfile: Profile | null) => {
+    setProfile(newProfile);
+    if (newProfile) {
+      localStorage.setItem('osan_demo_profile', JSON.stringify(newProfile));
+      // Create synthetic session for demo auth
+      const mockSession: any = {
+        access_token: 'demo-token',
+        user: { id: newProfile.id, email: newProfile.email }
+      };
+      setSession(mockSession);
+      setUser(mockSession.user);
+    } else {
+      localStorage.removeItem('osan_demo_profile');
+      setSession(null);
+      setUser(null);
+    }
+  };
+
   useEffect(() => {
-    // Get initial session
+    // Check initial demo profile in localStorage
+    const saved = localStorage.getItem('osan_demo_profile');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const mockSession: any = {
+          access_token: 'demo-token',
+          user: { id: parsed.id, email: parsed.email }
+        };
+        setSession(mockSession);
+        setUser(mockSession.user);
+        setProfile(parsed);
+        setLoading(false);
+        return;
+      } catch (e) {
+        localStorage.removeItem('osan_demo_profile');
+      }
+    }
+
+    // Get initial Supabase session if no demo profile saved
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -76,11 +129,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    localStorage.removeItem('osan_demo_profile');
+    setProfile(null);
+    setSession(null);
+    setUser(null);
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, setDemoProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   );

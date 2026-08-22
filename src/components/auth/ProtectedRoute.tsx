@@ -22,11 +22,13 @@ export function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(profile.role)) {
+  const effectiveRole = (profile.role as string) === 'Super_HR' ? 'HR' : profile.role;
+
+  if (allowedRoles && !allowedRoles.includes(effectiveRole)) {
     // If user is logged in but doesn't have the right role, redirect to their default dashboard
-    switch (profile.role) {
-      case 'Super_HR':
-        return <Navigate to="/hr" replace />;
+    switch (effectiveRole) {
+      case 'HR':
+        return <Navigate to="/hr/overview" replace />;
       case 'CEO':
         return <Navigate to="/ceo" replace />;
       case 'Accountant':

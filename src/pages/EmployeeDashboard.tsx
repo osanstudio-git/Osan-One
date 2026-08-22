@@ -7,7 +7,8 @@ import { CompactWidget } from '../components/employee/CompactWidget';
 import { Calendar, Clock, LogOut, CheckCircle2, History } from 'lucide-react';
 import { getCompanySettings, calculateDistance, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
-import { getExpectedShiftEnd } from '../lib/attendanceRules';
+import { MOCK_COMPANIES } from './hr/mockData';
+import { saveOfflinePunch } from '../lib/offlineQueue';
 
 interface WorkSession {
   id: string;
@@ -151,6 +152,16 @@ export function EmployeeDashboard() {
 
     const nowTime = new Date();
 
+    if (!navigator.onLine) {
+      await saveOfflinePunch({
+        userId: profile?.id || 'emp-user',
+        companyId: profile?.company_id || 'company-1',
+        type: !isCheckedIn ? 'clock_in' : 'clock_out',
+        timestamp: nowTime.toISOString(),
+        date: nowTime.toISOString().split('T')[0]
+      });
+    }
+
     if (!isCheckedIn) {
       // Check in
       if (!firstCheckInTime) {
@@ -188,12 +199,18 @@ export function EmployeeDashboard() {
 
   const renderJourneyBar = () => {
     if (!profile) return null;
-    const { hour, minute } = getExpectedShiftEnd(profile.nationality);
+    const isOmani = profile.nationality === 'Omani';
+    const activeCompany = MOCK_COMPANIES.find(c => c.name === companyName) || MOCK_COMPANIES[0];
+    const shiftStart = isOmani ? activeCompany.omaniShiftStart : activeCompany.expatShiftStart;
+    const shiftEnd = isOmani ? activeCompany.omaniShiftEnd : activeCompany.expatShiftEnd;
+
+    const [startHr, startMin] = (shiftStart || "08:30").split(':').map(Number);
+    const [endHr, endMin] = (shiftEnd || "17:00").split(':').map(Number);
 
     const start = new Date(now);
-    start.setHours(8, 30, 0, 0);
+    start.setHours(startHr, startMin, 0, 0);
     const end = new Date(now);
-    end.setHours(hour, minute, 0, 0);
+    end.setHours(endHr, endMin, 0, 0);
 
     const totalMs = end.getTime() - start.getTime();
     const elapsedMs = now.getTime() - start.getTime();
@@ -203,8 +220,8 @@ export function EmployeeDashboard() {
     return (
       <div className="w-full max-w-md mt-8">
         <div className="flex justify-between text-xs text-gray-400 font-medium mb-2 px-1">
-          <span>8:30 AM (Start)</span>
-          <span>{hour > 12 ? hour - 12 : hour}:{minute.toString().padStart(2, '0')} PM (End)</span>
+          <span>{shiftStart} (Start)</span>
+          <span>{shiftEnd} (End)</span>
         </div>
         <div className="h-3 w-full bg-surface border border-white/5 rounded-full overflow-hidden">
           <div
@@ -362,6 +379,7 @@ export function EmployeeDashboard() {
         onClose={() => setIsLeaveModalOpen(false)}
         onSubmit={handleLeaveSubmit}
         balances={balances}
+        userProfile={profile}
       />
 
       {isPipActive && (

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, LogIn, AlertCircle, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -7,10 +8,29 @@ import { MOCK_EMPLOYEES, MOCK_COMPANIES } from './hr/mockData';
 
 export const Login = () => {
   const navigate = useNavigate();
+  const { setDemoProfile } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loginAsDemoUser = (userEmail: string, role: string) => {
+    const emp = MOCK_EMPLOYEES.find(e => e.email.toLowerCase() === userEmail.toLowerCase()) || {
+      id: `emp-demo-${role}`,
+      name: `Demo ${role}`,
+      email: userEmail,
+      role: role as any,
+      company_id: 'Nameer',
+      company: 'Nameer',
+      nationality: 'Omani' as const,
+      gender: 'Male' as const,
+      status: 'Active' as const,
+      leave_balances: { yearly: 30, sick: 14, pregnancy: 98 },
+      join_date: '2024-01-01'
+    };
+    setDemoProfile(emp as any);
+    redirectUserByRole(role);
+  };
 
   // Helper to check policy constraints
   const verifyCompanyAuthPolicy = (userEmail: string, userPhone?: string, typedAsEmail: boolean = true) => {
@@ -45,20 +65,26 @@ export const Login = () => {
 
     try {
       // 1. Policy Constraint Checks (Verify first to block login methods)
+      // 1. Policy & Mock Match Check
       let matchedEmp = null;
       if (isEmail) {
         matchedEmp = verifyCompanyAuthPolicy(cleanId, undefined, true);
       } else {
-        // Find by phone
         const empByPhone = MOCK_EMPLOYEES.find(emp => emp.phone === cleanId);
         if (empByPhone) {
           matchedEmp = verifyCompanyAuthPolicy(empByPhone.email, cleanId, false);
         }
       }
 
-      // 2. Perform Auth (Attempt Supabase first, fallback to mock users locally)
+      // If mock employee matches, set demo profile and sign in immediately
+      if (matchedEmp) {
+        setDemoProfile(matchedEmp as any);
+        redirectUserByRole(matchedEmp.role);
+        return;
+      }
+
+      // 2. Perform Supabase Cloud Auth if not matched locally
       try {
-        // Try Supabase auth
         const { data, error: signInError } = await supabase.auth.signInWithPassword(
           isEmail ? { email: cleanId, password } : { email: `${cleanId}@phone-placeholder.com`, password }
         );
@@ -78,15 +104,7 @@ export const Login = () => {
           return;
         }
       } catch (supabaseErr) {
-        console.warn("Supabase Auth failed or placeholder configured. Falling back to local mock login...", supabaseErr);
-        
-        // Fail-safe Mock Authentication Flow
-        if (matchedEmp) {
-          redirectUserByRole(matchedEmp.role);
-          return;
-        } else {
-          throw new Error("Invalid credentials or unregistered account.");
-        }
+        throw new Error("Invalid credentials or unregistered account. Use demo buttons below to test.");
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
@@ -211,6 +229,50 @@ export const Login = () => {
                 )}
               </div>
             </button>
+
+            {/* Quick Demo Login Switchers */}
+            <div className="pt-4 border-t border-slate-800 space-y-2">
+              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block text-center">
+                Instant Demo Access (1-Click Login)
+              </span>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => loginAsDemoUser('employee1@nameer.com', 'HR')}
+                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="font-medium">🛡️ HR Admin</span>
+                  <span className="text-[10px] text-blue-400 font-bold">Login</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => loginAsDemoUser('employee4@amer.com', 'Employee')}
+                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="font-medium">👤 Employee</span>
+                  <span className="text-[10px] text-emerald-400 font-bold">Login</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => loginAsDemoUser('employee2@masar.com', 'CEO')}
+                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="font-medium">👔 CEO</span>
+                  <span className="text-[10px] text-amber-400 font-bold">Login</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => loginAsDemoUser('employee3@osan.com', 'Accountant')}
+                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
+                >
+                  <span className="font-medium">💼 Accountant</span>
+                  <span className="text-[10px] text-purple-400 font-bold">Login</span>
+                </button>
+              </div>
+            </div>
           </form>
         </div>
 

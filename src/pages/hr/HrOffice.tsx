@@ -84,10 +84,10 @@ export function HrOffice() {
 
   return (
     <div className="max-w-2xl animate-in fade-in zoom-in-95 duration-300">
-      <div className="glass p-8 rounded-2xl border border-white/5 space-y-8">
+      <div className="bg-white dark:bg-white/5 p-8 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-8">
         <div>
-          <h2 className="text-xl font-bold text-white mb-2">Office Configuration</h2>
-          <p className="text-gray-400 text-sm">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Office Configuration</h2>
+          <p className="text-slate-500 dark:text-gray-400 text-sm">
             Set up your official office location and network. Employees must be connected to this network or within 50 meters of this location to check in successfully.
           </p>
         </div>
@@ -95,69 +95,69 @@ export function HrOffice() {
         {/* GPS Location Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-white flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <MapPin className="w-5 h-5 text-rose-500" />
               GPS Coordinates
             </h3>
             <button
               onClick={fetchLocation}
               disabled={isFetchingLocation}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 flex items-center gap-2 disabled:opacity-50"
             >
               {isFetchingLocation ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
               Fetch My Location
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4 text-xs">
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Latitude</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">Latitude</label>
               <input
                 type="text"
                 value={lat}
                 onChange={(e) => setLat(e.target.value)}
                 placeholder="e.g. 23.5880"
-                className="w-full bg-background border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary placeholder:text-slate-400 dark:placeholder:text-gray-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">Longitude</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">Longitude</label>
               <input
                 type="text"
                 value={lng}
                 onChange={(e) => setLng(e.target.value)}
                 placeholder="e.g. 58.3829"
-                className="w-full bg-background border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary"
+                className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary placeholder:text-slate-400 dark:placeholder:text-gray-500"
               />
             </div>
           </div>
         </div>
 
-        <hr className="border-white/10" />
+        <hr className="border-slate-200 dark:border-white/10" />
 
         {/* IP Address Section */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-white flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
               <Globe className="w-5 h-5 text-blue-500" />
               Office Network (IP Address)
             </h3>
             <button
               onClick={fetchIp}
               disabled={isFetchingIp}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+              className="px-4 py-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 flex items-center gap-2 disabled:opacity-50"
             >
               {isFetchingIp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
               Fetch My IP
             </button>
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Public IPv4 Address</label>
+          <div className="text-xs">
+            <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">Public IPv4 Address</label>
             <input
               type="text"
               value={ip}
               onChange={(e) => setIp(e.target.value)}
               placeholder="e.g. 176.12.34.56"
-              className="w-full bg-background border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-primary font-mono"
+              className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary font-mono placeholder:text-slate-400 dark:placeholder:text-gray-500"
             />
           </div>
         </div>
@@ -167,7 +167,7 @@ export function HrOffice() {
           <button
             onClick={saveSettings}
             disabled={isSaving}
-            className="px-6 py-3 bg-primary hover:bg-emerald-600 rounded-xl font-medium text-white shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
+            className="px-6 py-3 bg-primary hover:bg-emerald-600 rounded-xl font-bold text-xs text-white shadow-lg shadow-primary/20 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-50"
           >
             {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             Save Configuration

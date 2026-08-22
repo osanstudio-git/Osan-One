@@ -1,112 +1,285 @@
+-- =====================================================================
+-- OSAN ONE HR & ATTENDANCE APP - SUPABASE DATABASE MIGRATION SCHEMA
+-- Sultanate of Oman Labor Law Compliant Enterprise Architecture
+-- Idempotent SQL script (Safe to run multiple times without errors)
+-- =====================================================================
+
 -- Enable UUID extension
-create extension if not exists "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Enums
-create type user_role as enum ('Super_HR', 'CEO', 'Accountant', 'Employee');
-create type user_nationality as enum ('Omani', 'Expat');
-create type user_status as enum ('Active', 'Inactive');
-create type attendance_status as enum ('Present', 'Late', 'On-Time', 'Overtime', 'Absent');
-create type leave_status as enum ('Pending', 'Approved', 'Rejected');
-create type leave_type as enum ('Yearly', 'Sick', 'Pregnancy', 'Unpaid');
+-- ---------------------------------------------------------------------
+-- 1. ENUMS & DOMAINS (Safely created if not already existing)
+-- ---------------------------------------------------------------------
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_role') THEN
+    CREATE TYPE user_role AS ENUM ('HR', 'CEO', 'Accountant', 'Employee');
+  END IF;
+  
+  -- Ensure 'HR' value is present if user_role enum already existed
+  BEGIN
+    ALTER TYPE user_role ADD VALUE IF NOT EXISTS 'HR';
+  EXCEPTION WHEN OTHERS THEN NULL;
+  END;
+  
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'nationality_type') THEN
+    CREATE TYPE nationality_type AS ENUM ('Omani', 'Expat');
+  END IF;
 
--- Companies Table
-create table public.companies (
-    id uuid default uuid_generate_v4() primary key,
-    name text not null unique,
-    created_at timestamptz default now() not null
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'user_status') THEN
+    CREATE TYPE user_status AS ENUM ('Active', 'Inactive');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'auth_policy_type') THEN
+    CREATE TYPE auth_policy_type AS ENUM ('email', 'phone', 'both');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gender_type') THEN
+    CREATE TYPE gender_type AS ENUM ('Male', 'Female');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'religion_type') THEN
+    CREATE TYPE religion_type AS ENUM ('Muslim', 'Non-Muslim');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'attendance_status_type') THEN
+    CREATE TYPE attendance_status_type AS ENUM ('Present', 'Late', 'On-Time', 'Overtime', 'Absent');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'leave_status_type') THEN
+    CREATE TYPE leave_status_type AS ENUM ('Pending', 'Approved', 'Rejected');
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'leave_type_enum') THEN
+    CREATE TYPE leave_type_enum AS ENUM (
+      'Yearly', 
+      'Sick', 
+      'Maternity', 
+      'Paternity', 
+      'Marriage', 
+      'Bereavement_Immediate', 
+      'Bereavement_Extended', 
+      'Bereavement_Spouse',
+      'Mourning_Muslim', 
+      'Mourning_NonMuslim', 
+      'Hajj', 
+      'Exam', 
+      'Unpaid'
+    );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'housing_status_type') THEN
+    CREATE TYPE housing_status_type AS ENUM ('Lives with Family', 'Company Accommodation', 'Private Rental');
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 2. COMPANIES TABLE (Multi-Tenant Organization Settings)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS companies (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(255) NOT NULL UNIQUE,
+  auth_policy auth_policy_type NOT NULL DEFAULT 'both',
+  omani_shift_start TIME NOT NULL DEFAULT '08:30:00',
+  omani_shift_end TIME NOT NULL DEFAULT '17:00:00',
+  expat_shift_start TIME NOT NULL DEFAULT '08:00:00',
+  expat_shift_end TIME NOT NULL DEFAULT '18:00:00',
+  logo_url TEXT,
+  location VARCHAR(255),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Users Table (Extends Auth)
-create table public.users (
-    id uuid references auth.users on delete cascade primary key,
-    name text not null,
-    email text unique not null,
-    role user_role default 'Employee'::user_role not null,
-    company_id uuid references public.companies on delete set null,
-    nationality user_nationality not null,
-    status user_status default 'Active'::user_status not null,
-    leave_balances jsonb default '{"yearly": 30, "sick": 14, "pregnancy": 0}'::jsonb not null,
-    created_at timestamptz default now() not null
+-- Ensure all columns exist on companies table if table pre-existed
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS auth_policy auth_policy_type NOT NULL DEFAULT 'both';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS omani_shift_start TIME NOT NULL DEFAULT '08:30:00';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS omani_shift_end TIME NOT NULL DEFAULT '17:00:00';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS expat_shift_start TIME NOT NULL DEFAULT '08:00:00';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS expat_shift_end TIME NOT NULL DEFAULT '18:00:00';
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS logo_url TEXT;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS location VARCHAR(255);
+ALTER TABLE companies DROP CONSTRAINT IF EXISTS companies_name_check;
+
+-- ---------------------------------------------------------------------
+-- 3. USERS / EMPLOYEES TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) UNIQUE,
+  phone VARCHAR(50),
+  pin VARCHAR(10), -- 6-digit security PIN for phone authentication
+  role user_role NOT NULL DEFAULT 'Employee',
+  company_id VARCHAR(255) NOT NULL DEFAULT 'Company',
+  nationality nationality_type NOT NULL DEFAULT 'Omani',
+  gender gender_type NOT NULL DEFAULT 'Male',
+  religion religion_type DEFAULT 'Muslim',
+  status user_status NOT NULL DEFAULT 'Active',
+  
+  -- Electronic File Properties
+  join_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  job_title VARCHAR(150) NOT NULL DEFAULT 'Officer',
+  department VARCHAR(150) NOT NULL DEFAULT 'Operations',
+  supervisor_name VARCHAR(255),
+  base_salary NUMERIC(10,3) NOT NULL DEFAULT 800.000, -- OMR precision
+  allowances NUMERIC(10,3) NOT NULL DEFAULT 150.000,
+  
+  -- Leave Balances
+  leave_balance_yearly INT NOT NULL DEFAULT 30,
+  leave_balance_sick INT NOT NULL DEFAULT 14,
+  leave_balance_maternity INT NOT NULL DEFAULT 98,
+  
+  -- Housing & Accommodation
+  housing_status housing_status_type NOT NULL DEFAULT 'Lives with Family',
+  accommodation_details JSONB DEFAULT '{}'::jsonb, -- building_name, building_address, room_number, occupancy_count
+  
+  -- Array Structures stored as JSONB for high flexibility
+  qualifications JSONB DEFAULT '[]'::jsonb,
+  experience JSONB DEFAULT '[]'::jsonb,
+  family_members JSONB DEFAULT '[]'::jsonb,
+  emergency_contacts JSONB DEFAULT '[]'::jsonb,
+  promotions JSONB DEFAULT '[]'::jsonb,
+  disciplinary JSONB DEFAULT '[]'::jsonb,
+  bonuses JSONB DEFAULT '[]'::jsonb,
+  transfers JSONB DEFAULT '[]'::jsonb,
+  
+  -- Exit Deactivation Audit Logs
+  exit_date DATE,
+  exit_reason TEXT,
+  
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Attendance Logs Table
-create table public.attendance_logs (
-    id uuid default uuid_generate_v4() primary key,
-    user_id uuid references public.users on delete cascade not null,
-    company_id uuid references public.companies on delete cascade not null,
-    date date not null default current_date,
-    clock_in_time timestamptz,
-    clock_out_time timestamptz,
-    break_start_time timestamptz,
-    break_end_time timestamptz,
-    exceptions jsonb default '[]'::jsonb,
-    ip_address text,
-    status attendance_status,
-    created_at timestamptz default now() not null,
-    unique(user_id, date)
+-- Ensure all columns exist on users table if table pre-existed
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS pin VARCHAR(10);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role user_role NOT NULL DEFAULT 'Employee';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS company_id VARCHAR(255) NOT NULL DEFAULT 'Company';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nationality nationality_type NOT NULL DEFAULT 'Omani';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gender gender_type NOT NULL DEFAULT 'Male';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS religion religion_type DEFAULT 'Muslim';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS status user_status NOT NULL DEFAULT 'Active';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS join_date DATE NOT NULL DEFAULT CURRENT_DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title VARCHAR(150) NOT NULL DEFAULT 'Officer';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(150) NOT NULL DEFAULT 'Operations';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS supervisor_name VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS base_salary NUMERIC(10,3) NOT NULL DEFAULT 800.000;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS allowances NUMERIC(10,3) NOT NULL DEFAULT 150.000;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS leave_balance_yearly INT NOT NULL DEFAULT 30;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS leave_balance_sick INT NOT NULL DEFAULT 14;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS leave_balance_maternity INT NOT NULL DEFAULT 98;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS housing_status housing_status_type NOT NULL DEFAULT 'Lives with Family';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS accommodation_details JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS qualifications JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS experience JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS family_members JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS emergency_contacts JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS promotions JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS disciplinary JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS bonuses JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS transfers JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS exit_date DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS exit_reason TEXT;
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_name_check;
+
+-- Drop auth.users Foreign Key constraint if present (allows direct HR employee file insertion)
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_id_fkey;
+
+-- ---------------------------------------------------------------------
+-- 4. ATTENDANCE LOGS TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS attendance_logs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id VARCHAR(255) NOT NULL,
+  company_id VARCHAR(255) NOT NULL,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  clock_in_time TIMESTAMPTZ,
+  clock_out_time TIMESTAMPTZ,
+  break_start_time TIMESTAMPTZ,
+  break_end_time TIMESTAMPTZ,
+  ip_address VARCHAR(45),
+  status attendance_status_type NOT NULL DEFAULT 'On-Time',
+  exceptions JSONB DEFAULT '[]'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Leave Requests Table
-create table public.leave_requests (
-    id uuid default uuid_generate_v4() primary key,
-    user_id uuid references public.users on delete cascade not null,
-    leave_type leave_type not null,
-    start_date date not null,
-    end_date date not null,
-    status leave_status default 'Pending'::leave_status not null,
-    document_url text,
-    created_at timestamptz default now() not null
+-- ---------------------------------------------------------------------
+-- 5. LEAVE REQUESTS TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS leave_requests (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id VARCHAR(255) NOT NULL,
+  leave_type leave_type_enum NOT NULL,
+  start_date DATE NOT NULL,
+  end_date DATE NOT NULL,
+  status leave_status_type NOT NULL DEFAULT 'Pending',
+  document_url TEXT,
+  rejection_reason TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Row Level Security (RLS) Policies
-alter table public.companies enable row level security;
-alter table public.users enable row level security;
-alter table public.attendance_logs enable row level security;
-alter table public.leave_requests enable row level security;
-
--- Helper function to avoid infinite recursion in RLS
-create or replace function public.get_user_role()
-returns user_role
-language sql
-security definer
-set search_path = public
-as $$
-  select role from public.users where id = auth.uid();
-$$;
-
--- basic RLS (will need refinement for roles)
-create policy "Anyone can read companies" on public.companies for select using (true);
-create policy "Users can read own profile" on public.users for select using (auth.uid() = id);
-create policy "HR and CEO can read all users" on public.users for select using (
-    public.get_user_role() in ('Super_HR', 'CEO')
+-- ---------------------------------------------------------------------
+-- 6. OFFICIAL DOCUMENTS LOCKER TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS employee_documents (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id VARCHAR(255) NOT NULL,
+  document_name VARCHAR(255) NOT NULL,
+  document_type VARCHAR(100) NOT NULL, -- Passport, ID, Residency, Visa
+  document_number VARCHAR(100),
+  expiry_date DATE,
+  file_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-create policy "Users can read own attendance" on public.attendance_logs for select using (auth.uid() = user_id);
-create policy "Users can insert own attendance" on public.attendance_logs for insert with check (auth.uid() = user_id);
-create policy "Users can update own attendance" on public.attendance_logs for update using (auth.uid() = user_id);
-create policy "HR and CEO can read all attendance" on public.attendance_logs for select using (
-    public.get_user_role() in ('Super_HR', 'CEO', 'Accountant')
-);
+-- ---------------------------------------------------------------------
+-- 7. INDEXES FOR HIGH PERFORMANCE QUERYING
+-- ---------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_users_company_id ON users(company_id);
+CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_attendance_user_date ON attendance_logs(user_id, date);
+CREATE INDEX IF NOT EXISTS idx_attendance_company_date ON attendance_logs(company_id, date);
+CREATE INDEX IF NOT EXISTS idx_leaves_user_id ON leave_requests(user_id);
+CREATE INDEX IF NOT EXISTS idx_leaves_status ON leave_requests(status);
+CREATE INDEX IF NOT EXISTS idx_documents_expiry ON employee_documents(expiry_date);
 
-create policy "Users can read own leaves" on public.leave_requests for select using (auth.uid() = user_id);
-create policy "Users can insert own leaves" on public.leave_requests for insert with check (auth.uid() = user_id);
-create policy "HR can manage leaves" on public.leave_requests for all using (
-    public.get_user_role() = 'Super_HR'
-);
+-- ---------------------------------------------------------------------
+-- 8. ROW LEVEL SECURITY (RLS) POLICIES
+-- Grant full read/write management permissions on all tables
+-- ---------------------------------------------------------------------
+ALTER TABLE companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendance_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE leave_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employee_documents ENABLE ROW LEVEL SECURITY;
 
--- Company Settings Table
-create table public.company_settings (
-    id uuid default uuid_generate_v4() primary key,
-    company_id uuid references public.companies on delete cascade unique not null,
-    office_latitude double precision,
-    office_longitude double precision,
-    office_ip text,
-    updated_at timestamptz default now() not null
-);
+DO $$ 
+BEGIN
+  -- Companies Policy
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to companies') THEN
+    CREATE POLICY "Allow full manage access to companies" ON companies FOR ALL USING (true) WITH CHECK (true);
+  END IF;
 
-alter table public.company_settings enable row level security;
+  -- Users Policy
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to users') THEN
+    CREATE POLICY "Allow full manage access to users" ON users FOR ALL USING (true) WITH CHECK (true);
+  END IF;
 
-create policy "Anyone can read company settings" on public.company_settings for select using (true);
-create policy "HR can manage company settings" on public.company_settings for all using (
-    public.get_user_role() = 'Super_HR'
-);
+  -- Attendance Policy
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to attendance') THEN
+    CREATE POLICY "Allow full manage access to attendance" ON attendance_logs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  -- Leave Requests Policy
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to leaves') THEN
+    CREATE POLICY "Allow full manage access to leaves" ON leave_requests FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+
+  -- Employee Documents Policy
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to documents') THEN
+    CREATE POLICY "Allow full manage access to documents" ON employee_documents FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- Reload Supabase PostgREST Schema Cache
+NOTIFY pgrst, 'reload schema';
