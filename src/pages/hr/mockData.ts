@@ -38,9 +38,10 @@ export const MOCK_EMPLOYEES: User[] = Array.from({ length: 12 }).map((_, i) => {
 
   return {
     id: `emp-${i}`,
-    name: `Employee ${i + 1}`,
-    email: `employee${i + 1}@${companyName.toLowerCase().replace(/\s+/g, '')}.com`,
-    phone: `96891234${(10 + i).toString()}`,
+    name: i === 0 ? 'HR Admin' : i === 1 ? 'CEO Executive' : i === 2 ? 'Senior Accountant' : i === 3 ? 'Employee Officer' : `Employee ${i + 1}`,
+    email: i === 0 ? 'hr@osangroupoman.com' : i === 1 ? 'ceo@osangroupoman.com' : i === 2 ? 'accountant@osangroupoman.com' : i === 3 ? 'employee@osangroupoman.com' : `employee${i + 1}@${companyName.toLowerCase().replace(/\s+/g, '')}.com`,
+    phone: i === 0 ? '96891000001' : i === 1 ? '96891000002' : i === 2 ? '96891000003' : `96891234${(10 + i).toString()}`,
+    pin: '123456',
     role: (i === 0 ? 'HR' : i === 1 ? 'CEO' : i === 2 ? 'Accountant' : 'Employee') as Role,
     company_id: companyName,
     company: companyName,

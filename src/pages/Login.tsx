@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Mail, Lock, LogIn, AlertCircle, Phone } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Mail, Lock, LogIn, AlertCircle, Phone, KeyRound, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MOCK_EMPLOYEES, MOCK_COMPANIES } from './hr/mockData';
+import { OsanLogo } from '../components/common/OsanLogo';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -13,28 +14,10 @@ export const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCredentialsGuide, setShowCredentialsGuide] = useState(false);
 
-  const loginAsDemoUser = (userEmail: string, role: string) => {
-    const emp = MOCK_EMPLOYEES.find(e => e.email.toLowerCase() === userEmail.toLowerCase()) || {
-      id: `emp-demo-${role}`,
-      name: `Demo ${role}`,
-      email: userEmail,
-      role: role as any,
-      company_id: 'Nameer',
-      company: 'Nameer',
-      nationality: 'Omani' as const,
-      gender: 'Male' as const,
-      status: 'Active' as const,
-      leave_balances: { yearly: 30, sick: 14, pregnancy: 98 },
-      join_date: '2024-01-01'
-    };
-    setDemoProfile(emp as any);
-    redirectUserByRole(role);
-  };
-
-  // Helper to check policy constraints
+  // Helper to check policy constraints and match employee record
   const verifyCompanyAuthPolicy = (userEmail: string, userPhone?: string, typedAsEmail: boolean = true) => {
-    // Find mock employee profile
     const emp = MOCK_EMPLOYEES.find(e => 
       e.email.toLowerCase() === userEmail.toLowerCase() || 
       (userPhone && e.phone === userPhone)
@@ -64,8 +47,7 @@ export const Login = () => {
     const cleanId = identifier.trim();
 
     try {
-      // 1. Policy Constraint Checks (Verify first to block login methods)
-      // 1. Policy & Mock Match Check
+      // 1. Check local profiles (HR, CEO, Accountant, Employee portal accounts)
       let matchedEmp = null;
       if (isEmail) {
         matchedEmp = verifyCompanyAuthPolicy(cleanId, undefined, true);
@@ -76,8 +58,11 @@ export const Login = () => {
         }
       }
 
-      // If mock employee matches, set demo profile and sign in immediately
+      // If portal user matched, validate password/PIN entry and sign in
       if (matchedEmp) {
+        if (!password.trim()) {
+          throw new Error("Please enter your password or 6-digit PIN.");
+        }
         setDemoProfile(matchedEmp as any);
         redirectUserByRole(matchedEmp.role);
         return;
@@ -104,7 +89,7 @@ export const Login = () => {
           return;
         }
       } catch (supabaseErr) {
-        throw new Error("Invalid credentials or unregistered account. Use demo buttons below to test.");
+        throw new Error("Invalid credentials or unregistered email/phone. Please check credentials guide below.");
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
@@ -133,11 +118,11 @@ export const Login = () => {
   const isEmailInput = identifier.includes('@');
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Dynamic Background Elements */}
-      <div className="absolute inset-0 w-full h-full">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/20 blur-[120px] mix-blend-screen" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-purple-600/20 blur-[120px] mix-blend-screen" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/60 to-slate-100 flex items-center justify-center p-4 relative overflow-hidden font-sans">
+      {/* Soft Ambient Background Aesthetics */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[45%] h-[45%] rounded-full bg-sky-200/40 blur-[130px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-blue-200/30 blur-[130px]" />
       </div>
 
       <motion.div
@@ -146,39 +131,41 @@ export const Login = () => {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="bg-slate-900/60 backdrop-blur-xl border border-slate-800 rounded-3xl shadow-2xl p-8 overflow-hidden">
-          {/* Header */}
-          <div className="text-center mb-8">
+        <div className="bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl shadow-2xl p-8 overflow-hidden">
+          
+          {/* Official Brand Header */}
+          <div className="text-center mb-6 flex flex-col items-center">
             <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-              className="mx-auto w-16 h-16 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-500/20 mb-6"
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.4 }}
+              className="mb-3"
             >
-              <LogIn className="w-8 h-8 text-white" />
+              <OsanLogo size="lg" />
             </motion.div>
-            <h1 className="text-3xl font-bold text-white tracking-tight mb-2">Welcome Back</h1>
-            <p className="text-slate-400">Sign in to access your dashboard</p>
+            
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight mt-1">Welcome Back</h1>
+            <p className="text-slate-500 text-xs font-semibold mt-1">Sign in to access your enterprise dashboard</p>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleLogin} className="space-y-6">
+          {/* Login Form */}
+          <form onSubmit={handleLogin} className="space-y-5">
             {error && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
-                className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 flex items-start gap-3"
+                className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 shadow-xs"
               >
-                <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                <p className="text-sm text-red-400">{error}</p>
+                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                <p className="text-xs font-bold text-red-700">{error}</p>
               </motion.div>
             )}
 
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-300 ml-1">Email or Phone Number</label>
+                <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">Email or Phone Number</label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#1D70B8] transition-colors">
                     {isEmailInput ? <Mail className="w-5 h-5" /> : <Phone className="w-5 h-5" />}
                   </div>
                   <input
@@ -186,18 +173,18 @@ export const Login = () => {
                     value={identifier}
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
-                    className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl pl-12 pr-4 py-3.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600"
-                    placeholder="email@company.com or 96891234567"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-12 pr-4 py-3.5 outline-none focus:border-[#1D70B8] focus:ring-2 focus:ring-[#1D70B8]/15 transition-all placeholder:text-slate-400 text-xs font-medium"
+                    placeholder="hr@osangroupoman.com or 96891234567"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-slate-300 ml-1">
+                <label className="text-xs font-bold text-slate-700 ml-1 uppercase tracking-wider">
                   {isEmailInput ? 'Password' : 'Login PIN / Passcode'}
                 </label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-500 group-focus-within:text-blue-500 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-[#1D70B8] transition-colors">
                     <Lock className="w-5 h-5" />
                   </div>
                   <input
@@ -205,7 +192,7 @@ export const Login = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full bg-slate-950/50 border border-slate-800 text-white rounded-xl pl-12 pr-4 py-3.5 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all placeholder-slate-600"
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-12 pr-4 py-3.5 outline-none focus:border-[#1D70B8] focus:ring-2 focus:ring-[#1D70B8]/15 transition-all placeholder:text-slate-400 text-xs font-medium"
                     placeholder={isEmailInput ? '••••••••' : '••••••'}
                   />
                 </div>
@@ -215,70 +202,89 @@ export const Login = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full relative group overflow-hidden rounded-xl p-[1px] mt-2"
+              className="w-full py-3.5 px-4 bg-[#1D70B8] hover:bg-[#155994] active:scale-[0.99] text-white font-bold rounded-xl shadow-lg shadow-[#1D70B8]/25 transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-60 text-xs tracking-wide cursor-pointer"
             >
-              <span className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl opacity-80 group-hover:opacity-100 transition-opacity" />
-              <div className="relative bg-slate-900 rounded-xl px-4 py-3.5 flex items-center justify-center gap-2 group-hover:bg-opacity-0 transition-all duration-300">
-                {loading ? (
-                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span className="font-semibold text-white">Sign In</span>
-                    <LogIn className="w-4 h-4 text-white" />
-                  </>
-                )}
-              </div>
+              {loading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <>
+                  <span className="font-bold text-white">Sign In to Account</span>
+                  <LogIn className="w-4 h-4 text-white" />
+                </>
+              )}
             </button>
 
-            {/* Quick Demo Login Switchers */}
-            <div className="pt-4 border-t border-slate-800 space-y-2">
-              <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block text-center">
-                Instant Demo Access (1-Click Login)
-              </span>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => loginAsDemoUser('employee1@nameer.com', 'HR')}
-                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
-                >
-                  <span className="font-medium">🛡️ HR Admin</span>
-                  <span className="text-[10px] text-blue-400 font-bold">Login</span>
-                </button>
+            {/* Portal Credentials Guide */}
+            <div className="pt-4 border-t border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => setShowCredentialsGuide(!showCredentialsGuide)}
+                className="w-full flex items-center justify-between text-xs text-slate-600 hover:text-slate-900 py-1 transition-colors font-bold"
+              >
+                <span className="flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-[#1D70B8]" />
+                  Portal Login Credentials Guide
+                </span>
+                {showCredentialsGuide ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+              </button>
 
-                <button
-                  type="button"
-                  onClick={() => loginAsDemoUser('employee4@amer.com', 'Employee')}
-                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
-                >
-                  <span className="font-medium">👤 Employee</span>
-                  <span className="text-[10px] text-emerald-400 font-bold">Login</span>
-                </button>
+              <AnimatePresence>
+                {showCredentialsGuide && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-3 space-y-2 text-xs overflow-hidden"
+                  >
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                      <div>
+                        <div className="font-bold text-[#1D70B8] flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> HR Admin Portal
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-mono font-semibold">hr@osangroupoman.com</p>
+                      </div>
+                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">hr123456</span>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => loginAsDemoUser('employee2@masar.com', 'CEO')}
-                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
-                >
-                  <span className="font-medium">👔 CEO</span>
-                  <span className="text-[10px] text-amber-400 font-bold">Login</span>
-                </button>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                      <div>
+                        <div className="font-bold text-amber-700 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> CEO Executive Portal
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-mono font-semibold">ceo@osangroupoman.com</p>
+                      </div>
+                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">ceo123456</span>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => loginAsDemoUser('employee3@osan.com', 'Accountant')}
-                  className="p-2.5 bg-slate-800/60 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-200 text-left flex items-center justify-between transition-colors cursor-pointer"
-                >
-                  <span className="font-medium">💼 Accountant</span>
-                  <span className="text-[10px] text-purple-400 font-bold">Login</span>
-                </button>
-              </div>
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                      <div>
+                        <div className="font-bold text-purple-700 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Accountant Portal
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-mono font-semibold">accountant@osangroupoman.com</p>
+                      </div>
+                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">acc123456</span>
+                    </div>
+
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
+                      <div>
+                        <div className="font-bold text-emerald-700 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Employee Portal
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-mono font-semibold">employee@osangroupoman.com</p>
+                      </div>
+                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">emp123456</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </form>
         </div>
 
         {/* Footer info */}
-        <p className="text-center text-slate-500 text-sm mt-8">
-          HR & Attendance Management System
+        <p className="text-center text-slate-500 text-xs mt-6 font-semibold">
+          Osan Group • Multi-Tenant Enterprise HR Portal
         </p>
       </motion.div>
     </div>

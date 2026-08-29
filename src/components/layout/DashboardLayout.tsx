@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, LayoutDashboard, Activity } from 'lucide-react';
+import { LogOut, LayoutDashboard } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ThemeToggle } from '../common/ThemeToggle';
+
+import { OsanLogo } from '../common/OsanLogo';
 
 interface DashboardLayoutProps {
   children?: ReactNode;
@@ -22,13 +24,8 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
     <div className="min-h-screen bg-slate-50 dark:bg-background text-slate-900 dark:text-white flex flex-col md:flex-row transition-colors duration-300">
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 bg-white dark:bg-slate-900/60 backdrop-blur-xl border-r border-slate-200 dark:border-white/5 flex flex-col transition-colors duration-300">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
-            <Activity className="w-5 h-5 text-white" />
-          </div>
-          <span className="font-bold text-xl tracking-tight text-slate-900 dark:text-white">
-            Osan<span className="text-primary">HR</span>
-          </span>
+        <div className="p-6 flex items-center justify-between border-b border-slate-100 dark:border-white/5">
+          <OsanLogo size="sm" />
         </div>
 
         <div className="px-4 py-6 flex-1 flex flex-col gap-2">

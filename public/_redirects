@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA Routing Fallback
+# Direct all incoming client-side router paths to index.html with 200 HTTP status
+/*    /index.html   200
