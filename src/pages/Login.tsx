@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Mail, Lock, LogIn, AlertCircle, Phone, KeyRound, ChevronDown, ChevronUp, ShieldCheck } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Mail, Lock, LogIn, AlertCircle, Phone } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { MOCK_EMPLOYEES, MOCK_COMPANIES } from './hr/mockData';
 import { OsanLogo } from '../components/common/OsanLogo';
 
@@ -14,7 +14,6 @@ export const Login = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCredentialsGuide, setShowCredentialsGuide] = useState(false);
 
   // Helper to check policy constraints and match employee record
   const verifyCompanyAuthPolicy = (userEmail: string, userPhone?: string, typedAsEmail: boolean = true) => {
@@ -47,7 +46,7 @@ export const Login = () => {
     const cleanId = identifier.trim();
 
     try {
-      // 1. Check local profiles (HR, CEO, Accountant, Employee portal accounts)
+      // 1. Check database / employee records for portal accounts
       let matchedEmp = null;
       if (isEmail) {
         matchedEmp = verifyCompanyAuthPolicy(cleanId, undefined, true);
@@ -89,7 +88,7 @@ export const Login = () => {
           return;
         }
       } catch (supabaseErr) {
-        throw new Error("Invalid credentials or unregistered email/phone. Please check credentials guide below.");
+        throw new Error("Invalid email/phone or password. Please check your credentials.");
       }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
@@ -174,7 +173,7 @@ export const Login = () => {
                     onChange={(e) => setIdentifier(e.target.value)}
                     required
                     className="w-full bg-slate-50 border border-slate-200 text-slate-900 rounded-xl pl-12 pr-4 py-3.5 outline-none focus:border-[#1D70B8] focus:ring-2 focus:ring-[#1D70B8]/15 transition-all placeholder:text-slate-400 text-xs font-medium"
-                    placeholder="hr@osangroupoman.com or 96891234567"
+                    placeholder="name@company.com or 96891234567"
                   />
                 </div>
               </div>
@@ -213,72 +212,6 @@ export const Login = () => {
                 </>
               )}
             </button>
-
-            {/* Portal Credentials Guide */}
-            <div className="pt-4 border-t border-slate-200/80">
-              <button
-                type="button"
-                onClick={() => setShowCredentialsGuide(!showCredentialsGuide)}
-                className="w-full flex items-center justify-between text-xs text-slate-600 hover:text-slate-900 py-1 transition-colors font-bold"
-              >
-                <span className="flex items-center gap-1.5">
-                  <KeyRound className="w-3.5 h-3.5 text-[#1D70B8]" />
-                  Portal Login Credentials Guide
-                </span>
-                {showCredentialsGuide ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
-              </button>
-
-              <AnimatePresence>
-                {showCredentialsGuide && (
-                  <motion.div
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    className="mt-3 space-y-2 text-xs overflow-hidden"
-                  >
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
-                      <div>
-                        <div className="font-bold text-[#1D70B8] flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5" /> HR Admin Portal
-                        </div>
-                        <p className="text-[11px] text-slate-600 font-mono font-semibold">hr@osangroupoman.com</p>
-                      </div>
-                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">hr123456</span>
-                    </div>
-
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
-                      <div>
-                        <div className="font-bold text-amber-700 flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5" /> CEO Executive Portal
-                        </div>
-                        <p className="text-[11px] text-slate-600 font-mono font-semibold">ceo@osangroupoman.com</p>
-                      </div>
-                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">ceo123456</span>
-                    </div>
-
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
-                      <div>
-                        <div className="font-bold text-purple-700 flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5" /> Accountant Portal
-                        </div>
-                        <p className="text-[11px] text-slate-600 font-mono font-semibold">accountant@osangroupoman.com</p>
-                      </div>
-                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">acc123456</span>
-                    </div>
-
-                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between shadow-2xs">
-                      <div>
-                        <div className="font-bold text-emerald-700 flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5" /> Employee Portal
-                        </div>
-                        <p className="text-[11px] text-slate-600 font-mono font-semibold">employee@osangroupoman.com</p>
-                      </div>
-                      <span className="text-[10px] bg-slate-200/70 text-slate-800 px-2 py-1 rounded font-mono font-bold">emp123456</span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
           </form>
         </div>
 
