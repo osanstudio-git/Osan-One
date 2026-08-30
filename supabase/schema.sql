@@ -281,5 +281,27 @@ BEGIN
   END IF;
 END $$;
 
+-- ---------------------------------------------------------------------
+-- 9. COMPANY OFFICE SETTINGS TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS company_settings (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  company_id VARCHAR(255) NOT NULL UNIQUE,
+  office_latitude NUMERIC(10,8),
+  office_longitude NUMERIC(11,8),
+  office_ip VARCHAR(50),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE company_settings ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to company_settings') THEN
+    CREATE POLICY "Allow full manage access to company_settings" ON company_settings FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
 -- Reload Supabase PostgREST Schema Cache
 NOTIFY pgrst, 'reload schema';
+

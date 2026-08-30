@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
-import { getEmployeeById } from '../../lib/databaseService';
+import { getEmployeeById, deleteEmployeeInDb } from '../../lib/databaseService';
 import type { User as UserType } from '../../types';
 
 type EmployeeTabType =
@@ -95,12 +95,9 @@ export function HrEmployeeProfile() {
     setIsManageModalOpen(false);
   };
 
-  const handleDeleteEmployee = () => {
+  const handleDeleteEmployee = async () => {
     if (!employee) return;
-    const idx = MOCK_EMPLOYEES.findIndex(e => e.id === employee.id);
-    if (idx !== -1) {
-      MOCK_EMPLOYEES.splice(idx, 1);
-    }
+    await deleteEmployeeInDb(employee.id);
     setIsManageModalOpen(false);
     navigate('/hr/directory');
   };

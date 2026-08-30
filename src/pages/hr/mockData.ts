@@ -1,6 +1,7 @@
 import type { Role, Nationality, UserStatus, AuthPolicy, User } from '../../types';
 
 export interface CompanyData {
+  id?: string;
   name: string;
   count: number;
   location?: string;

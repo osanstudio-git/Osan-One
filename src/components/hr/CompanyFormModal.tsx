@@ -42,7 +42,8 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
         setLocation(initialData.location || '');
         setContactEmail(initialData.contactEmail || '');
         setTheme(initialData.theme || 'emerald');
-        setLogoUrl(initialData.logoUrl || '');
+        const validLogo = initialData.logoUrl && !initialData.logoUrl.startsWith('blob:') ? initialData.logoUrl : '';
+        setLogoUrl(validLogo);
         setAuthPolicy(initialData.authPolicy || 'both');
         setOmaniShiftStart(initialData.omaniShiftStart || '08:30');
         setOmaniShiftEnd(initialData.omaniShiftEnd || '17:00');
@@ -65,12 +66,74 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
 
   if (!isOpen) return null;
 
+  const extractThemeFromLogo = (dataUrl: string) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = 30;
+        canvas.height = 30;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, 30, 30);
+        const imgData = ctx.getImageData(0, 0, 30, 30).data;
+
+        let rAcc = 0, gAcc = 0, bAcc = 0, count = 0;
+        for (let i = 0; i < imgData.length; i += 4) {
+          const r = imgData[i];
+          const g = imgData[i + 1];
+          const b = imgData[i + 2];
+          const alpha = imgData[i + 3];
+          if (alpha > 128 && !(r > 240 && g > 240 && b > 240) && !(r < 20 && g < 20 && b < 20)) {
+            rAcc += r;
+            gAcc += g;
+            bAcc += b;
+            count++;
+          }
+        }
+
+        if (count === 0) return;
+        const rAvg = rAcc / count;
+        const gAvg = gAcc / count;
+        const bAvg = bAcc / count;
+
+        const max = Math.max(rAvg, gAvg, bAvg);
+        const min = Math.min(rAvg, gAvg, bAvg);
+        let h = 0;
+        if (max !== min) {
+          const d = max - min;
+          if (max === rAvg) h = (gAvg - bAvg) / d + (gAvg < bAvg ? 6 : 0);
+          else if (max === gAvg) h = (bAvg - rAvg) / d + 2;
+          else h = (rAvg - gAvg) / d + 4;
+          h /= 6;
+        }
+        const hueDeg = Math.round(h * 360);
+
+        if (hueDeg >= 120 && hueDeg <= 180) setTheme('emerald');
+        else if (hueDeg > 180 && hueDeg <= 245) setTheme('blue');
+        else if (hueDeg >= 25 && hueDeg < 120) setTheme('amber');
+        else if (hueDeg >= 245 && hueDeg <= 315) setTheme('indigo');
+        else setTheme('rose');
+      } catch (e) {
+        console.warn('Could not extract theme color:', e);
+      }
+    };
+    img.src = dataUrl;
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setLogoUrl(url);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const resultStr = reader.result as string;
+        setLogoUrl(resultStr);
+        extractThemeFromLogo(resultStr);
+      };
+      reader.readAsDataURL(file);
     }
+    e.target.value = '';
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,22 +192,47 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
 
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
           {/* Logo Upload */}
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 bg-slate-50 dark:bg-white/5 p-3 rounded-2xl border border-slate-200 dark:border-white/10">
             <div
-              className={`w-16 h-16 rounded-2xl border-2 border-dashed flex items-center justify-center bg-slate-50 dark:bg-white/5 cursor-pointer transition-colors overflow-hidden ${logoUrl ? 'border-primary/50' : 'border-slate-300 dark:border-white/20 hover:border-primary/50'
-                }`}
+              className={`w-14 h-14 rounded-xl border-2 border-dashed flex items-center justify-center bg-white dark:bg-slate-900 cursor-pointer transition-all overflow-hidden shrink-0 shadow-sm ${
+                logoUrl ? 'border-primary/60' : 'border-slate-300 dark:border-white/20 hover:border-primary/50'
+              }`}
               onClick={() => fileInputRef.current?.click()}
             >
               {logoUrl ? (
-                <img src={logoUrl} alt="Logo preview" className="w-full h-full object-cover" />
+                <img 
+                  src={logoUrl} 
+                  alt="Logo preview" 
+                  className="w-full h-full object-contain p-1" 
+                  onError={() => setLogoUrl('')}
+                />
               ) : (
-                <Upload className="w-6 h-6 text-slate-400 dark:text-gray-500" />
+                <Upload className="w-5 h-5 text-slate-400 dark:text-gray-500" />
               )}
             </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-900 dark:text-white mb-0.5">Company Logo</label>
-              <p className="text-xs text-slate-500 dark:text-gray-400">Click to upload a logo (mock local preview)</p>
+
+            <div className="flex-1 min-w-0">
+              <label className="block text-xs font-bold text-slate-900 dark:text-white mb-1">Company Logo</label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-3 py-1.5 bg-primary hover:bg-emerald-600 text-white rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <Upload className="w-3.5 h-3.5" /> {logoUrl ? 'Change Image' : 'Upload Image'}
+                </button>
+                {logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl('')}
+                    className="px-2.5 py-1.5 text-red-500 hover:bg-red-500/10 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
             </div>
+
             <input
               type="file"
               accept="image/*"

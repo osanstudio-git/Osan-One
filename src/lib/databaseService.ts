@@ -37,7 +37,16 @@ export async function getCompanies(): Promise<Company[]> {
       console.error('Supabase companies query error:', error.message);
       return [];
     }
-    return (data || []) as Company[];
+
+    // Deduplicate companies by name to prevent duplicate UI cards
+    const uniqueMap = new Map<string, Company>();
+    (data || []).forEach((comp: any) => {
+      if (comp.name && !uniqueMap.has(comp.name.trim())) {
+        uniqueMap.set(comp.name.trim(), comp as Company);
+      }
+    });
+
+    return Array.from(uniqueMap.values());
   } catch (err) {
     console.error('Failed to fetch companies from Supabase:', err);
     return [];
@@ -46,6 +55,15 @@ export async function getCompanies(): Promise<Company[]> {
 
 export async function createCompany(companyData: Partial<Company>): Promise<Company | null> {
   if (!isLiveSupabaseConfigured()) {
+    const existingIdx = MOCK_COMPANIES.findIndex(c => c.name === companyData.name);
+    if (existingIdx !== -1) {
+      MOCK_COMPANIES[existingIdx] = {
+        ...MOCK_COMPANIES[existingIdx],
+        location: companyData.location || MOCK_COMPANIES[existingIdx].location,
+        logoUrl: companyData.logo_url || MOCK_COMPANIES[existingIdx].logoUrl,
+      };
+      return { id: `comp-${existingIdx}`, name: companyData.name || '' } as Company;
+    }
     const newComp: Company = {
       id: `comp-${Date.now()}`,
       name: companyData.name || 'New Company',
@@ -59,12 +77,13 @@ export async function createCompany(companyData: Partial<Company>): Promise<Comp
     MOCK_COMPANIES.push({
       name: newComp.name,
       count: 0,
-      location: 'Muscat, Oman',
+      location: companyData.location || 'Muscat, Oman',
       authPolicy: newComp.auth_policy,
       omaniShiftStart: newComp.omani_shift_start,
       omaniShiftEnd: newComp.omani_shift_end,
       expatShiftStart: newComp.expat_shift_start,
       expatShiftEnd: newComp.expat_shift_end,
+      logoUrl: companyData.logo_url,
     });
     return newComp;
   }
@@ -75,8 +94,7 @@ export async function createCompany(companyData: Partial<Company>): Promise<Comp
     return t;
   };
 
-  const payload = {
-    id: companyData.id || crypto.randomUUID(),
+  const payload: any = {
     name: companyData.name,
     auth_policy: companyData.auth_policy || 'both',
     omani_shift_start: formatTime(companyData.omani_shift_start),
@@ -87,12 +105,75 @@ export async function createCompany(companyData: Partial<Company>): Promise<Comp
     location: companyData.location,
   };
 
-  const { data, error } = await supabase.from('companies').insert([payload]).select().single();
-  if (error) {
-    console.error('Error creating company in Supabase:', error.message || error);
-    throw new Error(error.message || 'Failed to create company in database');
+  // Check if company already exists by ID or by Name in Supabase
+  let existingId: string | null = null;
+  if (companyData.id && !companyData.id.startsWith('comp-')) {
+    existingId = companyData.id;
+  } else if (companyData.name) {
+    const { data: existingComp } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('name', companyData.name.trim())
+      .maybeSingle();
+    if (existingComp?.id) {
+      existingId = existingComp.id;
+    }
   }
-  return data as Company;
+
+  if (existingId) {
+    const { data, error } = await supabase
+      .from('companies')
+      .update(payload)
+      .eq('id', existingId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating company in Supabase:', error.message || error);
+      throw new Error(error.message || 'Failed to update company in database');
+    }
+    return data as Company;
+  } else {
+    const { data, error } = await supabase
+      .from('companies')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating company in Supabase:', error.message || error);
+      throw new Error(error.message || 'Failed to create company in database');
+    }
+    return data as Company;
+  }
+}
+
+export async function deleteCompanyFromDb(companyIdOrName: string): Promise<boolean> {
+  // Always remove from local memory array
+  const idx = MOCK_COMPANIES.findIndex(c => c.name === companyIdOrName);
+  if (idx !== -1) {
+    MOCK_COMPANIES.splice(idx, 1);
+  }
+
+  if (!isLiveSupabaseConfigured()) {
+    return true;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('companies')
+      .delete()
+      .or(`id.eq.${companyIdOrName},name.eq.${companyIdOrName}`);
+
+    if (error) {
+      console.error('Error deleting company from Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to delete company from database:', err);
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------
@@ -310,20 +391,37 @@ export async function updateEmployeeStatusInDb(
 }
 
 export async function deleteEmployeeInDb(employeeId: string): Promise<boolean> {
+  // Always remove from local memory
+  const idx = MOCK_EMPLOYEES.findIndex(e => e.id === employeeId || e.email === employeeId);
+  if (idx !== -1) {
+    MOCK_EMPLOYEES.splice(idx, 1);
+  }
+
   if (!isLiveSupabaseConfigured()) {
-    const idx = MOCK_EMPLOYEES.findIndex(e => e.id === employeeId);
-    if (idx !== -1) {
-      MOCK_EMPLOYEES.splice(idx, 1);
-    }
     return true;
   }
 
-  const { error } = await supabase.from('users').delete().eq('id', employeeId);
-  if (error) {
-    console.error('Error deleting employee from Supabase:', error);
+  try {
+    // 1. Delete dependent documents
+    await supabase.from('employee_documents').delete().eq('user_id', employeeId);
+    
+    // 2. Delete dependent leave requests
+    await supabase.from('leave_requests').delete().eq('user_id', employeeId);
+
+    // 3. Delete dependent attendance logs
+    await supabase.from('attendance_logs').delete().eq('user_id', employeeId);
+
+    // 4. Delete user record from users table
+    const { error } = await supabase.from('users').delete().or(`id.eq.${employeeId},email.eq.${employeeId}`);
+    if (error) {
+      console.error('Error deleting employee from Supabase users table:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to delete employee from database:', err);
     return false;
   }
-  return true;
 }
 
 // ---------------------------------------------------------------------
@@ -433,7 +531,7 @@ export async function renewEmployeeDocumentInDb(
 // ---------------------------------------------------------------------
 export async function getLeaveRequestsFromDb(): Promise<any[]> {
   if (!isLiveSupabaseConfigured()) {
-    return MOCK_LEAVES;
+    return [];
   }
 
   try {
@@ -444,11 +542,11 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
     const { data, error } = await supabase.from('leave_requests').select('*').order('created_at', { ascending: false });
     if (error) {
       console.error('Supabase leave_requests query error:', error.message);
-      return MOCK_LEAVES;
+      return [];
     }
 
     if (!data || data.length === 0) {
-      return MOCK_LEAVES;
+      return [];
     }
 
     return data.map(r => {
@@ -470,7 +568,7 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
     });
   } catch (err) {
     console.error('Failed to fetch leave requests:', err);
-    return MOCK_LEAVES;
+    return [];
   }
 }
 
@@ -494,7 +592,7 @@ export async function updateLeaveRequestStatusInDb(id: string, status: 'Approved
 // ---------------------------------------------------------------------
 export async function getAttendanceExceptionsFromDb(): Promise<any[]> {
   if (!isLiveSupabaseConfigured()) {
-    return MOCK_EXCEPTIONS;
+    return [];
   }
 
   try {
@@ -509,14 +607,14 @@ export async function getAttendanceExceptionsFromDb(): Promise<any[]> {
 
     if (error) {
       console.error('Supabase attendance_logs query error:', error.message);
-      return MOCK_EXCEPTIONS;
+      return [];
     }
 
-    // Filter logs that have status Late, Overtime, or non-empty exceptions
+    // Filter logs that have status Late, Absent, or non-empty exceptions
     const exceptionLogs = (data || []).filter(l => l.status === 'Late' || l.status === 'Absent' || (Array.isArray(l.exceptions) && l.exceptions.length > 0));
 
     if (exceptionLogs.length === 0) {
-      return MOCK_EXCEPTIONS;
+      return [];
     }
 
     return exceptionLogs.map((log, idx) => ({
@@ -530,7 +628,7 @@ export async function getAttendanceExceptionsFromDb(): Promise<any[]> {
     }));
   } catch (err) {
     console.error('Failed to fetch attendance exceptions:', err);
-    return MOCK_EXCEPTIONS;
+    return [];
   }
 }
 

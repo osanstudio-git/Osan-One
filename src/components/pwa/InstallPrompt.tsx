@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, X } from 'lucide-react';
+import { Download, X, Smartphone } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Augment the window object for beforeinstallprompt event
@@ -59,30 +59,35 @@ export function InstallPrompt() {
     <AnimatePresence>
       {showPrompt && (
         <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 50 }}
-          className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 p-4 rounded-2xl glass flex items-center justify-between gap-4"
+          initial={{ opacity: 0, y: 30, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 30, scale: 0.95 }}
+          className="fixed bottom-4 right-4 z-[90] bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-white/10 shadow-xl shadow-slate-900/10 rounded-full px-3.5 py-1.5 flex items-center gap-3 backdrop-blur-md"
         >
-          <div className="flex flex-col">
-            <span className="font-semibold text-white">Install App</span>
-            <span className="text-sm text-gray-400">Install Osan HR for quick access</span>
-          </div>
-          
           <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-[#1D70B8]/10 text-[#1D70B8] flex items-center justify-center shrink-0">
+              <Smartphone className="w-3.5 h-3.5" />
+            </div>
+            <span className="text-xs text-slate-700 dark:text-gray-300 font-bold whitespace-nowrap">
+              Install Osan HR
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
             <button
               onClick={handleInstallClick}
-              className="bg-primary hover:bg-emerald-600 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+              className="bg-[#1D70B8] hover:bg-[#155994] text-white px-3 py-1 rounded-full font-bold transition-all text-xs flex items-center gap-1 shadow-xs active:scale-95 cursor-pointer"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3 h-3" />
               Install
             </button>
             
             <button
               onClick={handleDismiss}
-              className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10"
+              className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-white/10"
+              title="Dismiss"
             >
-              <X className="w-5 h-5" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </motion.div>
