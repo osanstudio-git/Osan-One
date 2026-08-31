@@ -4,7 +4,7 @@ import {
   ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X,
   User, ShieldAlert, Award, AlertCircle, Settings, Trash2, UserCheck, UserX,
   Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw, CreditCard, Edit3, Landmark, CheckCircle2,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, Plus
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
@@ -241,6 +241,164 @@ export function HrEmployeeProfile() {
     } finally {
       setIsSavingHousing(false);
     }
+  };
+
+  // 4. Qualification Add/Delete
+  const [isQualModalOpen, setIsQualModalOpen] = useState(false);
+  const [qualForm, setQualForm] = useState({ degree: '', school: '', year: '' });
+  const [isSavingQual, setIsSavingQual] = useState(false);
+
+  const handleSaveQualification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee || !qualForm.degree.trim()) return;
+    setIsSavingQual(true);
+    try {
+      const updatedQuals = [...(employee.qualifications || []), qualForm];
+      const updated = { ...employee, qualifications: updatedQuals };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, { qualifications: updatedQuals });
+      setIsQualModalOpen(false);
+      setQualForm({ degree: '', school: '', year: '' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingQual(false);
+    }
+  };
+
+  const handleDeleteQualification = async (index: number) => {
+    if (!employee) return;
+    const updatedQuals = (employee.qualifications || []).filter((_, i) => i !== index);
+    const updated = { ...employee, qualifications: updatedQuals };
+    setEmployee(updated);
+    await updateEmployeeInDb(employee.id, { qualifications: updatedQuals });
+  };
+
+  // 5. Work Experience Add/Delete
+  const [isExpModalOpen, setIsExpModalOpen] = useState(false);
+  const [expForm, setExpForm] = useState({ company: '', role: '', period: '' });
+  const [isSavingExp, setIsSavingExp] = useState(false);
+
+  const handleSaveExperience = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee || !expForm.company.trim()) return;
+    setIsSavingExp(true);
+    try {
+      const updatedExp = [...(employee.experience || []), expForm];
+      const updated = { ...employee, experience: updatedExp };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, { experience: updatedExp });
+      setIsExpModalOpen(false);
+      setExpForm({ company: '', role: '', period: '' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingExp(false);
+    }
+  };
+
+  const handleDeleteExperience = async (index: number) => {
+    if (!employee) return;
+    const updatedExp = (employee.experience || []).filter((_, i) => i !== index);
+    const updated = { ...employee, experience: updatedExp };
+    setEmployee(updated);
+    await updateEmployeeInDb(employee.id, { experience: updatedExp });
+  };
+
+  // 6. Bonus Add
+  const [isBonusModalOpen, setIsBonusModalOpen] = useState(false);
+  const [bonusForm, setBonusForm] = useState({ date: new Date().toISOString().split('T')[0], amount: 100, reason: '' });
+  const [isSavingBonus, setIsSavingBonus] = useState(false);
+
+  const handleSaveBonus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee || !bonusForm.reason.trim()) return;
+    setIsSavingBonus(true);
+    try {
+      const updatedBonuses = [...(employee.bonuses || []), bonusForm];
+      const updated = { ...employee, bonuses: updatedBonuses };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, { bonuses: updatedBonuses });
+      setIsBonusModalOpen(false);
+      setBonusForm({ date: new Date().toISOString().split('T')[0], amount: 100, reason: '' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingBonus(false);
+    }
+  };
+
+  // 7. Disciplinary Add
+  const [isDiscModalOpen, setIsDiscModalOpen] = useState(false);
+  const [discForm, setDiscForm] = useState({ date: new Date().toISOString().split('T')[0], violation: '', action: 'First Written Warning' });
+  const [isSavingDisc, setIsSavingDisc] = useState(false);
+
+  const handleSaveDisciplinary = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee || !discForm.violation.trim()) return;
+    setIsSavingDisc(true);
+    try {
+      const updatedDisc = [...(employee.disciplinary || []), discForm];
+      const updated = { ...employee, disciplinary: updatedDisc };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, { disciplinary: updatedDisc });
+      setIsDiscModalOpen(false);
+      setDiscForm({ date: new Date().toISOString().split('T')[0], violation: '', action: 'First Written Warning' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingDisc(false);
+    }
+  };
+
+  // 8. Document Add / Delete
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
+  const [docForm, setDocForm] = useState({
+    name: '',
+    type: 'Work Visa (Residence)',
+    docNumber: '',
+    expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().split('T')[0],
+    attachedFile: ''
+  });
+  const [isSavingDoc, setIsSavingDoc] = useState(false);
+
+  const handleSaveDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee || !docForm.name.trim()) return;
+    setIsSavingDoc(true);
+    try {
+      const newDoc = {
+        id: Math.random().toString(36).substring(2, 9),
+        name: docForm.name,
+        type: docForm.type,
+        expiryDate: docForm.expiryDate,
+        attachedFile: docForm.attachedFile || 'document_copy.pdf'
+      };
+      const updatedDocs = [...(employee.documents || []), newDoc];
+      const updated = { ...employee, documents: updatedDocs };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, { documents: updatedDocs });
+      setIsDocModalOpen(false);
+      setDocForm({
+        name: '',
+        type: 'Work Visa (Residence)',
+        docNumber: '',
+        expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 2)).toISOString().split('T')[0],
+        attachedFile: ''
+      });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSavingDoc(false);
+    }
+  };
+
+  const handleDeleteDocument = async (docId: string) => {
+    if (!employee) return;
+    const updatedDocs = (employee.documents || []).filter(d => d.id !== docId);
+    const updated = { ...employee, documents: updatedDocs };
+    setEmployee(updated);
+    await updateEmployeeInDb(employee.id, { documents: updatedDocs });
   };
 
   const handleUpdateStatus = () => {
@@ -854,15 +1012,32 @@ export function HrEmployeeProfile() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Educational credentials */}
             <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3 flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-primary" /> Educational Qualifications
-              </h3>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <GraduationCap className="w-5 h-5 text-primary" /> Educational Qualifications
+                </h3>
+                <button
+                  onClick={() => setIsQualModalOpen(true)}
+                  className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Qualification
+                </button>
+              </div>
               {employee.qualifications && employee.qualifications.length > 0 ? (
                 employee.qualifications.map((q, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl space-y-1 text-xs">
-                    <div className="text-slate-900 dark:text-white font-bold text-sm">{q.degree}</div>
-                    <div className="text-slate-500 dark:text-gray-400">{q.school}</div>
-                    <div className="text-primary font-semibold">Graduation Year: {q.year}</div>
+                  <div key={idx} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-start justify-between gap-3 text-xs">
+                    <div className="space-y-1">
+                      <div className="text-slate-900 dark:text-white font-bold text-sm">{q.degree}</div>
+                      <div className="text-slate-500 dark:text-gray-400">{q.school}</div>
+                      <div className="text-primary font-semibold">Graduation Year: {q.year}</div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteQualification(idx)}
+                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                      title="Remove Qualification"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))
               ) : (
@@ -872,15 +1047,32 @@ export function HrEmployeeProfile() {
 
             {/* Professional work experience history */}
             <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3 flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Work Experience History
-              </h3>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Work Experience History
+                </h3>
+                <button
+                  onClick={() => setIsExpModalOpen(true)}
+                  className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Experience
+                </button>
+              </div>
               {employee.experience && employee.experience.length > 0 ? (
                 employee.experience.map((exp, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl space-y-1 text-xs">
-                    <div className="text-slate-900 dark:text-white font-bold text-sm">{exp.role}</div>
-                    <div className="text-slate-500 dark:text-gray-400">Company: {exp.company}</div>
-                    <div className="text-emerald-600 dark:text-emerald-400 font-semibold">Period: {exp.period}</div>
+                  <div key={idx} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-start justify-between gap-3 text-xs">
+                    <div className="space-y-1">
+                      <div className="text-slate-900 dark:text-white font-bold text-sm">{exp.role}</div>
+                      <div className="text-slate-500 dark:text-gray-400">Company: {exp.company}</div>
+                      <div className="text-emerald-600 dark:text-emerald-400 font-semibold">Period: {exp.period}</div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteExperience(idx)}
+                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                      title="Remove Experience"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))
               ) : (
@@ -895,9 +1087,17 @@ export function HrEmployeeProfile() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Bonuses */}
             <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3 flex items-center gap-2">
-                <Award className="w-5 h-5 text-primary" /> Awarded Bonuses & Perks
-              </h3>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Award className="w-5 h-5 text-primary" /> Awarded Bonuses & Perks
+                </h3>
+                <button
+                  onClick={() => setIsBonusModalOpen(true)}
+                  className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Award Bonus
+                </button>
+              </div>
               {employee.bonuses && employee.bonuses.length > 0 ? (
                 employee.bonuses.map((b, idx) => (
                   <div key={idx} className="flex justify-between items-center p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-xs">
@@ -915,9 +1115,17 @@ export function HrEmployeeProfile() {
 
             {/* Disciplinary records */}
             <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3 flex items-center gap-2">
-                <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" /> Disciplinary Violations
-              </h3>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" /> Disciplinary Violations
+                </h3>
+                <button
+                  onClick={() => setIsDiscModalOpen(true)}
+                  className="px-3 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Log Warning
+                </button>
+              </div>
               {employee.disciplinary && employee.disciplinary.length > 0 ? (
                 employee.disciplinary.map((d, idx) => (
                   <div key={idx} className="p-4 bg-red-500/5 border border-red-500/10 rounded-xl text-xs space-y-1">
@@ -938,7 +1146,19 @@ export function HrEmployeeProfile() {
         {/* 5. OFFICIAL DOCUMENTS TAB */}
         {activeTab === 'documents' && (
           <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3">Official Document Locker</h3>
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Official Document Locker</h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Manage Civil IDs, Passports, Residence Work Visas & Visit Visas</p>
+              </div>
+              <button
+                onClick={() => setIsDocModalOpen(true)}
+                className="px-4 py-2 bg-primary hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md shadow-primary/20 cursor-pointer"
+              >
+                <Plus className="w-4 h-4" /> Upload New Document
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {employee.documents && employee.documents.length > 0 ? (
                 employee.documents.map((doc) => (
@@ -948,27 +1168,40 @@ export function HrEmployeeProfile() {
                         <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{doc.name}</span>
                         {getDocStatusBadge(doc.expiryDate)}
                       </div>
-                      <div className="text-xs text-slate-500 dark:text-gray-400 mt-1">Classification: {doc.type}</div>
+                      <div className="text-xs text-slate-500 dark:text-gray-400 mt-1">Classification: <span className="font-semibold text-slate-800 dark:text-gray-200">{doc.type}</span></div>
                       {doc.expiryDate && (
-                        <div className="text-[10px] text-slate-400 dark:text-gray-500 mt-2">Expiry: {doc.expiryDate}</div>
+                        <div className="text-[10px] text-slate-400 dark:text-gray-500 mt-2">Expiry Date: <span className="font-semibold">{doc.expiryDate}</span></div>
                       )}
                     </div>
 
-                    <div className="flex gap-2 mt-4">
-                      <button className="flex-1 text-xs font-semibold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 py-2 border border-slate-200 dark:border-white/10 hover:border-primary/30 bg-white dark:bg-white/5 hover:bg-primary/5 rounded-lg transition-all shadow-sm">
+                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200/60 dark:border-white/10">
+                      <button
+                        onClick={() => alert(`Downloading document: ${doc.name}`)}
+                        className="flex-1 text-xs font-semibold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 py-2 border border-slate-200 dark:border-white/10 hover:border-primary/30 bg-white dark:bg-white/5 hover:bg-primary/5 rounded-lg transition-all shadow-sm cursor-pointer"
+                      >
                         Download Copy
                       </button>
                       <button
                         onClick={() => setRenewalDocTarget(doc)}
-                        className="px-3 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-white border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-all flex items-center gap-1"
+                        className="px-2.5 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-white border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                        title="Renew Document"
                       >
                         <RefreshCw className="w-3.5 h-3.5" /> Renew
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                        title="Delete Document"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="text-slate-400 dark:text-gray-500 text-xs col-span-3">No documents uploaded.</div>
+                <div className="p-8 text-center text-slate-400 dark:text-gray-500 text-xs col-span-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+                  No official documents attached yet. Click <strong>Upload New Document</strong> above to add Visas, Civil IDs, Passports or Contracts.
+                </div>
               )}
             </div>
           </div>
@@ -1776,6 +2009,352 @@ export function HrEmployeeProfile() {
                 </button>
                 <button type="submit" disabled={isSavingHousing} className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50">
                   {isSavingHousing ? 'Saving...' : 'Save Housing Details'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Educational Qualification Modal */}
+      {isQualModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <GraduationCap className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add Educational Qualification</h2>
+              </div>
+              <button onClick={() => setIsQualModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveQualification} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Degree / Certificate Title *</label>
+                <input
+                  type="text"
+                  required
+                  value={qualForm.degree}
+                  onChange={(e) => setQualForm({ ...qualForm, degree: e.target.value })}
+                  placeholder="e.g. Bachelor of Business Administration"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">University / School Name</label>
+                <input
+                  type="text"
+                  value={qualForm.school}
+                  onChange={(e) => setQualForm({ ...qualForm, school: e.target.value })}
+                  placeholder="e.g. Sultan Qaboos University"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Graduation Year</label>
+                <input
+                  type="text"
+                  value={qualForm.year}
+                  onChange={(e) => setQualForm({ ...qualForm, year: e.target.value })}
+                  placeholder="e.g. 2022"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsQualModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingQual} className="px-5 py-2 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50">
+                  {isSavingQual ? 'Saving...' : 'Add Qualification'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Work Experience Modal */}
+      {isExpModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-emerald-600" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add Work Experience</h2>
+              </div>
+              <button onClick={() => setIsExpModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveExperience} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Company / Organization *</label>
+                <input
+                  type="text"
+                  required
+                  value={expForm.company}
+                  onChange={(e) => setExpForm({ ...expForm, company: e.target.value })}
+                  placeholder="e.g. Petroleum Development Oman"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Job Designation / Role</label>
+                <input
+                  type="text"
+                  value={expForm.role}
+                  onChange={(e) => setExpForm({ ...expForm, role: e.target.value })}
+                  placeholder="e.g. Senior Operations Officer"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Duration / Period</label>
+                <input
+                  type="text"
+                  value={expForm.period}
+                  onChange={(e) => setExpForm({ ...expForm, period: e.target.value })}
+                  placeholder="e.g. Jan 2021 – Present (3 yrs)"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsExpModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingExp} className="px-5 py-2 rounded-xl bg-emerald-600 text-white font-bold cursor-pointer disabled:opacity-50">
+                  {isSavingExp ? 'Saving...' : 'Add Experience'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Award Bonus Modal */}
+      {isBonusModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <Award className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Award Bonus or Perk</h2>
+              </div>
+              <button onClick={() => setIsBonusModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBonus} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Reason / Achievement *</label>
+                <input
+                  type="text"
+                  required
+                  value={bonusForm.reason}
+                  onChange={(e) => setBonusForm({ ...bonusForm, reason: e.target.value })}
+                  placeholder="e.g. Q3 Sales Goal Milestone & Employee of the Month"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Bonus Amount (OMR)</label>
+                  <input
+                    type="number"
+                    required
+                    value={bonusForm.amount}
+                    onChange={(e) => setBonusForm({ ...bonusForm, amount: Number(e.target.value) })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-bold outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Award Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={bonusForm.date}
+                    onChange={(e) => setBonusForm({ ...bonusForm, date: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsBonusModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingBonus} className="px-5 py-2 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50">
+                  {isSavingBonus ? 'Saving...' : 'Award Bonus'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Disciplinary Warning Modal */}
+      {isDiscModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-red-600" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Log Disciplinary Violation</h2>
+              </div>
+              <button onClick={() => setIsDiscModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDisciplinary} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Violation Details *</label>
+                <input
+                  type="text"
+                  required
+                  value={discForm.violation}
+                  onChange={(e) => setDiscForm({ ...discForm, violation: e.target.value })}
+                  placeholder="e.g. Unexcused Absence or Policy Non-compliance"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-red-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Action Taken</label>
+                  <select
+                    value={discForm.action}
+                    onChange={(e) => setDiscForm({ ...discForm, action: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-red-500 cursor-pointer"
+                  >
+                    <option value="Verbal Warning" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Verbal Warning</option>
+                    <option value="First Written Warning" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">First Written Warning</option>
+                    <option value="Final Warning" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Final Warning</option>
+                    <option value="Salary Deduction" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Salary Deduction</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Incident Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={discForm.date}
+                    onChange={(e) => setDiscForm({ ...discForm, date: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-red-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsDiscModalOpen(false)} className="px-4 py-2 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingDisc} className="px-5 py-2 rounded-xl bg-red-600 text-white font-bold cursor-pointer disabled:opacity-50">
+                  {isSavingDisc ? 'Saving...' : 'Log Violation'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Upload New Document Modal */}
+      {isDocModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Upload New Official Document</h2>
+              </div>
+              <button onClick={() => setIsDocModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDocument} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Document Classification / Category *</label>
+                <select
+                  value={docForm.type}
+                  onChange={(e) => setDocForm({ ...docForm, type: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white outline-none focus:border-primary cursor-pointer"
+                >
+                  <option value="Work Visa (Residence)" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Work Visa / Residence Permit</option>
+                  <option value="Visit Visa / Entry Permit" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Visit Visa / Express Entry Permit</option>
+                  <option value="Civil ID / Resident Card" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Civil ID / Resident Card</option>
+                  <option value="Passport Copy" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Passport Copy</option>
+                  <option value="Employment Contract" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Labor / Employment Contract</option>
+                  <option value="Educational Certificate" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Educational Degree / Certificate</option>
+                  <option value="Medical / Health Check" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Medical Fitness / Health Check</option>
+                  <option value="Other Official Document" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Other Document</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Document Title / Description *</label>
+                <input
+                  type="text"
+                  required
+                  value={docForm.name}
+                  onChange={(e) => setDocForm({ ...docForm, name: e.target.value })}
+                  placeholder="e.g. Oman Work Residence Visa (2026-2028)"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2.5 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Document Number / Ref</label>
+                  <input
+                    type="text"
+                    value={docForm.docNumber}
+                    onChange={(e) => setDocForm({ ...docForm, docNumber: e.target.value })}
+                    placeholder="e.g. WV-991823"
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Expiry Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={docForm.expiryDate}
+                    onChange={(e) => setDocForm({ ...docForm, expiryDate: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Attach File (PDF, PNG, JPG)</label>
+                <input
+                  type="file"
+                  onChange={(e) => setDocForm({ ...docForm, attachedFile: e.target.files?.[0]?.name || '' })}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-2 text-slate-900 dark:text-white outline-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsDocModalOpen(false)} className="px-4 py-2.5 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer font-semibold">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingDoc} className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50 shadow-md shadow-primary/20">
+                  {isSavingDoc ? 'Uploading...' : 'Save & Attach Document'}
                 </button>
               </div>
             </form>
