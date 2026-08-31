@@ -76,6 +76,11 @@ export interface User {
     room_number?: string;
     occupancy_count?: number;
   };
+  bank_name?: string;
+  account_number?: string;
+  iban?: string;
+  swift_code?: string;
+  branch_name?: string;
   documents: Array<{ id: string; name: string; type: string; expiryDate?: string; number?: string; visaType?: 'Work Visa' | 'Visit Visa'; attachedFile?: string }>;
 }
 

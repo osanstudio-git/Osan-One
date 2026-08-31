@@ -3,16 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X,
   User, ShieldAlert, Award, AlertCircle, Settings, Trash2, UserCheck, UserX,
-  Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw
+  Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw, CreditCard, Edit3, Landmark, CheckCircle2,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
-import { getEmployeeById, deleteEmployeeInDb } from '../../lib/databaseService';
+import { getEmployeeById, deleteEmployeeInDb, updateEmployeeInDb } from '../../lib/databaseService';
 import type { User as UserType } from '../../types';
 
 type EmployeeTabType =
   | 'profile'          // Personal info, family, emergency contacts
   | 'career'           // Job, promotions history, transfer history
+  | 'banking'          // Bank account details & salary transfer info
   | 'qualifications'   // Education qualifications, work experience
   | 'records'          // Disciplinary, bonuses
   | 'documents'        // Official documents locker
@@ -63,6 +65,184 @@ export function HrEmployeeProfile() {
     setEmployee(updated as any);
   };
 
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [isSavingBank, setIsSavingBank] = useState(false);
+  const [bankForm, setBankForm] = useState({
+    bank_name: '',
+    account_number: '',
+    iban: '',
+    swift_code: '',
+    branch_name: '',
+  });
+
+  const openBankModal = () => {
+    if (!employee) return;
+    setBankForm({
+      bank_name: employee.bank_name || '',
+      account_number: employee.account_number || '',
+      iban: employee.iban || '',
+      swift_code: employee.swift_code || '',
+      branch_name: employee.branch_name || '',
+    });
+    setIsBankModalOpen(true);
+  };
+
+  const handleSaveBankDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee) return;
+    setIsSavingBank(true);
+    try {
+      const updated = {
+        ...employee,
+        bank_name: bankForm.bank_name,
+        account_number: bankForm.account_number,
+        iban: bankForm.iban,
+        swift_code: bankForm.swift_code,
+        branch_name: bankForm.branch_name,
+      };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, bankForm);
+      setIsBankModalOpen(false);
+    } catch (err) {
+      console.error('Error saving bank details:', err);
+    } finally {
+      setIsSavingBank(false);
+    }
+  };
+
+  // 1. Personal Info Edit
+  const [isPersonalModalOpen, setIsPersonalModalOpen] = useState(false);
+  const [isSavingPersonal, setIsSavingPersonal] = useState(false);
+  const [personalForm, setPersonalForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    nationality: 'Omani' as 'Omani' | 'Expat',
+    gender: 'Male' as 'Male' | 'Female',
+    religion: 'Muslim' as 'Muslim' | 'Non-Muslim',
+  });
+
+  const openPersonalModal = () => {
+    if (!employee) return;
+    setPersonalForm({
+      name: employee.name || '',
+      phone: employee.phone || '',
+      email: employee.email || '',
+      nationality: employee.nationality || 'Omani',
+      gender: employee.gender || 'Male',
+      religion: employee.religion || 'Muslim',
+    });
+    setIsPersonalModalOpen(true);
+  };
+
+  const handleSavePersonal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee) return;
+    setIsSavingPersonal(true);
+    try {
+      const updated = { ...employee, ...personalForm };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, personalForm);
+      setIsPersonalModalOpen(false);
+    } catch (err) {
+      console.error('Error saving personal details:', err);
+    } finally {
+      setIsSavingPersonal(false);
+    }
+  };
+
+  // 2. Job & Placement Edit
+  const [isJobModalOpen, setIsJobModalOpen] = useState(false);
+  const [isSavingJob, setIsSavingJob] = useState(false);
+  const [jobForm, setJobForm] = useState({
+    job_title: '',
+    department: '',
+    supervisor_name: '',
+    base_salary: 800,
+    allowances: 150,
+  });
+
+  const openJobModal = () => {
+    if (!employee) return;
+    setJobForm({
+      job_title: employee.job_title || '',
+      department: employee.department || '',
+      supervisor_name: employee.supervisor_name || '',
+      base_salary: employee.base_salary || 800,
+      allowances: employee.allowances || 150,
+    });
+    setIsJobModalOpen(true);
+  };
+
+  const handleSaveJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee) return;
+    setIsSavingJob(true);
+    try {
+      const updated = { ...employee, ...jobForm };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, jobForm);
+      setIsJobModalOpen(false);
+    } catch (err) {
+      console.error('Error saving job details:', err);
+    } finally {
+      setIsSavingJob(false);
+    }
+  };
+
+  // 3. Housing Edit
+  const [isHousingModalOpen, setIsHousingModalOpen] = useState(false);
+  const [isSavingHousing, setIsSavingHousing] = useState(false);
+  const [housingForm, setHousingForm] = useState({
+    housing_status: 'Lives with Family' as 'Lives with Family' | 'Company Accommodation' | 'Private Rental',
+    building_name: '',
+    building_address: '',
+    room_number: '',
+    occupancy_count: 4,
+  });
+
+  const openHousingModal = () => {
+    if (!employee) return;
+    setHousingForm({
+      housing_status: employee.housing_status || 'Lives with Family',
+      building_name: employee.accommodation_details?.building_name || '',
+      building_address: employee.accommodation_details?.building_address || '',
+      room_number: employee.accommodation_details?.room_number || '',
+      occupancy_count: employee.accommodation_details?.occupancy_count || 4,
+    });
+    setIsHousingModalOpen(true);
+  };
+
+  const handleSaveHousing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee) return;
+    setIsSavingHousing(true);
+    try {
+      const accommodation_details = housingForm.housing_status === 'Company Accommodation' ? {
+        building_name: housingForm.building_name,
+        building_address: housingForm.building_address,
+        room_number: housingForm.room_number,
+        occupancy_count: housingForm.occupancy_count,
+      } : undefined;
+
+      const updated = {
+        ...employee,
+        housing_status: housingForm.housing_status,
+        accommodation_details,
+      };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, {
+        housing_status: housingForm.housing_status,
+        accommodation_details,
+      });
+      setIsHousingModalOpen(false);
+    } catch (err) {
+      console.error('Error saving housing details:', err);
+    } finally {
+      setIsSavingHousing(false);
+    }
+  };
+
   const handleUpdateStatus = () => {
     if (!employee) return;
     const updated = {
@@ -107,23 +287,76 @@ export function HrEmployeeProfile() {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
-  // Generate mock heatmap data for the last 30 days
-  const today = new Date();
-  const heatmapData = Array.from({ length: 30 }).map((_, i) => {
-    const date = new Date(today);
-    date.setDate(date.getDate() - (29 - i));
+  // Month & Year Filter state for Shift Logs
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState<string | null>(null);
 
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  const handlePrevMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(prev => prev - 1);
+    } else {
+      setSelectedMonth(prev => prev - 1);
+    }
+    setSelectedCalendarDate(null);
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(prev => prev + 1);
+    } else {
+      setSelectedMonth(prev => prev + 1);
+    }
+    setSelectedCalendarDate(null);
+  };
+
+  // Calculate days in selected month
+  const daysInSelectedMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
+  const firstDayOfWeek = new Date(selectedYear, selectedMonth, 1).getDay();
+
+  // Generate heatmap items for selected month & year
+  const monthlyHeatmapData = Array.from({ length: daysInSelectedMonth }).map((_, i) => {
+    const dayNum = i + 1;
+    const dateObj = new Date(selectedYear, selectedMonth, dayNum);
+    const dateStr = dateObj.toISOString().split('T')[0];
+    
     const isOmani = employee?.nationality === 'Omani';
-    const dayOfWeek = date.getDay();
+    const dayOfWeek = dateObj.getDay();
     const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);
-    let status: 'present' | 'late' | 'absent' | 'weekend' = 'present';
 
-    if (isWeekend) status = 'weekend';
-    else if (i % 7 === 0) status = 'late';
-    else if (i === 12) status = 'absent';
+    let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' = 'present';
+    if (isWeekend) {
+      status = 'weekend';
+    } else if (dayNum % 11 === 0) {
+      status = 'late';
+    } else if (dayNum === 14) {
+      status = 'absent';
+    } else if (dayNum === 22) {
+      status = 'leave';
+    }
 
-    return { date, status };
+    return {
+      dayNum,
+      date: dateObj,
+      dateStr,
+      status
+    };
   });
+
+  // Calculate monthly stats dynamically
+  const monthlyStats = {
+    onTime: monthlyHeatmapData.filter(d => d.status === 'present').length,
+    late: monthlyHeatmapData.filter(d => d.status === 'late').length,
+    absent: monthlyHeatmapData.filter(d => d.status === 'absent').length,
+    totalHours: (monthlyHeatmapData.filter(d => d.status === 'present' || d.status === 'late').length) * 8
+  };
 
   const getHeatmapColor = (status: string) => {
     switch (status) {
@@ -245,6 +478,7 @@ export function HrEmployeeProfile() {
         {[
           { id: 'profile', label: 'Personal & Family', icon: User },
           { id: 'career', label: 'Job & History', icon: Briefcase },
+          { id: 'banking', label: 'Banking & Salary', icon: CreditCard },
           { id: 'qualifications', label: 'Qualifications', icon: GraduationCap },
           { id: 'records', label: 'Performance Ledger', icon: Award },
           { id: 'documents', label: 'Document Locker', icon: FileText },
@@ -275,11 +509,19 @@ export function HrEmployeeProfile() {
             <div className="lg:col-span-2 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
               <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">Personal Details</h3>
-                {employee.status === 'Inactive' && (
-                  <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                    <UserX className="w-3 h-3" /> Exited Employee
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openPersonalModal}
+                    className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" /> Edit Personal Info
+                  </button>
+                  {employee.status === 'Inactive' && (
+                    <span className="text-[10px] font-bold text-red-600 dark:text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                      <UserX className="w-3 h-3" /> Exited Employee
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-6 text-sm">
                 <div>
@@ -341,9 +583,17 @@ export function HrEmployeeProfile() {
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Home className="w-5 h-5 text-primary" /> Housing & Accommodation Monitoring
                 </h3>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${employee.housing_status === 'Company Accommodation' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'}`}>
-                  {employee.housing_status || 'Lives with Family'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={openHousingModal}
+                    className="px-3 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" /> Edit Housing
+                  </button>
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${employee.housing_status === 'Company Accommodation' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'}`}>
+                    {employee.housing_status || 'Lives with Family'}
+                  </span>
+                </div>
               </div>
 
               {employee.housing_status === 'Company Accommodation' ? (
@@ -416,7 +666,15 @@ export function HrEmployeeProfile() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Position details */}
             <div className="lg:col-span-2 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3">Corporate Placement</h3>
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Corporate Placement</h3>
+                <button
+                  onClick={openJobModal}
+                  className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" /> Edit Placement & Salary
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-6 text-sm">
                 <div>
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Company Entity</span>
@@ -483,6 +741,109 @@ export function HrEmployeeProfile() {
                 ) : (
                   <div className="text-slate-400 dark:text-gray-500 text-xs">No transfers recorded.</div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* 3. BANKING & SALARY TAB */}
+        {activeTab === 'banking' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
+            {/* Bank Account Details Card */}
+            <div className="lg:col-span-2 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
+              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Landmark className="w-5 h-5 text-primary" /> Bank Account & WPS Direct Deposit
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">Used for monthly salary transfers and automated payroll processing</p>
+                </div>
+                <button
+                  onClick={openBankModal}
+                  className="px-3.5 py-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" /> Edit Bank Details
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                  <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Bank Name</span>
+                  <span className="text-slate-900 dark:text-white font-bold text-base">
+                    {employee.bank_name || 'Not Configured (Cash/Cheque)'}
+                  </span>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                  <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Account Number</span>
+                  <span className="text-slate-900 dark:text-white font-bold font-mono text-base tracking-wider">
+                    {employee.account_number || 'N/A'}
+                  </span>
+                </div>
+
+                <div className="md:col-span-2 p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                  <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">IBAN Number (Oman WPS Format)</span>
+                  <span className="text-slate-900 dark:text-white font-bold font-mono text-sm tracking-wider">
+                    {employee.iban || 'N/A'}
+                  </span>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                  <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">SWIFT / BIC Code</span>
+                  <span className="text-slate-900 dark:text-white font-bold font-mono text-sm">
+                    {employee.swift_code || 'N/A'}
+                  </span>
+                </div>
+
+                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                  <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Bank Branch Location</span>
+                  <span className="text-slate-900 dark:text-white font-bold text-sm">
+                    {employee.branch_name || 'Main Branch, Muscat'}
+                  </span>
+                </div>
+              </div>
+
+              {employee.bank_name && employee.account_number ? (
+                <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-xl text-xs flex items-center gap-2 font-semibold">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  Bank account verified & active for Wage Protection System (WPS) direct deposit.
+                </div>
+              ) : (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs flex items-center justify-between font-semibold">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>No bank account details configured yet.</span>
+                  </div>
+                  <button
+                    onClick={openBankModal}
+                    className="px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors cursor-pointer"
+                  >
+                    + Add Bank Details
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Compensation & Wages Summary Card */}
+            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Monthly Wage Structure
+              </h3>
+
+              <div className="space-y-4 text-xs">
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-white/5 rounded-xl">
+                  <span className="text-slate-600 dark:text-gray-400 font-medium">Basic Salary</span>
+                  <span className="text-slate-900 dark:text-white font-bold text-sm">{employee.base_salary} OMR</span>
+                </div>
+
+                <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-white/5 rounded-xl">
+                  <span className="text-slate-600 dark:text-gray-400 font-medium">Allowances & Benefits</span>
+                  <span className="text-slate-900 dark:text-white font-bold text-sm">{employee.allowances} OMR</span>
+                </div>
+
+                <div className="flex justify-between items-center p-3.5 bg-primary/10 dark:bg-primary/20 border border-primary/30 rounded-xl text-primary font-bold">
+                  <span>Net Monthly Salary</span>
+                  <span className="text-base font-black">{employee.base_salary + employee.allowances} OMR</span>
+                </div>
               </div>
             </div>
           </div>
@@ -700,64 +1061,160 @@ export function HrEmployeeProfile() {
         {/* 7. SHIFT LOGS (ATTENDANCE) TAB */}
         {activeTab === 'attendance' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Month & Year Selection Bar */}
+            <div className="bg-white dark:bg-white/5 p-4 rounded-2xl border border-slate-200/80 dark:border-white/5 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-primary" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Attendance Calendar ({MONTH_NAMES[selectedMonth]} {selectedYear})
+                </h3>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  className="p-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-slate-700 dark:text-white transition-colors cursor-pointer"
+                  title="Previous Month"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => {
+                    setSelectedMonth(Number(e.target.value));
+                    setSelectedCalendarDate(null);
+                  }}
+                  className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer"
+                >
+                  {MONTH_NAMES.map((m, idx) => (
+                    <option key={m} value={idx} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+                      {m}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedYear}
+                  onChange={(e) => {
+                    setSelectedYear(Number(e.target.value));
+                    setSelectedCalendarDate(null);
+                  }}
+                  className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer"
+                >
+                  {[2024, 2025, 2026, 2027].map((y) => (
+                    <option key={y} value={y} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
+                      {y}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  className="p-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-slate-700 dark:text-white transition-colors cursor-pointer"
+                  title="Next Month"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Monthly Dynamic Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
                 <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">On-Time Days</div>
-                <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">24</div>
-                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">Last 30 Days</div>
+                <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{monthlyStats.onTime}</div>
+                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
               </div>
               <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
                 <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Late Warnings</div>
-                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">2</div>
-                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">Average 12m late</div>
+                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{monthlyStats.late}</div>
+                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
               </div>
               <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
                 <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Absences</div>
-                <div className="text-3xl font-bold text-red-600 dark:text-red-400">0</div>
+                <div className="text-3xl font-bold text-red-600 dark:text-red-400">{monthlyStats.absent}</div>
                 <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">Unexcused</div>
               </div>
               <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
                 <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Hours Logged</div>
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">176h</div>
+                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{monthlyStats.totalHours}h</div>
                 <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">Completed this month</div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {/* Attendance Heatmap */}
-              <div className="xl:col-span-1 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">30-Day Calendar Heatmap</h3>
+              {/* Monthly Calendar Heatmap Grid */}
+              <div className="xl:col-span-1 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      {MONTH_NAMES[selectedMonth]} {selectedYear} Heatmap Grid
+                    </h3>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1.5 mb-4">
+                    {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                      <div key={`${day}-${idx}`} className="text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 mb-1">{day}</div>
+                    ))}
+
+                    {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+                      <div key={`pad-${i}`} className="aspect-square rounded-xl bg-transparent" />
+                    ))}
+
+                    {monthlyHeatmapData.map((data, i) => {
+                      const isSelectedDate = selectedCalendarDate === data.dateStr;
+                      return (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedCalendarDate(isSelectedDate ? null : data.dateStr)}
+                          title={`${data.dateStr}: ${data.status.toUpperCase()} (Click to filter log feed)`}
+                          className={`aspect-square rounded-lg border flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${getHeatmapColor(data.status)} ${
+                            isSelectedDate ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-110' : ''
+                          }`}
+                        >
+                          <span>{data.dayNum}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5">
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-                    <div key={`${day}-${idx}`} className="text-center text-[10px] font-bold text-slate-400 dark:text-gray-500 mb-1">{day}</div>
-                  ))}
-
-                  {Array.from({ length: heatmapData[0].date.getDay() }).map((_, i) => (
-                    <div key={`pad-${i}`} className="aspect-square rounded-xl bg-transparent" />
-                  ))}
-
-                  {heatmapData.map((data, i) => (
-                    <div
-                      key={i}
-                      title={`${data.date.toLocaleDateString()}: ${data.status}`}
-                      className={`aspect-square rounded-lg border border-slate-200 dark:border-white/5 flex items-center justify-center text-xs font-medium transition-transform cursor-pointer hover:scale-105 ${getHeatmapColor(data.status)}`}
-                    >
-                      <span className={data.status === 'weekend' ? 'text-slate-500 dark:text-gray-600' : 'text-white drop-shadow-md'}>
-                        {data.date.getDate()}
-                      </span>
-                    </div>
-                  ))}
+                {/* Heatmap Status Legend */}
+                <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between text-[10px] font-semibold text-slate-500 dark:text-gray-400">
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Present</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Late</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Absent</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Leave</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></span> Off</span>
                 </div>
               </div>
 
-              {/* Attendance Table Logs */}
+              {/* Attendance Log Feed Table for Selected Month */}
               <div className="xl:col-span-2 bg-white dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none overflow-hidden flex flex-col">
-                <div className="p-6 border-b border-slate-200 dark:border-white/10">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Attendance Log Feed</h3>
+                <div className="p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                      Attendance Log Feed — {MONTH_NAMES[selectedMonth]} {selectedYear}
+                    </h3>
+                    {selectedCalendarDate && (
+                      <p className="text-xs font-bold text-primary">
+                        Filtered for Date: {selectedCalendarDate}
+                      </p>
+                    )}
+                  </div>
+                  {selectedCalendarDate && (
+                    <button
+                      onClick={() => setSelectedCalendarDate(null)}
+                      className="px-3 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Clear Filter
+                    </button>
+                  )}
                 </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[500px]">
                     <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">
@@ -765,22 +1222,42 @@ export function HrEmployeeProfile() {
                         <th className="p-4 pl-6">Date</th>
                         <th className="p-4">Punch In</th>
                         <th className="p-4">Punch Out</th>
-                        <th className="p-4">Status</th>
+                        <th className="p-4">Shift Hours</th>
+                        <th className="p-4 pr-6 text-right">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
-                      <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                        <td className="p-4 pl-6 font-medium text-slate-900 dark:text-white">30 Jul 2026</td>
-                        <td className="p-4 text-slate-600 dark:text-gray-300">08:20 AM</td>
-                        <td className="p-4 text-slate-600 dark:text-gray-300">05:05 PM</td>
-                        <td className="p-4"><span className="text-emerald-600 dark:text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded">Present</span></td>
-                      </tr>
-                      <tr className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                        <td className="p-4 pl-6 font-medium text-slate-900 dark:text-white">29 Jul 2026</td>
-                        <td className="p-4 text-slate-600 dark:text-gray-300">08:48 AM</td>
-                        <td className="p-4 text-slate-600 dark:text-gray-300">05:00 PM</td>
-                        <td className="p-4"><span className="text-amber-600 dark:text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded">Late</span></td>
-                      </tr>
+                      {monthlyHeatmapData
+                        .filter(d => (!selectedCalendarDate || d.dateStr === selectedCalendarDate) && d.status !== 'weekend')
+                        .map((log) => {
+                          const formattedDate = log.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                          return (
+                            <tr key={log.dateStr} className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${selectedCalendarDate === log.dateStr ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
+                              <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">
+                                {formattedDate}
+                              </td>
+                              <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
+                                {log.status === 'absent' ? '--:--' : log.status === 'late' ? '08:42 AM' : '08:00 AM'}
+                              </td>
+                              <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
+                                {log.status === 'absent' ? '--:--' : '05:00 PM'}
+                              </td>
+                              <td className="p-4 text-slate-600 dark:text-gray-300 font-semibold">
+                                {log.status === 'absent' ? '0h' : '8h 00m'}
+                              </td>
+                              <td className="p-4 pr-6 text-right">
+                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                                  log.status === 'present' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                                  log.status === 'late' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
+                                  log.status === 'absent' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
+                                  'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                                }`}>
+                                  {log.status === 'present' ? 'Present' : log.status === 'late' ? 'Late Warning' : log.status === 'absent' ? 'Absent' : 'Approved Leave'}
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
                     </tbody>
                   </table>
                 </div>
@@ -922,6 +1399,389 @@ export function HrEmployeeProfile() {
         documentItem={renewalDocTarget}
         onRenew={handleProfileDocRenew}
       />
+
+      {/* Edit Bank Account Details Modal */}
+      {isBankModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Landmark className="w-5 h-5 text-primary" /> Edit Bank Account Details
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Update employee salary transfer bank account for {employee.name}</p>
+              </div>
+              <button
+                onClick={() => setIsBankModalOpen(false)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveBankDetails} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Bank Name</label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.bank_name}
+                  onChange={(e) => setBankForm({ ...bankForm, bank_name: e.target.value })}
+                  placeholder="e.g. Bank Muscat"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Account Number</label>
+                <input
+                  type="text"
+                  required
+                  value={bankForm.account_number}
+                  onChange={(e) => setBankForm({ ...bankForm, account_number: e.target.value })}
+                  placeholder="e.g. 0423010098760012"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs font-mono outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">IBAN Number (Oman WPS Format)</label>
+                <input
+                  type="text"
+                  value={bankForm.iban}
+                  onChange={(e) => setBankForm({ ...bankForm, iban: e.target.value })}
+                  placeholder="e.g. OM68001000423010098760012"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs font-mono outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">SWIFT / BIC Code</label>
+                  <input
+                    type="text"
+                    value={bankForm.swift_code}
+                    onChange={(e) => setBankForm({ ...bankForm, swift_code: e.target.value })}
+                    placeholder="e.g. BKOMOMRX"
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs font-mono outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Branch Name</label>
+                  <input
+                    type="text"
+                    value={bankForm.branch_name}
+                    onChange={(e) => setBankForm({ ...bankForm, branch_name: e.target.value })}
+                    placeholder="e.g. Ghala Branch"
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsBankModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSavingBank}
+                  className="px-5 py-2.5 rounded-xl bg-primary hover:bg-emerald-600 text-white font-bold shadow-lg shadow-primary/20 transition-all cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingBank ? 'Saving...' : 'Save Bank Details'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 1. Edit Personal Details Modal */}
+      {isPersonalModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <User className="w-5 h-5 text-primary" /> Edit Personal Information
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Update personal records for {employee.name}</p>
+              </div>
+              <button onClick={() => setIsPersonalModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePersonal} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Full Legal Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={personalForm.name}
+                  onChange={(e) => setPersonalForm({ ...personalForm, name: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Phone Contact</label>
+                  <input
+                    type="text"
+                    value={personalForm.phone}
+                    onChange={(e) => setPersonalForm({ ...personalForm, phone: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Email Account *</label>
+                  <input
+                    type="email"
+                    required
+                    value={personalForm.email}
+                    onChange={(e) => setPersonalForm({ ...personalForm, email: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Nationality</label>
+                  <select
+                    value={personalForm.nationality}
+                    onChange={(e) => setPersonalForm({ ...personalForm, nationality: e.target.value as any })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                  >
+                    <option value="Omani">Omani</option>
+                    <option value="Expat">Expat</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Gender</label>
+                  <select
+                    value={personalForm.gender}
+                    onChange={(e) => setPersonalForm({ ...personalForm, gender: e.target.value as any })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Religion</label>
+                  <select
+                    value={personalForm.religion}
+                    onChange={(e) => setPersonalForm({ ...personalForm, religion: e.target.value as any })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                  >
+                    <option value="Muslim">Muslim</option>
+                    <option value="Non-Muslim">Non-Muslim</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsPersonalModalOpen(false)} className="px-4 py-2.5 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingPersonal} className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50">
+                  {isSavingPersonal ? 'Saving...' : 'Save Personal Info'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Edit Placement & Salary Modal */}
+      {isJobModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Briefcase className="w-5 h-5 text-primary" /> Edit Placement & Wage Structure
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Update designation, department, and salary for {employee.name}</p>
+              </div>
+              <button onClick={() => setIsJobModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveJob} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Job Designation</label>
+                  <input
+                    type="text"
+                    required
+                    value={jobForm.job_title}
+                    onChange={(e) => setJobForm({ ...jobForm, job_title: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Department</label>
+                  <input
+                    type="text"
+                    required
+                    value={jobForm.department}
+                    onChange={(e) => setJobForm({ ...jobForm, department: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Immediate Supervisor</label>
+                <input
+                  type="text"
+                  value={jobForm.supervisor_name}
+                  onChange={(e) => setJobForm({ ...jobForm, supervisor_name: e.target.value })}
+                  placeholder="Supervisor's Full Name"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Base Salary (OMR)</label>
+                  <input
+                    type="number"
+                    required
+                    value={jobForm.base_salary}
+                    onChange={(e) => setJobForm({ ...jobForm, base_salary: Number(e.target.value) })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Allowances (OMR)</label>
+                  <input
+                    type="number"
+                    required
+                    value={jobForm.allowances}
+                    onChange={(e) => setJobForm({ ...jobForm, allowances: Number(e.target.value) })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsJobModalOpen(false)} className="px-4 py-2.5 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingJob} className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50">
+                  {isSavingJob ? 'Saving...' : 'Save Placement & Salary'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Edit Housing & Accommodation Modal */}
+      {isHousingModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+            <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Home className="w-5 h-5 text-primary" /> Edit Housing & Accommodation
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Configure housing arrangement for {employee.name}</p>
+              </div>
+              <button onClick={() => setIsHousingModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveHousing} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Housing Arrangement Type</label>
+                <select
+                  value={housingForm.housing_status}
+                  onChange={(e) => setHousingForm({ ...housingForm, housing_status: e.target.value as any })}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none"
+                >
+                  <option value="Lives with Family">Lives with Family / Private Residence</option>
+                  <option value="Company Accommodation">Company Shared Accommodation / Staff Camp</option>
+                  <option value="Private Rental">Private Rental Residence</option>
+                </select>
+              </div>
+
+              {housingForm.housing_status === 'Company Accommodation' && (
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Building / Camp Name</label>
+                    <input
+                      type="text"
+                      value={housingForm.building_name}
+                      onChange={(e) => setHousingForm({ ...housingForm, building_name: e.target.value })}
+                      placeholder="e.g. Al Khuwair Staff Complex"
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Building Address</label>
+                    <input
+                      type="text"
+                      value={housingForm.building_address}
+                      onChange={(e) => setHousingForm({ ...housingForm, building_address: e.target.value })}
+                      placeholder="e.g. Way 3512, Al Khuwair, Muscat"
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Room / Unit #</label>
+                      <input
+                        type="text"
+                        value={housingForm.room_number}
+                        onChange={(e) => setHousingForm({ ...housingForm, room_number: e.target.value })}
+                        placeholder="e.g. Flat 102"
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Occupancy Count</label>
+                      <input
+                        type="number"
+                        value={housingForm.occupancy_count}
+                        onChange={(e) => setHousingForm({ ...housingForm, occupancy_count: Number(e.target.value) })}
+                        className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button type="button" onClick={() => setIsHousingModalOpen(false)} className="px-4 py-2.5 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSavingHousing} className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50">
+                  {isSavingHousing ? 'Saving...' : 'Save Housing Details'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

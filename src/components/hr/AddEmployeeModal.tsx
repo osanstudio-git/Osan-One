@@ -38,7 +38,12 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
     prevRole: '',
     prevPeriod: '',
     emergencyName: '',
-    emergencyPhone: ''
+    emergencyPhone: '',
+    bankName: '',
+    accountNumber: '',
+    iban: '',
+    swiftCode: '',
+    branchName: ''
   });
 
   const [passportFile, setPassportFile] = useState<File | null>(null);
@@ -131,6 +136,11 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
           room_number: formData.roomNumber || 'Room 102',
           occupancy_count: Number(formData.occupancyCount) || 4
         } : undefined,
+        bank_name: formData.bankName,
+        account_number: formData.accountNumber,
+        iban: formData.iban,
+        swift_code: formData.swiftCode,
+        branch_name: formData.branchName,
         pin: generatedPin,
         
         qualifications: formData.degree ? [
@@ -194,7 +204,12 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
         prevRole: '',
         prevPeriod: '',
         emergencyName: '',
-        emergencyPhone: ''
+        emergencyPhone: '',
+        bankName: '',
+        accountNumber: '',
+        iban: '',
+        swiftCode: '',
+        branchName: ''
       });
       setPassportFile(null);
       setIdCardFile(null);
@@ -482,7 +497,50 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
                   className="w-full bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary font-bold transition-all"
                 />
               </div>
+            </div>
 
+            {/* Optional Bank Account Details */}
+            <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 space-y-2 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
+                  💳 Bank Account Information <span className="text-[10px] text-slate-400 font-normal">(Optional for WPS Salary Transfers)</span>
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Bank Name</label>
+                  <input
+                    type="text"
+                    value={formData.bankName}
+                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                    placeholder="e.g. Bank Muscat"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-1.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">Account Number</label>
+                  <input
+                    type="text"
+                    value={formData.accountNumber}
+                    onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                    placeholder="e.g. 0423010098760012"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-1.5 text-slate-900 dark:text-white text-xs font-mono outline-none focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-500 dark:text-gray-400 mb-0.5">IBAN Number</label>
+                  <input
+                    type="text"
+                    value={formData.iban}
+                    onChange={(e) => setFormData({ ...formData, iban: e.target.value })}
+                    placeholder="e.g. OM68001000423010098760012"
+                    className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-lg px-3 py-1.5 text-slate-900 dark:text-white text-xs font-mono outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">Nationality Category</label>
                 <select

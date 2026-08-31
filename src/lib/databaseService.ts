@@ -208,6 +208,11 @@ function mapDbUserToUser(data: any, companyNameMap?: Record<string, string>): Us
     },
     housing_status: data.housing_status || 'Lives with Family',
     accommodation_details: data.accommodation_details || {},
+    bank_name: data.bank_name || '',
+    account_number: data.account_number || '',
+    iban: data.iban || '',
+    swift_code: data.swift_code || '',
+    branch_name: data.branch_name || '',
     qualifications: Array.isArray(data.qualifications) ? data.qualifications : [],
     experience: Array.isArray(data.experience) ? data.experience : [],
     family_members: Array.isArray(data.family_members) ? data.family_members : [],
@@ -345,6 +350,11 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     leave_balance_maternity: employeeData.leave_balances?.pregnancy || 98,
     housing_status: employeeData.housing_status || 'Lives with Family',
     accommodation_details: employeeData.accommodation_details || {},
+    bank_name: employeeData.bank_name || '',
+    account_number: employeeData.account_number || '',
+    iban: employeeData.iban || '',
+    swift_code: employeeData.swift_code || '',
+    branch_name: employeeData.branch_name || '',
     qualifications: employeeData.qualifications || [],
     experience: employeeData.experience || [],
     family_members: employeeData.family_members || [],
@@ -357,6 +367,50 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     throw new Error(error.message || 'Failed to create employee in database');
   }
   return data as User;
+}
+
+export async function updateEmployeeInDb(employeeId: string, updates: Partial<User>): Promise<boolean> {
+  // Update in local memory
+  const idx = MOCK_EMPLOYEES.findIndex(e => e.id === employeeId || e.email === employeeId);
+  if (idx !== -1) {
+    MOCK_EMPLOYEES[idx] = { ...MOCK_EMPLOYEES[idx], ...updates } as any;
+  }
+
+  if (!isLiveSupabaseConfigured()) {
+    return true;
+  }
+
+  try {
+    const payload: any = {};
+    if (updates.name !== undefined) payload.name = updates.name;
+    if (updates.email !== undefined) payload.email = updates.email;
+    if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.job_title !== undefined) payload.job_title = updates.job_title;
+    if (updates.department !== undefined) payload.department = updates.department;
+    if (updates.base_salary !== undefined) payload.base_salary = updates.base_salary;
+    if (updates.allowances !== undefined) payload.allowances = updates.allowances;
+    if (updates.bank_name !== undefined) payload.bank_name = updates.bank_name;
+    if (updates.account_number !== undefined) payload.account_number = updates.account_number;
+    if (updates.iban !== undefined) payload.iban = updates.iban;
+    if (updates.swift_code !== undefined) payload.swift_code = updates.swift_code;
+    if (updates.branch_name !== undefined) payload.branch_name = updates.branch_name;
+    if (updates.housing_status !== undefined) payload.housing_status = updates.housing_status;
+    if (updates.accommodation_details !== undefined) payload.accommodation_details = updates.accommodation_details;
+
+    const { error } = await supabase
+      .from('users')
+      .update(payload)
+      .eq('id', employeeId);
+
+    if (error) {
+      console.error('Error updating employee in Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to update employee in database:', err);
+    return false;
+  }
 }
 
 export async function updateEmployeeStatusInDb(
