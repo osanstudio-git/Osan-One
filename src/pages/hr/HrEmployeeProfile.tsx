@@ -9,6 +9,7 @@ import {
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
 import { getEmployeeById, deleteEmployeeInDb, updateEmployeeInDb } from '../../lib/databaseService';
+import { isDatePublicHoliday } from '../../lib/holidayService';
 import type { User as UserType } from '../../types';
 
 type EmployeeTabType =
@@ -489,8 +490,12 @@ export function HrEmployeeProfile() {
     const dayOfWeek = dateObj.getDay();
     const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);
 
-    let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' = 'present';
-    if (isWeekend) {
+    const publicHoliday = isDatePublicHoliday(dateStr);
+
+    let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday' = 'present';
+    if (publicHoliday) {
+      status = 'holiday';
+    } else if (isWeekend) {
       status = 'weekend';
     } else if (dayNum % 11 === 0) {
       status = 'late';
@@ -504,7 +509,8 @@ export function HrEmployeeProfile() {
       dayNum,
       date: dateObj,
       dateStr,
-      status
+      status,
+      holidayName: publicHoliday?.name
     };
   });
 
@@ -521,6 +527,7 @@ export function HrEmployeeProfile() {
       case 'present': return 'bg-emerald-500/80 hover:bg-emerald-400 text-white';
       case 'late': return 'bg-amber-500/80 hover:bg-amber-400 text-white';
       case 'absent': return 'bg-red-500/80 hover:bg-red-400 text-white';
+      case 'holiday': return 'bg-purple-600/90 hover:bg-purple-500 text-white font-bold shadow-xs';
       case 'weekend': return 'bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10';
       default: return 'bg-slate-200 dark:bg-white/5';
     }
@@ -1420,6 +1427,7 @@ export function HrEmployeeProfile() {
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Present</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Late</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Absent</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span> Public Holiday</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Leave</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></span> Off</span>
                 </div>
@@ -1470,22 +1478,23 @@ export function HrEmployeeProfile() {
                                 {formattedDate}
                               </td>
                               <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
-                                {log.status === 'absent' ? '--:--' : log.status === 'late' ? '08:42 AM' : '08:00 AM'}
+                                {log.status === 'holiday' ? 'OFF (Paid)' : log.status === 'absent' ? '--:--' : log.status === 'late' ? '08:42 AM' : '08:00 AM'}
                               </td>
                               <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
-                                {log.status === 'absent' ? '--:--' : '05:00 PM'}
+                                {log.status === 'holiday' ? 'OFF (Paid)' : log.status === 'absent' ? '--:--' : '05:00 PM'}
                               </td>
                               <td className="p-4 text-slate-600 dark:text-gray-300 font-semibold">
-                                {log.status === 'absent' ? '0h' : '8h 00m'}
+                                {log.status === 'holiday' ? 'Paid Holiday' : log.status === 'absent' ? '0h' : '8h 00m'}
                               </td>
                               <td className="p-4 pr-6 text-right">
                                 <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
                                   log.status === 'present' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
                                   log.status === 'late' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
                                   log.status === 'absent' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
+                                  log.status === 'holiday' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' :
                                   'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                                 }`}>
-                                  {log.status === 'present' ? 'Present' : log.status === 'late' ? 'Late Warning' : log.status === 'absent' ? 'Absent' : 'Approved Leave'}
+                                  {log.status === 'present' ? 'Present' : log.status === 'late' ? 'Late Warning' : log.status === 'absent' ? 'Absent' : log.status === 'holiday' ? (log.holidayName || 'Public Holiday') : 'Approved Leave'}
                                 </span>
                               </td>
                             </tr>

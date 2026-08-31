@@ -703,3 +703,63 @@ export async function resolveAttendanceExceptionInDb(id: string, _action: 'Deduc
   return true;
 }
 
+// ---------------------------------------------------------------------
+// 7. PUBLIC HOLIDAYS SERVICES
+// ---------------------------------------------------------------------
+export async function getPublicHolidaysFromDb(): Promise<any[]> {
+  if (!isLiveSupabaseConfigured()) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase.from('public_holidays').select('*').order('date', { ascending: true });
+    if (error || !data || data.length === 0) {
+      return [];
+    }
+    return data.map(h => ({
+      id: h.id,
+      name: h.name,
+      date: h.date,
+      daysCount: h.days_count || 1,
+      type: h.type || 'National',
+      notes: h.notes || ''
+    }));
+  } catch (err) {
+    console.error('Failed to fetch public holidays from Supabase:', err);
+    return [];
+  }
+}
+
+export async function createPublicHolidayInDb(holiday: { name: string; date: string; daysCount: number; type: string; notes?: string }): Promise<any> {
+  if (!isLiveSupabaseConfigured()) return null;
+
+  try {
+    const payload = {
+      name: holiday.name,
+      date: holiday.date,
+      days_count: holiday.daysCount,
+      type: holiday.type,
+      notes: holiday.notes || ''
+    };
+    const { data, error } = await supabase.from('public_holidays').insert([payload]).select().single();
+    if (error) {
+      console.error('Error inserting public holiday in Supabase:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Failed to create public holiday in Supabase:', err);
+    return null;
+  }
+}
+
+export async function deletePublicHolidayInDb(id: string): Promise<void> {
+  if (!isLiveSupabaseConfigured()) return;
+
+  try {
+    await supabase.from('public_holidays').delete().eq('id', id);
+  } catch (err) {
+    console.error('Error deleting public holiday in Supabase:', err);
+  }
+}
+
