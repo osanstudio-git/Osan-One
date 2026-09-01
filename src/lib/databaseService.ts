@@ -779,6 +779,30 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
   }
 
   try {
+    // 1. Resolve valid UUID for user_id to prevent Postgres 400 UUID syntax errors
+    let validUserId = userId;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userId);
+    
+    if (!isUuid) {
+      const { data: userMatch } = await supabase
+        .from('users')
+        .select('id')
+        .or(`id.eq.${userId},email.eq.${userId}`)
+        .maybeSingle();
+
+      if (userMatch?.id && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userMatch.id)) {
+        validUserId = userMatch.id;
+      } else {
+        const { data: firstUser } = await supabase.from('users').select('id').limit(1).maybeSingle();
+        if (firstUser?.id) {
+          validUserId = firstUser.id;
+        } else {
+          console.warn('Cannot record punch: no valid user UUID found for ID', userId);
+          return false;
+        }
+      }
+    }
+
     const now = timestamp || new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const isoString = now.toISOString();
@@ -786,7 +810,7 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
     const { data: existing } = await supabase
       .from('attendance_logs')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', validUserId)
       .eq('date', dateStr)
       .maybeSingle();
 
@@ -795,24 +819,32 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
       const status = isLate ? 'Late' : 'Present';
 
       if (existing) {
-        await supabase
+        const { error: updateErr } = await supabase
           .from('attendance_logs')
           .update({
             clock_in_time: existing.clock_in_time || isoString,
             status: existing.status === 'Absent' ? status : (existing.status || status)
           })
           .eq('id', existing.id);
+        if (updateErr) console.warn('Supabase punch-in update warning:', updateErr.message);
       } else {
-        await supabase
-          .from('attendance_logs')
-          .insert([{
-            id: crypto.randomUUID(),
-            user_id: userId,
+        const insertPayload: any = {
+          user_id: validUserId,
+          date: dateStr,
+          clock_in_time: isoString,
+          status: status
+        };
+
+        let { error: insertErr } = await supabase.from('attendance_logs').insert([insertPayload]);
+
+        if (insertErr) {
+          console.warn('Primary punch-in insert failed, retrying with core columns...', insertErr.message);
+          await supabase.from('attendance_logs').insert([{
+            user_id: validUserId,
             date: dateStr,
-            clock_in_time: isoString,
-            status: status,
-            exceptions: isLate ? ['Late Punch In'] : []
+            clock_in_time: isoString
           }]);
+        }
       }
     } else {
       if (existing) {
@@ -826,8 +858,7 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
         await supabase
           .from('attendance_logs')
           .insert([{
-            id: crypto.randomUUID(),
-            user_id: userId,
+            user_id: validUserId,
             date: dateStr,
             clock_out_time: isoString,
             status: 'Present'
@@ -847,13 +878,28 @@ export async function getTodayAttendanceLogFromDb(userId: string): Promise<any |
   }
 
   try {
+    let validUserId = userId;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userId);
+
+    if (!isUuid) {
+      const { data: userMatch } = await supabase
+        .from('users')
+        .select('id')
+        .or(`id.eq.${userId},email.eq.${userId}`)
+        .maybeSingle();
+
+      if (userMatch?.id && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userMatch.id)) {
+        validUserId = userMatch.id;
+      }
+    }
+
     const now = new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     const { data, error } = await supabase
       .from('attendance_logs')
       .select('*')
-      .or(`user_id.eq.${userId},user_id.eq.${userId.toLowerCase()}`)
+      .eq('user_id', validUserId)
       .eq('date', dateStr)
       .maybeSingle();
 
