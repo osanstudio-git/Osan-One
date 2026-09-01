@@ -573,13 +573,13 @@ export function HrEmployeeProfile() {
       clockOutText = 'Weekend Off';
     } else if (!isFuture) {
       const joinStr = employee?.join_date || '2024-01-01';
-      if (dateStr >= joinStr) {
+      if (dateStr < todayStr && dateStr >= joinStr) {
         status = 'absent';
         clockInText = 'No Punch Record';
         clockOutText = 'No Punch Record';
       } else {
         status = 'weekend';
-        clockInText = '--:--';
+        clockInText = 'Not Checked In Yet';
         clockOutText = '--:--';
       }
     } else {

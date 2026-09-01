@@ -10,6 +10,7 @@ import { getCompanySettings, calculateDistance, type CompanySettings } from '../
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
+import { recordPunchInDb, getTodayAttendanceLogFromDb } from '../lib/databaseService';
 
 interface WorkSession {
   id: string;
@@ -35,6 +36,52 @@ export function EmployeeDashboard() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
 
   const [companyName, setCompanyName] = useState<string>('');
+
+  // Restore today's active check-in state from DB & localStorage on page refresh
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const localSaved = localStorage.getItem(`osan_punch_${profile.id}`);
+    if (localSaved) {
+      try {
+        const parsed = JSON.parse(localSaved);
+        if (parsed.isCheckedIn && parsed.checkInTime) {
+          const inDate = new Date(parsed.checkInTime);
+          const today = new Date();
+          if (inDate.toDateString() === today.toDateString()) {
+            setIsCheckedIn(true);
+            setCurrentSessionStart(inDate);
+            setFirstCheckInTime(inDate);
+          }
+        }
+      } catch (e) {
+        console.error('Error parsing local punch state:', e);
+      }
+    }
+
+    getTodayAttendanceLogFromDb(profile.id).then(log => {
+      if (log && log.clock_in_time) {
+        const inDate = new Date(log.clock_in_time);
+        setFirstCheckInTime(inDate);
+        if (!log.clock_out_time) {
+          setIsCheckedIn(true);
+          setCurrentSessionStart(inDate);
+          localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: true, checkInTime: log.clock_in_time }));
+        } else {
+          const outDate = new Date(log.clock_out_time);
+          setIsCheckedIn(false);
+          setCurrentSessionStart(null);
+          setSessions([{
+            id: 'today-log',
+            checkIn: inDate,
+            checkOut: outDate,
+            durationMs: Math.max(0, outDate.getTime() - inDate.getTime())
+          }]);
+          localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: false }));
+        }
+      }
+    }).catch(console.error);
+  }, [profile?.id]);
 
   useEffect(() => {
     if (profile?.company_id) {
@@ -170,6 +217,10 @@ export function EmployeeDashboard() {
       }
       setCurrentSessionStart(nowTime);
       setIsCheckedIn(true);
+      if (profile?.id) {
+        localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: true, checkInTime: nowTime.toISOString() }));
+        recordPunchInDb(profile.id, 'clock_in', nowTime).catch(console.error);
+      }
     } else {
       // Check out
       if (currentSessionStart) {
@@ -184,6 +235,10 @@ export function EmployeeDashboard() {
       }
       setCurrentSessionStart(null);
       setIsCheckedIn(false);
+      if (profile?.id) {
+        localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: false }));
+        recordPunchInDb(profile.id, 'clock_out', nowTime).catch(console.error);
+      }
     }
   };
 

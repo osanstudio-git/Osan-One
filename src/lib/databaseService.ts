@@ -773,6 +773,101 @@ export async function getEmployeeAttendanceLogsFromDb(userId: string): Promise<a
   }
 }
 
+export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_out', timestamp?: Date): Promise<boolean> {
+  if (!isLiveSupabaseConfigured()) {
+    return true;
+  }
+
+  try {
+    const now = timestamp || new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const isoString = now.toISOString();
+
+    const { data: existing } = await supabase
+      .from('attendance_logs')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', dateStr)
+      .maybeSingle();
+
+    if (type === 'clock_in') {
+      const isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 30);
+      const status = isLate ? 'Late' : 'Present';
+
+      if (existing) {
+        await supabase
+          .from('attendance_logs')
+          .update({
+            clock_in_time: existing.clock_in_time || isoString,
+            status: existing.status === 'Absent' ? status : (existing.status || status)
+          })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('attendance_logs')
+          .insert([{
+            id: crypto.randomUUID(),
+            user_id: userId,
+            date: dateStr,
+            clock_in_time: isoString,
+            status: status,
+            exceptions: isLate ? ['Late Punch In'] : []
+          }]);
+      }
+    } else {
+      if (existing) {
+        await supabase
+          .from('attendance_logs')
+          .update({
+            clock_out_time: isoString
+          })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('attendance_logs')
+          .insert([{
+            id: crypto.randomUUID(),
+            user_id: userId,
+            date: dateStr,
+            clock_out_time: isoString,
+            status: 'Present'
+          }]);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('Error recording punch in DB:', err);
+    return false;
+  }
+}
+
+export async function getTodayAttendanceLogFromDb(userId: string): Promise<any | null> {
+  if (!isLiveSupabaseConfigured()) {
+    return null;
+  }
+
+  try {
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    const { data, error } = await supabase
+      .from('attendance_logs')
+      .select('*')
+      .or(`user_id.eq.${userId},user_id.eq.${userId.toLowerCase()}`)
+      .eq('date', dateStr)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error fetching today attendance log:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.error('Failed to fetch today attendance log:', err);
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------
 // 6. ATTENDANCE EXCEPTIONS SERVICES
 // ---------------------------------------------------------------------
