@@ -71,15 +71,15 @@ export function PunchRing({ isCheckedIn, onPunch, disabledMessage }: PunchRingPr
     return () => cancelPress();
   }, []);
 
-  const ringColor = isCheckedIn ? 'border-primary' : 'border-gray-700';
-  const innerColor = isCheckedIn ? 'bg-primary/20' : 'bg-surface';
+  const ringColor = isCheckedIn ? 'border-primary' : 'border-slate-300 dark:border-gray-700';
+  const innerColor = isCheckedIn ? 'bg-primary/10 dark:bg-primary/20' : 'bg-white dark:bg-slate-900/90';
   
   return (
     <div className="flex flex-col items-center justify-center gap-6 select-none touch-none">
       <div className="relative w-64 h-64 flex items-center justify-center">
         {/* Background pulsing ring for active state */}
         {isCheckedIn && (
-          <div className="absolute inset-0 rounded-full border border-primary/30 animate-pulse-slow scale-110" />
+          <div className="absolute inset-0 rounded-full border border-primary/30 animate-pulse scale-110" />
         )}
 
         {/* Progress SVG Ring */}
@@ -89,7 +89,7 @@ export function PunchRing({ isCheckedIn, onPunch, disabledMessage }: PunchRingPr
             cy="128"
             r="124"
             fill="none"
-            stroke="rgba(255, 255, 255, 0.1)"
+            className="stroke-slate-200 dark:stroke-white/10"
             strokeWidth="4"
           />
           <circle
@@ -112,19 +112,19 @@ export function PunchRing({ isCheckedIn, onPunch, disabledMessage }: PunchRingPr
           onPointerUp={cancelPress}
           onPointerLeave={cancelPress}
           onContextMenu={(e) => e.preventDefault()}
-          className={`relative w-56 h-56 rounded-full border-4 ${ringColor} ${innerColor} glass flex flex-col items-center justify-center cursor-pointer overflow-hidden group`}
+          className={`relative w-56 h-56 rounded-full border-4 ${ringColor} ${innerColor} shadow-xl dark:shadow-none flex flex-col items-center justify-center cursor-pointer overflow-hidden group`}
         >
           {verifying ? (
             <div className="flex flex-col items-center animate-pulse">
               <MapPin className="w-8 h-8 mb-2 text-primary" />
-              <span className="text-sm font-medium">Verifying Location...</span>
+              <span className="text-sm font-medium text-slate-800 dark:text-white">Verifying Location...</span>
             </div>
           ) : (
             <>
-              <span className="text-2xl font-bold tracking-wider uppercase mb-1">
+              <span className="text-2xl font-bold tracking-wider uppercase mb-1 text-slate-900 dark:text-white">
                 {isCheckedIn ? 'Check Out' : 'Check In'}
               </span>
-              <span className="text-xs text-gray-400 group-hover:text-white transition-colors">
+              <span className="text-xs text-slate-500 dark:text-gray-400 group-hover:text-primary transition-colors font-medium">
                 Press & Hold (2s)
               </span>
             </>

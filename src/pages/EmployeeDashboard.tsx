@@ -4,6 +4,7 @@ import { PunchRing } from '../components/employee/PunchRing';
 import { LeaveModal } from '../components/employee/LeaveModal';
 import { PipWindow } from '../components/pwa/PipWindow';
 import { CompactWidget } from '../components/employee/CompactWidget';
+import { ThemeToggle } from '../components/common/ThemeToggle';
 import { Calendar, Clock, LogOut, CheckCircle2, History } from 'lucide-react';
 import { getCompanySettings, calculateDistance, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
@@ -219,13 +220,13 @@ export function EmployeeDashboard() {
 
     return (
       <div className="w-full max-w-md mt-8">
-        <div className="flex justify-between text-xs text-gray-400 font-medium mb-2 px-1">
+        <div className="flex justify-between text-xs text-slate-500 dark:text-gray-400 font-bold mb-2 px-1">
           <span>{shiftStart} (Start)</span>
           <span>{shiftEnd} (End)</span>
         </div>
-        <div className="h-3 w-full bg-surface border border-white/5 rounded-full overflow-hidden">
+        <div className="h-3 w-full bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-full overflow-hidden shadow-inner">
           <div
-            className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-1000 relative"
+            className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-1000 relative"
             style={{ width: `${progress}%` }}
           >
             <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-r from-transparent to-white/30" />
@@ -243,23 +244,23 @@ export function EmployeeDashboard() {
       <div className="flex flex-col items-center justify-center h-full w-full p-4">
         {/* Main Panel Clock */}
         <div className="text-center mb-8">
-          <div className="text-5xl md:text-7xl font-bold tracking-tight bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent drop-shadow-sm mb-3">
+          <div className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-xs mb-3">
             {formattedTime}
           </div>
-          <div className="text-slate-400 font-medium uppercase tracking-widest text-sm flex items-center justify-center gap-2">
-            <Calendar className="w-4 h-4" />
+          <div className="text-slate-500 dark:text-gray-400 font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2">
+            <Calendar className="w-4 h-4 text-primary" />
             {formattedDate}
           </div>
         </div>
 
         {/* CUMULATIVE WORKED HOURS TODAY KPI BADGE */}
-        <div className="mb-8 glass px-6 py-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-3 shadow-lg shadow-emerald-500/5">
-          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+        <div className="mb-8 px-6 py-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-3 shadow-lg shadow-emerald-500/5">
+          <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <Clock className="w-5 h-5 animate-pulse" />
           </div>
           <div className="flex flex-col text-left">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400/80">Cumulative Worked Hours Today</span>
-            <span className="text-xl font-black text-emerald-400 tracking-tight">{formattedCumulativeWorked}</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400/80">Cumulative Worked Hours Today</span>
+            <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight">{formattedCumulativeWorked}</span>
           </div>
         </div>
 
@@ -272,28 +273,28 @@ export function EmployeeDashboard() {
         {/* Small text check-in time display */}
         {isCheckedIn && currentSessionStart && (
           <div className="mt-6 flex flex-col items-center gap-1">
-            <div className="flex items-center gap-2 text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-6 py-2.5 rounded-full font-medium shadow-lg shadow-emerald-500/5 text-sm">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-6 py-2.5 rounded-full font-bold shadow-lg shadow-emerald-500/5 text-sm">
               <Clock className="w-4 h-4" />
               <span>Active Session • {elapsedTime}</span>
             </div>
-            <span className="text-xs text-gray-400 tracking-wide font-medium mt-1">
-              Current Punch-In: <strong className="text-gray-200">{currentSessionStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong>
-              {firstCheckInTime && <span className="ml-2 text-gray-500">(1st Shift Punch: {firstCheckInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>}
+            <span className="text-xs text-slate-500 dark:text-gray-400 tracking-wide font-semibold mt-1">
+              Current Punch-In: <strong className="text-slate-900 dark:text-gray-200">{currentSessionStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</strong>
+              {firstCheckInTime && <span className="ml-2 text-slate-400 dark:text-gray-500">(1st Shift Punch: {firstCheckInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})</span>}
             </span>
           </div>
         )}
 
         {/* Completed Sessions Log Breakdown */}
         {sessions.length > 0 && (
-          <div className="mt-8 glass p-6 rounded-2xl border border-white/10 max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="flex items-center justify-between border-b border-white/5 pb-3 mb-3">
-              <div className="flex items-center gap-2 text-white font-bold text-sm">
-                <History className="w-4 h-4 text-emerald-400" />
+          <div className="mt-8 bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-lg max-w-md w-full animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3 mb-3">
+              <div className="flex items-center gap-2 text-slate-900 dark:text-white font-bold text-sm">
+                <History className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Today's Sessions ({sessions.length})
               </div>
               {firstCheckInTime && (
-                <span className="text-xs text-gray-400 font-medium">
-                  First Punch: <strong className="text-emerald-400">{firstCheckInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
+                <span className="text-xs text-slate-500 dark:text-gray-400 font-medium">
+                  First Punch: <strong className="text-emerald-600 dark:text-emerald-400">{firstCheckInTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
                 </span>
               )}
             </div>
@@ -304,12 +305,12 @@ export function EmployeeDashboard() {
                 const hrs = Math.floor(durSecs / 3600);
                 const mins = Math.floor((durSecs % 3600) / 60);
                 return (
-                  <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-black/20 border border-white/5 text-xs">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 text-xs">
+                    <div className="flex items-center gap-2 text-slate-700 dark:text-gray-300">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                       <span>Session #{idx + 1}: <strong>{s.checkIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong> → <strong>{s.checkOut?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong></span>
                     </div>
-                    <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                       {hrs > 0 ? `${hrs}h ` : ''}{mins}m
                     </span>
                   </div>
@@ -325,21 +326,23 @@ export function EmployeeDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center pt-12 px-4 pb-24 relative">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col items-center pt-12 px-4 pb-24 relative transition-colors duration-300">
       <div className="w-full max-w-4xl flex justify-between items-center mb-12">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Hello, {profile?.name || 'Employee'}</h1>
-          <p className="text-gray-400">
+          <h1 className="text-3xl font-extrabold mb-1 text-slate-900 dark:text-white">Hello, {profile?.name || 'Employee'}</h1>
+          <p className="text-slate-500 dark:text-gray-400 text-sm font-semibold">
             {profile?.role || 'Staff'} • {profile?.nationality || 'Omani'}
-            {companyName && <span className="ml-2 text-primary font-medium">@ {companyName}</span>}
+            {companyName && <span className="ml-2 text-primary font-bold">@ {companyName}</span>}
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <ThemeToggle />
+
           {('documentPictureInPicture' in window) && (
             <button
               onClick={() => setIsPipActive(true)}
               disabled={isPipActive}
-              className="px-4 py-2 bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30 rounded-xl transition-all font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-blue-500/10 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-500/30 hover:bg-blue-500/20 rounded-xl transition-all font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="12" y="12" width="7" height="5"></rect><line x1="12" y1="12" x2="19" y2="17"></line></svg>
               Pop-out Widget
@@ -348,7 +351,8 @@ export function EmployeeDashboard() {
 
           <button
             onClick={signOut}
-            className="p-3 bg-surface hover:bg-white/10 rounded-xl transition-colors text-gray-400 hover:text-white"
+            className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white shadow-xs cursor-pointer"
+            title="Sign Out"
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -357,9 +361,9 @@ export function EmployeeDashboard() {
 
       <div className="flex-1 flex flex-col items-center justify-center w-full">
         {isPipActive ? (
-          <div className="text-center p-12 border border-dashed border-gray-700 rounded-3xl glass opacity-60">
-            <h2 className="text-xl font-medium mb-2">Widget is Active</h2>
-            <p className="text-gray-400 text-sm">Your check-in ring is hovering on your screen.</p>
+          <div className="text-center p-12 border border-dashed border-slate-300 dark:border-gray-700 rounded-3xl bg-white dark:bg-slate-900/60 opacity-60">
+            <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Widget is Active</h2>
+            <p className="text-slate-500 dark:text-gray-400 text-sm font-medium">Your check-in ring is hovering on your screen.</p>
           </div>
         ) : (
           renderPunchUI()
@@ -368,10 +372,10 @@ export function EmployeeDashboard() {
 
       <button
         onClick={() => setIsLeaveModalOpen(true)}
-        className="fixed bottom-24 md:bottom-8 right-4 md:right-8 bg-surface border border-white/10 hover:bg-white/10 text-white p-4 rounded-2xl shadow-xl transition-all flex items-center gap-3 group"
+        className="fixed bottom-24 md:bottom-8 right-4 md:right-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-white p-4 rounded-2xl shadow-xl transition-all flex items-center gap-3 group cursor-pointer"
       >
         <Calendar className="w-6 h-6 text-amber-500 group-hover:scale-110 transition-transform" />
-        <span className="font-medium pr-2">Request Leave</span>
+        <span className="font-bold text-xs pr-2">Request Leave</span>
       </button>
 
       <LeaveModal
