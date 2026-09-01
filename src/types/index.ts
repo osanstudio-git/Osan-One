@@ -1,5 +1,5 @@
 export type Role = 'HR' | 'CEO' | 'Accountant' | 'Employee';
-export type Nationality = 'Omani' | 'Expat';
+export type Nationality = 'Omani' | 'Expat' | (string & {});
 export type UserStatus = 'Active' | 'Inactive';
 export type AttendanceStatus = 'Present' | 'Late' | 'On-Time' | 'Overtime' | 'Absent';
 export type LeaveStatus = 'Pending' | 'Approved' | 'Rejected';

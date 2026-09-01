@@ -11,7 +11,7 @@ import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
 import { getEmployeeById, deleteEmployeeInDb, updateEmployeeInDb } from '../../lib/databaseService';
 import { isDatePublicHoliday } from '../../lib/holidayService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
-import type { User as UserType } from '../../types';
+import type { User as UserType, Nationality } from '../../types';
 
 type EmployeeTabType =
   | 'profile'          // Personal info, family, emergency contacts
@@ -119,7 +119,7 @@ export function HrEmployeeProfile() {
     name: '',
     phone: '',
     email: '',
-    nationality: 'Omani' as 'Omani' | 'Expat',
+    nationality: 'Omani' as Nationality,
     gender: 'Male' as 'Male' | 'Female',
     religion: 'Muslim' as 'Muslim' | 'Non-Muslim',
   });

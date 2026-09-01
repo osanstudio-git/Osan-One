@@ -188,6 +188,7 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
         role: 'Employee',
         company: companies[0]?.name || '',
         nationality: 'Omani',
+        countryOfOrigin: '',
         gender: 'Male',
         religion: 'Muslim',
         joinDate: new Date().toISOString().split('T')[0],
