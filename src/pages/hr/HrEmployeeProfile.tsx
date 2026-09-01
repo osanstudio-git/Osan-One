@@ -486,17 +486,24 @@ export function HrEmployeeProfile() {
   const daysInSelectedMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(selectedYear, selectedMonth, 1).getDay();
 
+  // Local date formatter helper for yyyy-mm-dd without UTC shift
+  const nowObj = new Date();
+  const todayStr = `${nowObj.getFullYear()}-${String(nowObj.getMonth() + 1).padStart(2, '0')}-${String(nowObj.getDate()).padStart(2, '0')}`;
+
   // Generate heatmap & real shift log items for selected month & year
   const monthlyHeatmapData = Array.from({ length: daysInSelectedMonth }).map((_, i) => {
     const dayNum = i + 1;
     const dateObj = new Date(selectedYear, selectedMonth, dayNum);
-    const dateStr = dateObj.toISOString().split('T')[0];
+    const mStr = String(selectedMonth + 1).padStart(2, '0');
+    const dStr = String(dayNum).padStart(2, '0');
+    const dateStr = `${selectedYear}-${mStr}-${dStr}`;
     
     const isOmani = employee?.nationality === 'Omani';
     const dayOfWeek = dateObj.getDay();
     const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);
 
     const publicHoliday = isDatePublicHoliday(dateStr);
+    const isFuture = dateStr > todayStr;
 
     // Find real attendance log row from Supabase
     const realLog = dbLogs.find(l => {
@@ -564,10 +571,9 @@ export function HrEmployeeProfile() {
       status = 'weekend';
       clockInText = 'Weekend Off';
       clockOutText = 'Weekend Off';
-    } else {
-      const todayStr = new Date().toISOString().split('T')[0];
+    } else if (!isFuture) {
       const joinStr = employee?.join_date || '2024-01-01';
-      if (dateStr <= todayStr && dateStr >= joinStr) {
+      if (dateStr >= joinStr) {
         status = 'absent';
         clockInText = 'No Punch Record';
         clockOutText = 'No Punch Record';
@@ -576,6 +582,10 @@ export function HrEmployeeProfile() {
         clockInText = '--:--';
         clockOutText = '--:--';
       }
+    } else {
+      status = 'weekend';
+      clockInText = '--:--';
+      clockOutText = '--:--';
     }
 
     return {
