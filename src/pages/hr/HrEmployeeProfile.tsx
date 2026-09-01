@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
-import { getEmployeeById, deleteEmployeeInDb, updateEmployeeInDb } from '../../lib/databaseService';
+import { getEmployeeById, deleteEmployeeInDb, updateEmployeeInDb, getEmployeeAttendanceLogsFromDb, getLeaveRequestsFromDb } from '../../lib/databaseService';
 import { isDatePublicHoliday } from '../../lib/holidayService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 import type { User as UserType, Nationality } from '../../types';
@@ -28,6 +28,8 @@ export function HrEmployeeProfile() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<EmployeeTabType>('profile');
   const [employee, setEmployee] = useState<UserType | null>(null);
+  const [dbLogs, setDbLogs] = useState<any[]>([]);
+  const [dbLeaves, setDbLeaves] = useState<any[]>([]);
 
   useEffect(() => {
     if (id) {
@@ -41,6 +43,9 @@ export function HrEmployeeProfile() {
         console.error(err);
         setEmployee(MOCK_EMPLOYEES.find(e => e.id === id) || MOCK_EMPLOYEES[0]);
       });
+
+      getEmployeeAttendanceLogsFromDb(id).then((logs: any[]) => setDbLogs(logs)).catch(console.error);
+      getLeaveRequestsFromDb().then((leaves: any[]) => setDbLeaves(leaves)).catch(console.error);
     }
   }, [id]);
 
@@ -481,7 +486,7 @@ export function HrEmployeeProfile() {
   const daysInSelectedMonth = new Date(selectedYear, selectedMonth + 1, 0).getDate();
   const firstDayOfWeek = new Date(selectedYear, selectedMonth, 1).getDay();
 
-  // Generate heatmap items for selected month & year
+  // Generate heatmap & real shift log items for selected month & year
   const monthlyHeatmapData = Array.from({ length: daysInSelectedMonth }).map((_, i) => {
     const dayNum = i + 1;
     const dateObj = new Date(selectedYear, selectedMonth, dayNum);
@@ -493,17 +498,84 @@ export function HrEmployeeProfile() {
 
     const publicHoliday = isDatePublicHoliday(dateStr);
 
-    let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday' = 'present';
+    // Find real attendance log row from Supabase
+    const realLog = dbLogs.find(l => {
+      if (l.date === dateStr) return true;
+      if (l.clock_in_time && l.clock_in_time.startsWith(dateStr)) return true;
+      return false;
+    });
+
+    // Find real approved leave from Supabase
+    const realLeave = dbLeaves.find(l => {
+      const empMatch = l.user_id === employee?.id || l.employee === employee?.name || l.user_id === id;
+      if (!empMatch) return false;
+      const isApproved = !l.status || l.status === 'Approved';
+      if (!isApproved) return false;
+      const s = l.startDate || l.start_date;
+      const e = l.endDate || l.end_date;
+      if (s && e) {
+        return dateStr >= s && dateStr <= e;
+      }
+      return false;
+    });
+
+    let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday' = 'weekend';
+    let clockInText = '--:--';
+    let clockOutText = '--:--';
+    let hoursNum = 0;
+
     if (publicHoliday) {
       status = 'holiday';
+      clockInText = 'OFF (Paid)';
+      clockOutText = 'OFF (Paid)';
+    } else if (realLeave) {
+      status = 'leave';
+      clockInText = `Leave (${realLeave.type || realLeave.leaveType || 'Approved'})`;
+      clockOutText = `Leave (${realLeave.type || realLeave.leaveType || 'Approved'})`;
+    } else if (realLog) {
+      const rawStatus = (realLog.status || '').toLowerCase();
+      if (rawStatus.includes('late')) {
+        status = 'late';
+      } else {
+        status = 'present';
+      }
+
+      if (realLog.clock_in_time) {
+        const inDate = new Date(realLog.clock_in_time);
+        clockInText = inDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } else {
+        clockInText = '08:00 AM';
+      }
+
+      if (realLog.clock_out_time) {
+        const outDate = new Date(realLog.clock_out_time);
+        clockOutText = outDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (realLog.clock_in_time) {
+          const diffMs = new Date(realLog.clock_out_time).getTime() - new Date(realLog.clock_in_time).getTime();
+          hoursNum = Math.max(0, Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10);
+        } else {
+          hoursNum = 8;
+        }
+      } else {
+        clockOutText = 'Active Shift';
+        hoursNum = 8;
+      }
     } else if (isWeekend) {
       status = 'weekend';
-    } else if (dayNum % 11 === 0) {
-      status = 'late';
-    } else if (dayNum === 14) {
-      status = 'absent';
-    } else if (dayNum === 22) {
-      status = 'leave';
+      clockInText = 'Weekend Off';
+      clockOutText = 'Weekend Off';
+    } else {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const joinStr = employee?.join_date || '2024-01-01';
+      if (dateStr <= todayStr && dateStr >= joinStr) {
+        status = 'absent';
+        clockInText = 'No Punch Record';
+        clockOutText = 'No Punch Record';
+      } else {
+        status = 'weekend';
+        clockInText = '--:--';
+        clockOutText = '--:--';
+      }
     }
 
     return {
@@ -511,6 +583,9 @@ export function HrEmployeeProfile() {
       date: dateObj,
       dateStr,
       status,
+      clockInText,
+      clockOutText,
+      hoursNum,
       holidayName: publicHoliday?.name
     };
   });
@@ -1492,13 +1567,13 @@ export function HrEmployeeProfile() {
                                 {formattedDate}
                               </td>
                               <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
-                                {log.status === 'holiday' ? 'OFF (Paid)' : log.status === 'absent' ? '--:--' : log.status === 'late' ? '08:42 AM' : '08:00 AM'}
+                                {log.clockInText}
                               </td>
                               <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
-                                {log.status === 'holiday' ? 'OFF (Paid)' : log.status === 'absent' ? '--:--' : '05:00 PM'}
+                                {log.clockOutText}
                               </td>
                               <td className="p-4 text-slate-600 dark:text-gray-300 font-semibold">
-                                {log.status === 'holiday' ? 'Paid Holiday' : log.status === 'absent' ? '0h' : '8h 00m'}
+                                {log.status === 'holiday' ? 'Paid Holiday' : log.status === 'leave' ? 'Approved Leave' : log.hoursNum > 0 ? `${log.hoursNum}h` : '0h'}
                               </td>
                               <td className="p-4 pr-6 text-right">
                                 <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${

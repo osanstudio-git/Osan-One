@@ -425,6 +425,15 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
 
   let { data, error } = await supabase.from('users').insert([fullPayload]).select().single();
 
+  // If nationality enum error occurs (e.g. before SQL alter column migration), simplify to 'Expat'/'Omani'
+  if (error && (error.message?.includes('user_nationality') || error.message?.includes('enum'))) {
+    console.warn('Supabase nationality enum error. Retrying with simplified category...', error.message);
+    fullPayload.nationality = (fullPayload.nationality || 'Omani').startsWith('Expat') ? 'Expat' : 'Omani';
+    const retryEnumRes = await supabase.from('users').insert([fullPayload]).select().single();
+    data = retryEnumRes.data;
+    error = retryEnumRes.error;
+  }
+
   // If column error occurs (e.g. missing optional bank/housing columns in Supabase schema), fallback to core columns
   if (error && error.message?.includes('column')) {
     console.warn('Supabase schema missing optional columns. Retrying with core payload...', error.message);
@@ -475,6 +484,9 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.email !== undefined) payload.email = updates.email;
     if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.nationality !== undefined) {
+      payload.nationality = updates.nationality;
+    }
     if (updates.job_title !== undefined) payload.job_title = updates.job_title;
     if (updates.department !== undefined) payload.department = updates.department;
     if (updates.base_salary !== undefined) payload.base_salary = updates.base_salary;
@@ -487,10 +499,17 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     if (updates.housing_status !== undefined) payload.housing_status = updates.housing_status;
     if (updates.accommodation_details !== undefined) payload.accommodation_details = updates.accommodation_details;
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('users')
       .update(payload)
       .eq('id', employeeId);
+
+    if (error && (error.message?.includes('user_nationality') || error.message?.includes('enum'))) {
+      console.warn('Supabase nationality enum constraint detected. Retrying with simplified category...');
+      payload.nationality = (updates.nationality || 'Omani').startsWith('Expat') ? 'Expat' : 'Omani';
+      const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
+      error = retryRes.error;
+    }
 
     if (error) {
       console.error('Error updating employee in Supabase:', error.message);
@@ -729,6 +748,29 @@ export async function updateLeaveRequestStatusInDb(id: string, status: 'Approved
     return false;
   }
   return true;
+}
+
+export async function getEmployeeAttendanceLogsFromDb(userId: string): Promise<any[]> {
+  if (!isLiveSupabaseConfigured()) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('attendance_logs')
+      .select('*')
+      .or(`user_id.eq.${userId},user_id.eq.${userId.toLowerCase()}`)
+      .order('date', { ascending: false });
+
+    if (error) {
+      console.error('Supabase getEmployeeAttendanceLogsFromDb error:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.error('Failed to fetch attendance logs for user:', err);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------
