@@ -773,7 +773,7 @@ export async function getEmployeeAttendanceLogsFromDb(userId: string): Promise<a
   }
 }
 
-export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_out', timestamp?: Date): Promise<boolean> {
+export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_out', timestamp?: Date, explicitCompanyId?: string): Promise<boolean> {
   if (!isLiveSupabaseConfigured()) {
     return true;
   }
@@ -803,6 +803,20 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
       }
     }
 
+    // 2. Resolve company_id to satisfy NOT NULL constraint on attendance_logs
+    let validCompanyId = explicitCompanyId;
+    if (!validCompanyId || !/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(validCompanyId)) {
+      const { data: userRow } = await supabase.from('users').select('company_id').eq('id', validUserId).maybeSingle();
+      if (userRow?.company_id && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userRow.company_id)) {
+        validCompanyId = userRow.company_id;
+      } else {
+        const { data: firstComp } = await supabase.from('companies').select('id').limit(1).maybeSingle();
+        if (firstComp?.id) {
+          validCompanyId = firstComp.id;
+        }
+      }
+    }
+
     const now = timestamp || new Date();
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const isoString = now.toISOString();
@@ -823,13 +837,15 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
           .from('attendance_logs')
           .update({
             clock_in_time: existing.clock_in_time || isoString,
-            status: existing.status === 'Absent' ? status : (existing.status || status)
+            status: existing.status === 'Absent' ? status : (existing.status || status),
+            company_id: existing.company_id || validCompanyId
           })
           .eq('id', existing.id);
         if (updateErr) console.warn('Supabase punch-in update warning:', updateErr.message);
       } else {
         const insertPayload: any = {
           user_id: validUserId,
+          company_id: validCompanyId,
           date: dateStr,
           clock_in_time: isoString,
           status: status
@@ -839,11 +855,13 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
 
         if (insertErr) {
           console.warn('Primary punch-in insert failed, retrying with core columns...', insertErr.message);
-          await supabase.from('attendance_logs').insert([{
+          const fallbackPayload: any = {
             user_id: validUserId,
             date: dateStr,
             clock_in_time: isoString
-          }]);
+          };
+          if (validCompanyId) fallbackPayload.company_id = validCompanyId;
+          await supabase.from('attendance_logs').insert([fallbackPayload]);
         }
       }
     } else {
@@ -851,18 +869,19 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
         await supabase
           .from('attendance_logs')
           .update({
-            clock_out_time: isoString
+            clock_out_time: isoString,
+            company_id: existing.company_id || validCompanyId
           })
           .eq('id', existing.id);
       } else {
-        await supabase
-          .from('attendance_logs')
-          .insert([{
-            user_id: validUserId,
-            date: dateStr,
-            clock_out_time: isoString,
-            status: 'Present'
-          }]);
+        const insertPayload: any = {
+          user_id: validUserId,
+          company_id: validCompanyId,
+          date: dateStr,
+          clock_out_time: isoString,
+          status: 'Present'
+        };
+        await supabase.from('attendance_logs').insert([insertPayload]);
       }
     }
     return true;

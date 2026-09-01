@@ -219,7 +219,7 @@ export function EmployeeDashboard() {
       setIsCheckedIn(true);
       if (profile?.id) {
         localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: true, checkInTime: nowTime.toISOString() }));
-        recordPunchInDb(profile.id, 'clock_in', nowTime).catch(console.error);
+        recordPunchInDb(profile.id, 'clock_in', nowTime, profile.company_id).catch(console.error);
       }
     } else {
       // Check out
@@ -237,7 +237,7 @@ export function EmployeeDashboard() {
       setIsCheckedIn(false);
       if (profile?.id) {
         localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: false }));
-        recordPunchInDb(profile.id, 'clock_out', nowTime).catch(console.error);
+        recordPunchInDb(profile.id, 'clock_out', nowTime, profile.company_id).catch(console.error);
       }
     }
   };
