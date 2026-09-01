@@ -1809,16 +1809,35 @@ export function HrEmployeeProfile() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Nationality</label>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Nationality Category</label>
                   <select
-                    value={personalForm.nationality}
-                    onChange={(e) => setPersonalForm({ ...personalForm, nationality: e.target.value as any })}
+                    value={personalForm.nationality?.startsWith('Expat') ? 'Expat' : 'Omani'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPersonalForm({ 
+                        ...personalForm, 
+                        nationality: val === 'Omani' ? 'Omani' : (personalForm.nationality?.startsWith('Expat') ? personalForm.nationality : 'Expat')
+                      });
+                    }}
                     className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
                   >
                     <option value="Omani">Omani</option>
                     <option value="Expat">Expat</option>
                   </select>
                 </div>
+
+                {personalForm.nationality?.startsWith('Expat') && (
+                  <div>
+                    <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">🌍 Country Name</label>
+                    <input
+                      type="text"
+                      value={personalForm.nationality.includes('(') ? personalForm.nationality.split('(')[1]?.replace(')', '') : ''}
+                      onChange={(e) => setPersonalForm({ ...personalForm, nationality: e.target.value.trim() ? `Expat (${e.target.value.trim()})` : 'Expat' })}
+                      placeholder="e.g. India, Philippines, Egypt..."
+                      className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Gender</label>

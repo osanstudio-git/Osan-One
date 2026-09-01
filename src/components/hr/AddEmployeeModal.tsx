@@ -19,6 +19,7 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
     role: 'Employee' as Role,
     company: companies[0]?.name || '',
     nationality: 'Omani' as Nationality,
+    countryOfOrigin: '',
     gender: 'Male' as 'Male' | 'Female',
     religion: 'Muslim' as 'Muslim' | 'Non-Muslim',
     joinDate: new Date().toISOString().split('T')[0],
@@ -121,7 +122,9 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
         company_phone: formData.companyPhone,
         role: formData.role,
         company: formData.company,
-        nationality: formData.nationality,
+        nationality: (formData.nationality === 'Expat' && formData.countryOfOrigin.trim()) 
+          ? `Expat (${formData.countryOfOrigin.trim()})` 
+          : formData.nationality,
         gender: formData.gender,
         religion: formData.religion,
         join_date: formData.joinDate,
@@ -547,14 +550,32 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">Nationality Category</label>
                 <select
-                  value={formData.nationality}
-                  onChange={(e) => setFormData({ ...formData, nationality: e.target.value as Nationality })}
-                  className="w-full bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary appearance-none transition-all"
+                  value={formData.nationality.startsWith('Expat') ? 'Expat' : 'Omani'}
+                  onChange={(e) => {
+                    const val = e.target.value as Nationality;
+                    setFormData({ ...formData, nationality: val });
+                  }}
+                  className="w-full bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary appearance-none transition-all cursor-pointer font-semibold"
                 >
                   <option value="Omani" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Omani</option>
                   <option value="Expat" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Expat</option>
                 </select>
               </div>
+
+              {formData.nationality.startsWith('Expat') && (
+                <div className="animate-in fade-in zoom-in-95 duration-200">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1 flex items-center gap-1">
+                    <span>🌍 Country Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.countryOfOrigin}
+                    onChange={(e) => setFormData({ ...formData, countryOfOrigin: e.target.value })}
+                    placeholder="e.g. India, Philippines, Egypt..."
+                    className="w-full bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary placeholder:text-slate-400 dark:placeholder:text-gray-500 transition-all font-semibold"
+                  />
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">System Privilege</label>

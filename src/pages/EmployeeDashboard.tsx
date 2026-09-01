@@ -331,7 +331,7 @@ export function EmployeeDashboard() {
         <div>
           <h1 className="text-3xl font-extrabold mb-1 text-slate-900 dark:text-white">Hello, {profile?.name || 'Employee'}</h1>
           <p className="text-slate-500 dark:text-gray-400 text-sm font-semibold">
-            {profile?.role || 'Staff'} • {profile?.nationality || 'Omani'}
+            {profile?.role || 'Staff'}
             {companyName && <span className="ml-2 text-primary font-bold">@ {companyName}</span>}
           </p>
         </div>
