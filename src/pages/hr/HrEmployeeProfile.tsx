@@ -4,12 +4,13 @@ import {
   ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X,
   User, ShieldAlert, Award, AlertCircle, Settings, Trash2, UserCheck, UserX,
   Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw, CreditCard, Edit3, Landmark, CheckCircle2,
-  ChevronLeft, ChevronRight, Plus
+  ChevronLeft, ChevronRight, Plus, MessageSquare
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
 import { getEmployeeById, deleteEmployeeInDb, updateEmployeeInDb } from '../../lib/databaseService';
 import { isDatePublicHoliday } from '../../lib/holidayService';
+import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 import type { User as UserType } from '../../types';
 
 type EmployeeTabType =
@@ -622,14 +623,27 @@ export function HrEmployeeProfile() {
             </div>
           </div>
 
-          <div className="flex gap-3 w-full md:w-auto">
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-sm font-medium transition-colors text-slate-700 dark:text-white shadow-sm">
+          <div className="flex flex-wrap gap-3 w-full md:w-auto">
+            <button
+              onClick={() => sendEmployeeWhatsAppInvite({
+                name: employee.name,
+                phone: employee.phone,
+                email: employee.email,
+                company: employee.company || 'Osan Group',
+                pin: employee.pin || '123456'
+              })}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95"
+            >
+              <MessageSquare className="w-4 h-4" />
+              Share Login (WhatsApp)
+            </button>
+            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white shadow-xs cursor-pointer">
               <Download className="w-4 h-4" />
               Export Dossier
             </button>
             <button
               onClick={() => setIsManageModalOpen(true)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 border border-primary/30 rounded-xl text-sm font-medium transition-all text-primary"
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 border border-primary/30 rounded-xl text-xs font-bold transition-all text-primary cursor-pointer"
             >
               <Settings className="w-4 h-4" />
               Manage Status

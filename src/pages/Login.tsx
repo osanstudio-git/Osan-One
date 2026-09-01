@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { Mail, Lock, LogIn, AlertCircle, Phone } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { MOCK_EMPLOYEES, MOCK_COMPANIES } from './hr/mockData';
+import { authenticateUserInDb } from '../lib/databaseService';
 import { OsanLogo } from '../components/common/OsanLogo';
 
 export const Login = () => {
@@ -15,27 +15,7 @@ export const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Helper to check policy constraints and match employee record
-  const verifyCompanyAuthPolicy = (userEmail: string, userPhone?: string, typedAsEmail: boolean = true) => {
-    const emp = MOCK_EMPLOYEES.find(e => 
-      e.email.toLowerCase() === userEmail.toLowerCase() || 
-      (userPhone && e.phone === userPhone)
-    );
 
-    if (emp) {
-      const company = MOCK_COMPANIES.find(c => c.name === emp.company);
-      if (company && company.authPolicy) {
-        if (company.authPolicy === 'email' && !typedAsEmail) {
-          throw new Error(`${company.name} policy requires Email & Google Auth only. Phone logins are disabled.`);
-        }
-        if (company.authPolicy === 'phone' && typedAsEmail) {
-          throw new Error(`${company.name} policy requires Phone Number & PIN only. Email logins are disabled.`);
-        }
-      }
-      return emp;
-    }
-    return null;
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,28 +26,20 @@ export const Login = () => {
     const cleanId = identifier.trim();
 
     try {
-      // 1. Check database / employee records for portal accounts
-      let matchedEmp = null;
-      if (isEmail) {
-        matchedEmp = verifyCompanyAuthPolicy(cleanId, undefined, true);
-      } else {
-        const empByPhone = MOCK_EMPLOYEES.find(emp => emp.phone === cleanId);
-        if (empByPhone) {
-          matchedEmp = verifyCompanyAuthPolicy(empByPhone.email, cleanId, false);
-        }
+      if (!password.trim()) {
+        throw new Error("Please enter your password or 6-digit PIN.");
       }
 
-      // If portal user matched, validate password/PIN entry and sign in
+      // 1. Authenticate user from Supabase database / local records
+      const matchedEmp = await authenticateUserInDb(cleanId, password);
+
       if (matchedEmp) {
-        if (!password.trim()) {
-          throw new Error("Please enter your password or 6-digit PIN.");
-        }
         setDemoProfile(matchedEmp as any);
         redirectUserByRole(matchedEmp.role);
         return;
       }
 
-      // 2. Perform Supabase Cloud Auth if not matched locally
+      // 2. Fallback to Supabase Auth if not matched in database users table
       try {
         const { data, error: signInError } = await supabase.auth.signInWithPassword(
           isEmail ? { email: cleanId, password } : { email: `${cleanId}@phone-placeholder.com`, password }
@@ -88,8 +60,10 @@ export const Login = () => {
           return;
         }
       } catch (supabaseErr) {
-        throw new Error("Invalid email/phone or password. Please check your credentials.");
+        throw new Error("Invalid email/phone or PIN. Please check your login credentials.");
       }
+
+      throw new Error("User record not found. Please check your registered phone or email.");
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
     } finally {

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, UserPlus, Loader2, DollarSign, Calendar, Compass, GraduationCap, Briefcase, Paperclip, Phone, Mail, Check, MessageSquare } from 'lucide-react';
 import type { Role, Nationality, User } from '../../types';
+import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 
 interface AddEmployeeModalProps {
   isOpen: boolean;
@@ -227,12 +228,15 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
 
   if (createdEmpInfo) {
     const isPhoneAuth = activeCompanyPolicy === 'phone' || (activeCompanyPolicy === 'both' && createdEmpInfo.phone);
-    const loginLink = window.location.origin;
-    const whatsappMessage = `Dear ${createdEmpInfo.name}, welcome to ${createdEmpInfo.company}!\n\nYour HR profile has been created. You can log in using:\n📱 Phone: ${createdEmpInfo.phone}\n🔑 PIN: ${createdEmpInfo.pin}\n\nAccess the application at:\n🔗 ${loginLink}`;
 
     const handleWhatsAppShare = () => {
-      const url = `https://wa.me/${createdEmpInfo.phone?.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(whatsappMessage)}`;
-      window.open(url, '_blank');
+      sendEmployeeWhatsAppInvite({
+        name: createdEmpInfo.name,
+        phone: createdEmpInfo.phone,
+        email: createdEmpInfo.email,
+        company: createdEmpInfo.company,
+        pin: createdEmpInfo.pin
+      });
     };
 
     const handleCloseAll = () => {
@@ -255,48 +259,47 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
           <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl p-4 text-left text-xs space-y-3 mb-6">
             <div>
               <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Access Method</span>
-              <span className="text-slate-900 dark:text-white font-bold">{isPhoneAuth ? 'Phone Number & Security PIN' : 'Google Auth Account'}</span>
+              <span className="text-slate-900 dark:text-white font-bold">{isPhoneAuth ? 'Phone Number & Security PIN' : 'Email & Security PIN / Google Auth'}</span>
             </div>
             
-            {isPhoneAuth ? (
-              <>
-                <div>
-                  <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Registered Phone</span>
-                  <span className="text-slate-900 dark:text-white font-mono font-bold text-sm">{createdEmpInfo.phone}</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">6-Digit Login PIN</span>
-                  <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold text-base tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block">{createdEmpInfo.pin}</span>
-                </div>
-              </>
-            ) : (
+            {createdEmpInfo.phone && (
               <div>
-                <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Email Address</span>
+                <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Registered Phone</span>
+                <span className="text-slate-900 dark:text-white font-mono font-bold text-sm">{createdEmpInfo.phone}</span>
+              </div>
+            )}
+
+            {createdEmpInfo.email && (
+              <div>
+                <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Registered Email</span>
                 <span className="text-slate-900 dark:text-white font-mono font-bold">{createdEmpInfo.email}</span>
               </div>
             )}
-            
+
             <div>
-              <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">PWA URL</span>
-              <span className="text-blue-600 dark:text-blue-400 font-mono break-all font-semibold">{loginLink}</span>
+              <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">6-Digit Security PIN</span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold text-base tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block">{createdEmpInfo.pin}</span>
+            </div>
+
+            <div>
+              <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">PWA Portal URL</span>
+              <span className="text-blue-600 dark:text-blue-400 font-mono break-all font-semibold">https://one.osangroupoman.com</span>
             </div>
           </div>
 
           <div className="space-y-3">
-            {isPhoneAuth && (
-              <button
-                type="button"
-                onClick={handleWhatsAppShare}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20 text-xs flex items-center justify-center gap-2"
-              >
-                <MessageSquare className="w-4 h-4" /> Send Invite via WhatsApp
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleWhatsAppShare}
+              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all shadow-lg shadow-emerald-600/20 text-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+            >
+              <MessageSquare className="w-4 h-4" /> Share Credentials via WhatsApp
+            </button>
 
             <button
               type="button"
               onClick={handleCloseAll}
-              className="w-full py-2.5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors mt-2"
+              className="w-full py-2.5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
             >
               Done & Close
             </button>

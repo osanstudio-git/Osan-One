@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, UserCircle2, Users } from 'lucide-react';
+import { Search, Filter, Download, UserCircle2, Users, MessageSquare } from 'lucide-react';
 import { AddEmployeeModal } from '../../components/hr/AddEmployeeModal';
 import type { UserStatus, User } from '../../types';
 import { getEmployees, createEmployeeInDb, getCompanies } from '../../lib/databaseService';
+import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 
 export function HrDirectory() {
   const navigate = useNavigate();
@@ -183,13 +184,29 @@ export function HrDirectory() {
                       {emp.status}
                     </span>
                   </td>
-                  <td className="p-4 pr-6">
-                    <button
-                      onClick={() => navigate(`/hr/employee/${emp.id}`)}
-                      className="text-xs font-bold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
-                    >
-                      Manage
-                    </button>
+                  <td className="p-4 pr-6 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        onClick={() => sendEmployeeWhatsAppInvite({
+                          name: emp.name,
+                          phone: emp.phone,
+                          email: emp.email,
+                          company: emp.company || 'Osan Group',
+                          pin: emp.pin || '123456'
+                        })}
+                        className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+                        title="Send Login Credentials via WhatsApp"
+                      >
+                        <MessageSquare className="w-4 h-4" />
+                      </button>
+
+                      <button
+                        onClick={() => navigate(`/hr/employee/${emp.id}`)}
+                        className="text-xs font-bold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                      >
+                        Manage
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

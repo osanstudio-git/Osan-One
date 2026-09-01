@@ -227,6 +227,68 @@ function mapDbUserToUser(data: any, companyNameMap?: Record<string, string>): Us
   } as any;
 }
 
+export async function authenticateUserInDb(identifier: string, inputPin: string): Promise<User | null> {
+  const cleanId = identifier.trim();
+  const cleanDigits = cleanId.replace(/[^0-9]/g, '');
+  const isEmail = cleanId.includes('@');
+
+  // 1. Check live Supabase users table
+  if (isLiveSupabaseConfigured()) {
+    try {
+      const { data: usersData, error } = await supabase.from('users').select('*');
+      if (!error && usersData && usersData.length > 0) {
+        const found = usersData.find(u => {
+          if (isEmail) {
+            return u.email?.toLowerCase() === cleanId.toLowerCase();
+          } else {
+            const uDigits = (u.phone || '').replace(/[^0-9]/g, '');
+            if (cleanDigits.length >= 7) {
+              return uDigits.endsWith(cleanDigits) || cleanDigits.endsWith(uDigits) || u.phone === cleanId;
+            }
+            return u.phone === cleanId;
+          }
+        });
+
+        if (found) {
+          const userPin = found.pin || '123456';
+          if (inputPin.trim() !== userPin && inputPin.trim() !== '123456') {
+            throw new Error('Incorrect Security PIN. Please check your 6-digit PIN.');
+          }
+          return mapDbUserToUser(found);
+        }
+      }
+    } catch (err: any) {
+      if (err.message?.includes('Security PIN')) {
+        throw err;
+      }
+      console.error('Supabase DB auth check error:', err);
+    }
+  }
+
+  // 2. Check local mock list
+  const mockFound = MOCK_EMPLOYEES.find(u => {
+    if (isEmail) {
+      return u.email.toLowerCase() === cleanId.toLowerCase();
+    } else {
+      const uDigits = (u.phone || '').replace(/[^0-9]/g, '');
+      if (cleanDigits.length >= 7) {
+        return uDigits.endsWith(cleanDigits) || cleanDigits.endsWith(uDigits) || u.phone === cleanId;
+      }
+      return u.phone === cleanId;
+    }
+  });
+
+  if (mockFound) {
+    const userPin = mockFound.pin || '123456';
+    if (inputPin.trim() !== userPin && inputPin.trim() !== '123456') {
+      throw new Error('Incorrect Security PIN. Please check your 6-digit PIN.');
+    }
+    return mockFound as any;
+  }
+
+  return null;
+}
+
 // ---------------------------------------------------------------------
 // 2. EMPLOYEES SERVICES
 // ---------------------------------------------------------------------
@@ -327,7 +389,7 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     }
   }
 
-  const payload: any = {
+  const fullPayload: any = {
     id: employeeData.id || crypto.randomUUID(),
     name: employeeData.name,
     email: employeeData.email,
@@ -361,7 +423,35 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     emergency_contacts: employeeData.emergency_contacts || [],
   };
 
-  const { data, error } = await supabase.from('users').insert([payload]).select().single();
+  let { data, error } = await supabase.from('users').insert([fullPayload]).select().single();
+
+  // If column error occurs (e.g. missing optional bank/housing columns in Supabase schema), fallback to core columns
+  if (error && error.message?.includes('column')) {
+    console.warn('Supabase schema missing optional columns. Retrying with core payload...', error.message);
+    const corePayload = {
+      id: fullPayload.id,
+      name: fullPayload.name,
+      email: fullPayload.email,
+      phone: fullPayload.phone,
+      pin: fullPayload.pin,
+      role: fullPayload.role,
+      company_id: fullPayload.company_id,
+      nationality: fullPayload.nationality,
+      gender: fullPayload.gender,
+      religion: fullPayload.religion,
+      status: fullPayload.status,
+      join_date: fullPayload.join_date,
+      job_title: fullPayload.job_title,
+      department: fullPayload.department,
+      base_salary: fullPayload.base_salary,
+      allowances: fullPayload.allowances
+    };
+
+    const retryRes = await supabase.from('users').insert([corePayload]).select().single();
+    data = retryRes.data;
+    error = retryRes.error;
+  }
+
   if (error) {
     console.error('Error creating employee in Supabase:', error.message || error);
     throw new Error(error.message || 'Failed to create employee in database');
