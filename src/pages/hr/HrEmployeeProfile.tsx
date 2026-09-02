@@ -529,16 +529,19 @@ export function HrEmployeeProfile() {
     let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday' = 'weekend';
     let clockInText = '--:--';
     let clockOutText = '--:--';
-    let hoursNum = 0;
+    let shiftDurationText = '0m';
+    let totalMinutesWorked = 0;
 
     if (publicHoliday) {
       status = 'holiday';
       clockInText = 'OFF (Paid)';
       clockOutText = 'OFF (Paid)';
+      shiftDurationText = 'Paid Holiday';
     } else if (realLeave) {
       status = 'leave';
       clockInText = `Leave (${realLeave.type || realLeave.leaveType || 'Approved'})`;
       clockOutText = `Leave (${realLeave.type || realLeave.leaveType || 'Approved'})`;
+      shiftDurationText = 'Approved Leave';
     } else if (realLog) {
       const rawStatus = (realLog.status || '').toLowerCase();
       if (rawStatus.includes('late')) {
@@ -559,33 +562,47 @@ export function HrEmployeeProfile() {
         clockOutText = outDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         if (realLog.clock_in_time) {
           const diffMs = new Date(realLog.clock_out_time).getTime() - new Date(realLog.clock_in_time).getTime();
-          hoursNum = Math.max(0, Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10);
+          totalMinutesWorked = Math.max(0, Math.floor(diffMs / (1000 * 60)));
+          const hrs = Math.floor(totalMinutesWorked / 60);
+          const mins = totalMinutesWorked % 60;
+          if (hrs > 0 && mins > 0) {
+            shiftDurationText = `${hrs}h ${mins}m`;
+          } else if (hrs > 0) {
+            shiftDurationText = `${hrs}h`;
+          } else {
+            shiftDurationText = `${mins}m`;
+          }
         } else {
-          hoursNum = 8;
+          shiftDurationText = '8h 0m';
+          totalMinutesWorked = 480;
         }
       } else {
         clockOutText = 'Active Shift';
-        hoursNum = 8;
+        shiftDurationText = 'Active Shift';
       }
     } else if (isWeekend) {
       status = 'weekend';
       clockInText = 'Weekend Off';
       clockOutText = 'Weekend Off';
+      shiftDurationText = 'Off';
     } else if (!isFuture) {
       const joinStr = employee?.join_date || '2024-01-01';
       if (dateStr < todayStr && dateStr >= joinStr) {
         status = 'absent';
         clockInText = 'No Punch Record';
         clockOutText = 'No Punch Record';
+        shiftDurationText = '0m';
       } else {
         status = 'weekend';
         clockInText = 'Not Checked In Yet';
         clockOutText = '--:--';
+        shiftDurationText = '--:--';
       }
     } else {
       status = 'weekend';
       clockInText = '--:--';
       clockOutText = '--:--';
+      shiftDurationText = '--:--';
     }
 
     return {
@@ -595,7 +612,8 @@ export function HrEmployeeProfile() {
       status,
       clockInText,
       clockOutText,
-      hoursNum,
+      shiftDurationText,
+      totalMinutesWorked,
       holidayName: publicHoliday?.name
     };
   });
@@ -722,9 +740,126 @@ export function HrEmployeeProfile() {
               <MessageSquare className="w-4 h-4" />
               Share Login (WhatsApp)
             </button>
-            <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white shadow-xs cursor-pointer">
+            <button
+              onClick={() => {
+                if (!employee) return;
+                const cleanNation = (raw?: string) => {
+                  if (!raw) return 'Oman';
+                  let cleaned = raw.trim();
+                  cleaned = cleaned.replace(/^Expat\s*[\(-]?\s*/i, '').replace(/\)$/, '').trim();
+                  if (cleaned.toLowerCase() === 'expat') return 'Expatriate';
+                  if (cleaned.toLowerCase() === 'omani') return 'Oman';
+                  return cleaned || 'Oman';
+                };
+
+                const nationName = cleanNation(employee.nationality);
+                const printWindow = window.open('', '_blank');
+                if (!printWindow) return;
+
+                printWindow.document.write(`
+                  <!DOCTYPE html>
+                  <html>
+                  <head>
+                    <title>${employee.name} - Employee Profile PDF</title>
+                    <style>
+                      body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }
+                      .header { display: flex; justify-content: space-between; align-items: center; border-b: 3px solid #10b981; padding-bottom: 16px; margin-bottom: 24px; }
+                      .title { font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; }
+                      .subtitle { font-size: 12px; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 1px; }
+                      .section { margin-bottom: 24px; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px 20px; background: #f8fafc; }
+                      .section-title { font-size: 14px; font-weight: 800; color: #0f172a; border-b: 1px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 12px; text-transform: uppercase; }
+                      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; }
+                      .label { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; display: block; margin-bottom: 2px; }
+                      .value { font-weight: 600; color: #0f172a; }
+                      .footer { margin-top: 40px; border-t: 1px dashed #cbd5e1; pt: 20px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; }
+                      .stamp-box { border: 2px dashed #cbd5e1; padding: 20px; text-align: center; border-radius: 8px; font-weight: 700; color: #94a3b8; margin-top: 24px; }
+                      @media print {
+                        body { padding: 0; }
+                        .no-print { display: none; }
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="header">
+                      <div>
+                        <h1 class="title">${employee.name}</h1>
+                        <div class="subtitle">${employee.job_title || employee.role} &bull; ${employee.company || 'OSAN GROUP'}</div>
+                      </div>
+                      <div style="text-align: right;">
+                        <div style="font-size: 18px; font-weight: 900; color: #10b981;">OSAN GROUP</div>
+                        <div style="font-size: 11px; color: #64748b;">OFFICIAL HR DOSSIER FILE</div>
+                      </div>
+                    </div>
+
+                    <div class="section">
+                      <div class="section-title">1. Personal Information</div>
+                      <div class="grid">
+                        <div><span class="label">Full Legal Name</span><span class="value">${employee.name}</span></div>
+                        <div><span class="label">Nationality</span><span class="value">${nationName}</span></div>
+                        <div><span class="label">Gender Identification</span><span class="value">${employee.gender}</span></div>
+                        <div><span class="label">Religion</span><span class="value">${employee.religion || 'Not Specified'}</span></div>
+                        <div><span class="label">Phone Contact</span><span class="value">${employee.phone || 'N/A'}</span></div>
+                        <div><span class="label">Email Address</span><span class="value">${employee.email}</span></div>
+                      </div>
+                    </div>
+
+                    <div class="section">
+                      <div class="section-title">2. Employment & Role</div>
+                      <div class="grid">
+                        <div><span class="label">Company</span><span class="value">${employee.company || 'OSAN GROUP'}</span></div>
+                        <div><span class="label">Department</span><span class="value">${employee.department || 'Operations'}</span></div>
+                        <div><span class="label">Job Title</span><span class="value">${employee.job_title || employee.role}</span></div>
+                        <div><span class="label">Join Date</span><span class="value">${employee.join_date || 'N/A'}</span></div>
+                        <div><span class="label">Employment Status</span><span class="value">${employee.status}</span></div>
+                        <div><span class="label">Security PIN</span><span class="value">${employee.pin || '123456'}</span></div>
+                      </div>
+                    </div>
+
+                    <div class="section">
+                      <div class="section-title">3. WPS Banking Details</div>
+                      <div class="grid">
+                        <div><span class="label">Bank Name</span><span class="value">${employee.bank_name || 'Not Configured'}</span></div>
+                        <div><span class="label">Account Number</span><span class="value">${employee.account_number || 'Not Configured'}</span></div>
+                        <div><span class="label">IBAN</span><span class="value">${employee.iban || 'Not Configured'}</span></div>
+                        <div><span class="label">SWIFT Code</span><span class="value">${employee.swift_code || 'Not Configured'}</span></div>
+                      </div>
+                    </div>
+
+                    <div class="section">
+                      <div class="section-title">4. Accommodation & Housing</div>
+                      <div class="grid">
+                        <div><span class="label">Housing Status</span><span class="value">${employee.housing_status || 'Lives with Family'}</span></div>
+                        ${employee.housing_status === 'Company Accommodation' ? `
+                          <div><span class="label">Building Name</span><span class="value">${employee.accommodation_details?.building_name || 'N/A'}</span></div>
+                          <div><span class="label">Address</span><span class="value">${employee.accommodation_details?.building_address || 'N/A'}</span></div>
+                          <div><span class="label">Room Number</span><span class="value">${employee.accommodation_details?.room_number || 'N/A'}</span></div>
+                        ` : ''}
+                      </div>
+                    </div>
+
+                    <div class="stamp-box">
+                      OFFICIAL OSAN GROUP HR STAMP & SIGNATURE
+                    </div>
+
+                    <div class="footer">
+                      <div>Generated on: ${new Date().toLocaleString()}</div>
+                      <div>Document Ref: OSAN-HR-${employee.id.substring(0, 8).toUpperCase()}</div>
+                    </div>
+
+                    <script>
+                      window.onload = function() {
+                        window.print();
+                      };
+                    </script>
+                  </body>
+                  </html>
+                `);
+                printWindow.document.close();
+              }}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white shadow-xs cursor-pointer active:scale-95"
+            >
               <Download className="w-4 h-4" />
-              Export Dossier
+              Export PDF Profile
             </button>
             <button
               onClick={() => setIsManageModalOpen(true)}
@@ -793,8 +928,10 @@ export function HrEmployeeProfile() {
                   <span className="text-slate-900 dark:text-white font-semibold">{employee.name}</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Nationality Category</span>
-                  <span className="text-slate-900 dark:text-white font-semibold">{employee.nationality}</span>
+                  <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Nationality</span>
+                  <span className="text-slate-900 dark:text-white font-semibold">
+                    {employee.nationality?.replace(/^Expat\s*[\(-]?\s*/i, '').replace(/\)$/, '').replace(/^Omani$/i, 'Oman') || 'Oman'}
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Gender Identification</span>
@@ -1582,8 +1719,8 @@ export function HrEmployeeProfile() {
                               <td className="p-4 font-mono text-slate-600 dark:text-gray-300">
                                 {log.clockOutText}
                               </td>
-                              <td className="p-4 text-slate-600 dark:text-gray-300 font-semibold">
-                                {log.status === 'holiday' ? 'Paid Holiday' : log.status === 'leave' ? 'Approved Leave' : log.hoursNum > 0 ? `${log.hoursNum}h` : '0h'}
+                              <td className="p-4 text-slate-600 dark:text-gray-300 font-semibold font-mono">
+                                {log.shiftDurationText}
                               </td>
                               <td className="p-4 pr-6 text-right">
                                 <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
