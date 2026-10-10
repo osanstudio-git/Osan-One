@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { Building2, Users, LayoutGrid, List, Shield, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import { CompanyFormModal } from '../../components/hr/CompanyFormModal';
 import type { CompanyData } from './mockData';
-import { getCompanies, createCompany, deleteCompanyFromDb } from '../../lib/databaseService';
+import { getCompanies, getEmployees, createCompany, deleteCompanyFromDb } from '../../lib/databaseService';
+import type { User, Company } from '../../types';
 
 interface ThemeConfig {
   bgGrad: string;
@@ -27,14 +28,14 @@ export function HrCompanies() {
 
       // Calculate staff counts per company (matching by company_id UUID or company name)
       const countMap: Record<string, number> = {};
-      employeesData.forEach(emp => {
+      employeesData.forEach((emp: User) => {
         const compIdentifier = emp.company_id || emp.company;
         if (compIdentifier) {
           countMap[compIdentifier] = (countMap[compIdentifier] || 0) + 1;
         }
       });
 
-      const mapped: CompanyData[] = companiesData.map(c => ({
+      const mapped: CompanyData[] = companiesData.map((c: Company) => ({
         id: c.id,
         name: c.name,
         count: countMap[c.id] || countMap[c.name] || 0,
