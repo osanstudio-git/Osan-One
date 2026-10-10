@@ -20,11 +20,24 @@ export function HrCompanies() {
 
   const loadCompanies = async () => {
     try {
-      const data = await getCompanies();
-      const mapped: CompanyData[] = data.map(c => ({
+      const [companiesData, employeesData] = await Promise.all([
+        getCompanies(),
+        getEmployees()
+      ]);
+
+      // Calculate staff counts per company (matching by company_id UUID or company name)
+      const countMap: Record<string, number> = {};
+      employeesData.forEach(emp => {
+        const compIdentifier = emp.company_id || emp.company;
+        if (compIdentifier) {
+          countMap[compIdentifier] = (countMap[compIdentifier] || 0) + 1;
+        }
+      });
+
+      const mapped: CompanyData[] = companiesData.map(c => ({
         id: c.id,
         name: c.name,
-        count: 0,
+        count: countMap[c.id] || countMap[c.name] || 0,
         authPolicy: c.auth_policy,
         omaniShiftStart: c.omani_shift_start,
         omaniShiftEnd: c.omani_shift_end,
@@ -87,29 +100,29 @@ export function HrCompanies() {
   const getThemeConfig = (company: CompanyData): ThemeConfig => {
     const themeMap: Record<string, ThemeConfig> = {
       emerald: {
-        bgGrad: 'from-emerald-500/30 to-teal-500/30 dark:from-emerald-500/20 dark:to-teal-500/20',
+        bgGrad: 'from-emerald-500/15 via-teal-500/10 to-emerald-500/5 dark:from-emerald-500/20 dark:to-teal-500/20',
         borderColor: 'border-emerald-500',
-        textColor: 'text-emerald-700 dark:text-emerald-400',
+        textColor: 'text-emerald-800 dark:text-emerald-400',
       },
       blue: {
-        bgGrad: 'from-blue-500/30 to-cyan-500/30 dark:from-blue-500/20 dark:to-cyan-500/20',
+        bgGrad: 'from-blue-500/15 via-indigo-500/10 to-cyan-500/5 dark:from-blue-500/20 dark:to-cyan-500/20',
         borderColor: 'border-blue-500',
-        textColor: 'text-blue-700 dark:text-blue-400',
+        textColor: 'text-blue-800 dark:text-blue-400',
       },
       amber: {
-        bgGrad: 'from-amber-500/30 to-orange-500/30 dark:from-amber-500/20 dark:to-orange-500/20',
+        bgGrad: 'from-amber-500/15 via-orange-500/10 to-amber-500/5 dark:from-amber-500/20 dark:to-orange-500/20',
         borderColor: 'border-amber-500',
-        textColor: 'text-amber-700 dark:text-amber-400',
+        textColor: 'text-amber-800 dark:text-amber-400',
       },
       rose: {
-        bgGrad: 'from-rose-500/30 to-pink-500/30 dark:from-rose-500/20 dark:to-pink-500/20',
+        bgGrad: 'from-rose-500/15 via-pink-500/10 to-rose-500/5 dark:from-rose-500/20 dark:to-pink-500/20',
         borderColor: 'border-rose-500',
-        textColor: 'text-rose-700 dark:text-rose-400',
+        textColor: 'text-rose-800 dark:text-rose-400',
       },
       indigo: {
-        bgGrad: 'from-indigo-500/30 to-purple-500/30 dark:from-indigo-500/20 dark:to-purple-500/20',
+        bgGrad: 'from-indigo-500/15 via-purple-500/10 to-indigo-500/5 dark:from-indigo-500/20 dark:to-purple-500/20',
         borderColor: 'border-indigo-500',
-        textColor: 'text-indigo-700 dark:text-indigo-400',
+        textColor: 'text-indigo-800 dark:text-indigo-400',
       },
     };
 
@@ -138,7 +151,7 @@ export function HrCompanies() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Corporate Entities</h2>
-          <p className="text-sm text-slate-500 dark:text-gray-400">Manage all subsidiary companies and branch locations.</p>
+          <p className="text-sm text-slate-600 dark:text-gray-400 font-medium">Manage all subsidiary companies and branch locations.</p>
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
@@ -148,7 +161,7 @@ export function HrCompanies() {
               className={`p-2 rounded-lg transition-colors cursor-pointer ${
                 viewMode === 'grid'
                   ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
               }`}
               title="Grid View"
             >
@@ -159,7 +172,7 @@ export function HrCompanies() {
               className={`p-2 rounded-lg transition-colors cursor-pointer ${
                 viewMode === 'list'
                   ? 'bg-primary text-white shadow-sm'
-                  : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
               }`}
               title="List View"
             >
@@ -184,10 +197,10 @@ export function HrCompanies() {
             return (
               <div 
                 key={company.id || company.name} 
-                className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none overflow-hidden group hover:border-slate-300 dark:hover:border-white/20 transition-all hover:-translate-y-1"
+                className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md dark:shadow-none overflow-hidden group hover:border-slate-300 dark:hover:border-white/20 transition-all hover:-translate-y-1"
               >
-                <div className={`h-14 bg-gradient-to-br ${theme.bgGrad} relative flex items-center justify-end px-3`}>
-                  <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-lg p-1 shadow-xs border border-slate-200/50 dark:border-white/10">
+                <div className={`h-16 bg-gradient-to-br ${theme.bgGrad} relative flex items-center justify-end px-3 border-b border-slate-100/60 dark:border-transparent`}>
+                  <div className="flex items-center gap-1 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-lg p-1 shadow-xs border border-slate-200/80 dark:border-white/10">
                     <button
                       onClick={() => openEditModal(company)}
                       className="p-1 text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white rounded-md hover:bg-slate-100 dark:hover:bg-white/20 transition-colors cursor-pointer"
@@ -205,8 +218,8 @@ export function HrCompanies() {
                   </div>
                 </div>
 
-                <div className="px-4 pb-4 pt-0 relative">
-                  <div className={`w-12 h-12 -mt-6 mb-3 rounded-xl bg-white dark:bg-slate-900 border-2 ${theme.borderColor} flex items-center justify-center text-sm font-black ${theme.textColor} shadow-md overflow-hidden p-1`}>
+                <div className="px-5 pb-5 pt-0 relative">
+                  <div className={`w-14 h-14 -mt-7 mb-3 rounded-2xl bg-white dark:bg-slate-900 border-2 ${theme.borderColor} flex items-center justify-center text-sm font-black ${theme.textColor} shadow-md overflow-hidden p-1.5`}>
                     {hasValidCustomLogo(company.logoUrl) ? (
                       <img 
                         src={company.logoUrl} 
@@ -221,8 +234,8 @@ export function HrCompanies() {
                     )}
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-0.5 truncate" title={company.name}>{company.name}</h3>
-                  <div className="flex items-center gap-1.5 text-[10px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-0.5 rounded-full text-slate-700 dark:text-gray-300 w-max mb-3 font-bold">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white mb-1 truncate" title={company.name}>{company.name}</h3>
+                  <div className="flex items-center gap-1.5 text-[11px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-0.5 rounded-full text-slate-700 dark:text-gray-300 w-max mb-3 font-semibold">
                     <Shield className="w-3 h-3 text-primary" />
                     <span>{getPolicyLabel(company.authPolicy)}</span>
                   </div>
@@ -231,24 +244,24 @@ export function HrCompanies() {
                   </p>
 
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-white/5 px-2.5 py-1.5 rounded-lg border border-slate-200/60 dark:border-transparent">
-                      <Users className={`w-3.5 h-3.5 ${theme.textColor}`} />
+                    <div className="flex items-center gap-2.5 bg-slate-50 dark:bg-white/5 px-3 py-1.5 rounded-xl border border-slate-200/80 dark:border-transparent">
+                      <Users className={`w-4 h-4 ${theme.textColor}`} />
                       <div>
                         <div className="text-[10px] text-slate-500 dark:text-gray-400 leading-none mb-0.5 font-bold uppercase tracking-wider">Staff</div>
-                        <div className="font-extrabold text-slate-900 dark:text-white text-xs leading-none">{company.count}</div>
+                        <div className="font-black text-slate-900 dark:text-white text-xs leading-none">{company.count}</div>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => openEditModal(company)}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                       >
                         <Pencil className="w-3 h-3" /> Edit
                       </button>
                       <button
                         onClick={() => setDeletingCompany(company)}
-                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-lg hover:bg-red-500/10 transition-colors cursor-pointer"
+                        className="p-1.5 text-slate-400 hover:text-red-500 rounded-xl hover:bg-red-500/10 transition-colors cursor-pointer"
                         title="Delete Company"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
