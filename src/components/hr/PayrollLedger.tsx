@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Building2, Edit3, Save } from 'lucide-react';
+import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Edit3, Save } from 'lucide-react';
 import { MOCK_EXCEPTIONS } from '../../pages/hr/mockData';
 import { 
   getEmployees, 
@@ -125,6 +125,7 @@ export function PayrollLedger() {
         probationFirstMonth,
         deductionAnnualLeave,
         totalDeductions,
+        deductionValue: totalDeductions,
         overtimeAmount,
         netPay,
         totalPaid,
@@ -217,7 +218,7 @@ export function PayrollLedger() {
   const handleExportCSV = () => {
     let csvContent = "Name,Company,Role,Nationality,Gender,Days Worked,Base Salary,Late Count,Unpaid Leave Deductions,Estimated Deduction,Net Pay,Total Paid,Balance,Status\n";
     filteredData.forEach(row => {
-      csvContent += `${row.name},${row.company},${row.role},${row.nationality},${row.gender},${row.daysWorked},${row.baseSalary},${row.lateCount},${row.unpaidLeave},${row.deductionValue},${row.netPay},${row.totalPaid},${row.balance},${row.status}\n`;
+      csvContent += `${row.name},${row.company},${row.role},${row.nationality},${row.gender},${row.daysWorked},${row.baseSalary},${row.lateCount},${row.unpaidLeave},${row.totalDeductions},${row.netPay},${row.totalPaid},${row.balance},${row.status}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -403,8 +404,8 @@ export function PayrollLedger() {
                     <td className="p-4">
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-bold text-slate-900 dark:text-white">OMR {row.baseSalary} <span className="text-xs text-slate-400 dark:text-gray-500 font-normal">Base</span></span>
-                        {row.deductionValue > 0 && (
-                          <span className="text-xs font-bold text-red-600 dark:text-red-400">-OMR {row.deductionValue} <span className="text-slate-400 dark:text-gray-500 font-normal">Deduct</span></span>
+                        {row.totalDeductions > 0 && (
+                          <span className="text-xs font-bold text-red-600 dark:text-red-400">-OMR {row.totalDeductions} <span className="text-slate-400 dark:text-gray-500 font-normal">Deduct</span></span>
                         )}
                       </div>
                     </td>
