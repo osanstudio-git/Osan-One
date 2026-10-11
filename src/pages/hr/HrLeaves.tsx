@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { LayoutGrid, List, CheckCircle2, XCircle, Clock, Search, Calendar, Plus, Trash2, Globe, Check, X } from 'lucide-react';
 import { getLeaveRequestsFromDb, updateLeaveRequestStatusInDb } from '../../lib/databaseService';
 import { getPublicHolidays, addPublicHoliday, deletePublicHoliday, type PublicHoliday } from '../../lib/holidayService';
+import { supabase } from '../../lib/supabase';
 
 export function HrLeaves() {
   const [leaves, setLeaves] = useState<any[]>([]);
@@ -37,6 +38,18 @@ export function HrLeaves() {
   useEffect(() => {
     loadLeaves();
     setHolidays(getPublicHolidays());
+
+    // Subscribe to live leave requests via Supabase Realtime
+    const channel = supabase
+      .channel('hr-leaves-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
+        loadLeaves();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleAddHoliday = (e: React.FormEvent) => {

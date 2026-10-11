@@ -45,3 +45,52 @@ If you have any questions, please contact HR.`;
 
   window.open(whatsappUrl, '_blank');
 }
+
+export interface DocumentExpiryWhatsAppNotice {
+  employeeName: string;
+  phone?: string;
+  companyName: string;
+  documentName: string;
+  documentType: string;
+  expiryDate: string;
+  daysRemaining: number;
+}
+
+export function sendDocumentExpiryWhatsAppNotice(notice: DocumentExpiryWhatsAppNotice) {
+  const phoneRaw = notice.phone || '';
+  const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
+  
+  let formattedPhone = digitsOnly;
+  if (digitsOnly.length === 8) {
+    formattedPhone = `968${digitsOnly}`;
+  }
+
+  const isExpired = notice.daysRemaining < 0;
+  const statusLine = isExpired 
+    ? `⚠️ *STATUS: EXPIRED* (Expired ${Math.abs(notice.daysRemaining)} days ago)` 
+    : `⏳ *EXPIRING SOON* (Only ${notice.daysRemaining} days remaining)`;
+
+  const messageText = 
+`*Osan Group HR — Document Compliance Notice* 📄
+
+Dear *${notice.employeeName}*,
+
+This is an official document renewal notice from *${notice.companyName}* HR Department.
+
+📌 *Document:* ${notice.documentName} (${notice.documentType})
+📅 *Expiry Date:* ${new Date(notice.expiryDate).toLocaleDateString('en-GB')}
+${statusLine}
+
+⚠️ *Action Required:*
+Please submit your renewed official document or passport copy to the HR department as soon as possible to avoid fines or visa delays under Ministry of Labour regulations.
+
+Thank you,
+*Osan Group HR Department*`;
+
+  const encodedText = encodeURIComponent(messageText);
+  const whatsappUrl = formattedPhone 
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
+
+  window.open(whatsappUrl, '_blank');
+}

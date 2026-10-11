@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LayoutGrid, List, CheckCircle2, ShieldAlert, Check, X, Filter } from 'lucide-react';
 import { getAttendanceExceptionsFromDb, resolveAttendanceExceptionInDb } from '../../lib/databaseService';
+import { supabase } from '../../lib/supabase';
 
 export function HrExceptions() {
   const [exceptions, setExceptions] = useState<any[]>([]);
@@ -22,6 +23,18 @@ export function HrExceptions() {
 
   useEffect(() => {
     loadExceptions();
+
+    // Subscribe to live attendance logs and exceptions changes via Supabase Realtime
+    const channel = supabase
+      .channel('hr-exceptions-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
+        loadExceptions();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleResolve = async (id: string, action: 'Deduct' | 'Forgive') => {

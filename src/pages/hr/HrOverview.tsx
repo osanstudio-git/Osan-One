@@ -7,6 +7,7 @@ import {
 import { Users, Building2, CalendarX, AlertCircle, Activity, CheckCircle2 } from 'lucide-react';
 import { DocumentComplianceWidget } from '../../components/hr/DocumentComplianceWidget';
 import { getEmployees, getCompanies, getLeaveRequestsFromDb, getAttendanceExceptionsFromDb } from '../../lib/databaseService';
+import { supabase } from '../../lib/supabase';
 import type { User, Company } from '../../types';
 
 // Attendance trend template
@@ -46,7 +47,7 @@ export function HrOverview() {
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [exceptions, setExceptions] = useState<any[]>([]);
 
-  useEffect(() => {
+  const loadData = () => {
     Promise.all([
       getEmployees(),
       getCompanies(),
@@ -58,6 +59,28 @@ export function HrOverview() {
       setLeaveRequests(leaveData);
       setExceptions(excData);
     }).catch(err => console.error('Failed to load HR overview data:', err));
+  };
+
+  useEffect(() => {
+    loadData();
+
+    // Subscribe to live database changes via Supabase Realtime
+    const channel = supabase
+      .channel('hr-overview-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Compute live demographics from real employees array

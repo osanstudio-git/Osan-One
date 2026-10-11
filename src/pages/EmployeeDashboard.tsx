@@ -5,12 +5,12 @@ import { LeaveModal } from '../components/employee/LeaveModal';
 import { PipWindow } from '../components/pwa/PipWindow';
 import { CompactWidget } from '../components/employee/CompactWidget';
 import { ThemeToggle } from '../components/common/ThemeToggle';
-import { Calendar, Clock, LogOut, CheckCircle2, History } from 'lucide-react';
+import { Calendar, Clock, LogOut, CheckCircle2, History, Coffee, Play, AlertTriangle } from 'lucide-react';
 import { getCompanySettings, calculateDistance, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
-import { recordPunchInDb, getTodayAttendanceLogFromDb } from '../lib/databaseService';
+import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb } from '../lib/databaseService';
 
 interface WorkSession {
   id: string;
@@ -30,6 +30,11 @@ export function EmployeeDashboard() {
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [firstCheckInTime, setFirstCheckInTime] = useState<Date | null>(null);
   const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
+
+  // Break state
+  const [isOnBreak, setIsOnBreak] = useState(false);
+  const [breakStartTime, setBreakStartTime] = useState<Date | null>(null);
+  const [breakDurationMinutes, setBreakDurationMinutes] = useState(0);
 
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const [now, setNow] = useState(new Date());
@@ -52,6 +57,10 @@ export function EmployeeDashboard() {
             setIsCheckedIn(true);
             setCurrentSessionStart(inDate);
             setFirstCheckInTime(inDate);
+            if (parsed.isOnBreak && parsed.breakStartTime) {
+              setIsOnBreak(true);
+              setBreakStartTime(new Date(parsed.breakStartTime));
+            }
           }
         }
       } catch (e) {
@@ -67,9 +76,16 @@ export function EmployeeDashboard() {
           setIsCheckedIn(true);
           setCurrentSessionStart(inDate);
           localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: true, checkInTime: log.clock_in_time }));
+          
+          if (log.break_start_time && !log.break_end_time) {
+            const bDate = new Date(log.break_start_time);
+            setIsOnBreak(true);
+            setBreakStartTime(bDate);
+          }
         } else {
           const outDate = new Date(log.clock_out_time);
           setIsCheckedIn(false);
+          setIsOnBreak(false);
           setCurrentSessionStart(null);
           setSessions([{
             id: 'today-log',
@@ -99,6 +115,21 @@ export function EmployeeDashboard() {
     return () => clearInterval(timer);
   }, []);
 
+  // Update break duration live timer
+  useEffect(() => {
+    if (!isOnBreak || !breakStartTime) {
+      setBreakDurationMinutes(0);
+      return;
+    }
+    const updateBreak = () => {
+      const diffMs = new Date().getTime() - breakStartTime.getTime();
+      setBreakDurationMinutes(Math.floor(diffMs / 60000));
+    };
+    updateBreak();
+    const interval = setInterval(updateBreak, 10000);
+    return () => clearInterval(interval);
+  }, [isOnBreak, breakStartTime]);
+
   // Update current active session elapsed time
   useEffect(() => {
     if (!isCheckedIn || !currentSessionStart) {
@@ -121,6 +152,29 @@ export function EmployeeDashboard() {
 
     return () => clearInterval(interval);
   }, [isCheckedIn, currentSessionStart]);
+
+  // Check for employee's own expiring or expired documents (<= 30 days)
+  const expiringDocuments = useMemo(() => {
+    if (!profile?.documents || !Array.isArray(profile.documents)) return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return profile.documents.map(doc => {
+      if (!doc.expiryDate) return null;
+      const expDate = new Date(doc.expiryDate);
+      expDate.setHours(0, 0, 0, 0);
+      const diffTime = expDate.getTime() - today.getTime();
+      const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (daysRemaining <= 30) {
+        return {
+          ...doc,
+          daysRemaining
+        };
+      }
+      return null;
+    }).filter(Boolean) as Array<any>;
+  }, [profile?.documents]);
 
   // Cumulative worked milliseconds (Completed sessions + active session)
   const cumulativeWorkedMs = useMemo(() => {
@@ -235,6 +289,8 @@ export function EmployeeDashboard() {
       }
       setCurrentSessionStart(null);
       setIsCheckedIn(false);
+      setIsOnBreak(false);
+      setBreakStartTime(null);
       if (profile?.id) {
         localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: false }));
         recordPunchInDb(profile.id, 'clock_out', nowTime, profile.company_id).catch(console.error);
@@ -242,9 +298,49 @@ export function EmployeeDashboard() {
     }
   };
 
+  const handleToggleBreak = async () => {
+    if (!profile?.id || !isCheckedIn) return;
+
+    const nowTime = new Date();
+    if (!isOnBreak) {
+      // Start break
+      setIsOnBreak(true);
+      setBreakStartTime(nowTime);
+      localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({
+        isCheckedIn: true,
+        checkInTime: currentSessionStart?.toISOString(),
+        isOnBreak: true,
+        breakStartTime: nowTime.toISOString()
+      }));
+      await recordPunchInDb(profile.id, 'break_start', nowTime, profile.company_id);
+    } else {
+      // End break
+      setIsOnBreak(false);
+      setBreakStartTime(null);
+      localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({
+        isCheckedIn: true,
+        checkInTime: currentSessionStart?.toISOString(),
+        isOnBreak: false
+      }));
+      await recordPunchInDb(profile.id, 'break_end', nowTime, profile.company_id);
+    }
+  };
+
   const handleLeaveSubmit = async (data: any) => {
-    console.log("Submitting leave request:", data);
-    await new Promise(r => setTimeout(r, 1000));
+    if (!profile?.id) return;
+    try {
+      await createLeaveRequestInDb({
+        userId: profile.id,
+        leaveType: data.leaveType,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        durationDays: data.durationDays || 1,
+      });
+      alert('Leave request submitted successfully! Pending HR approval.');
+    } catch (err) {
+      console.error('Failed to submit leave request:', err);
+      alert('Failed to submit leave request. Please try again.');
+    }
   };
 
   const [isPipActive, setIsPipActive] = useState(false);
@@ -325,10 +421,47 @@ export function EmployeeDashboard() {
           disabledMessage={disabledMessage}
         />
 
+        {/* BREAK ACTION BUTTON & WARNING INDICATOR */}
+        {isCheckedIn && (
+          <div className="mt-5 flex flex-col items-center gap-2">
+            <button
+              onClick={handleToggleBreak}
+              className={`px-5 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2 transition-all shadow-md cursor-pointer ${
+                isOnBreak
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 animate-pulse'
+                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-amber-500 text-slate-800 dark:text-white hover:text-amber-500'
+              }`}
+            >
+              {isOnBreak ? (
+                <>
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>Resume Work (Break: {breakDurationMinutes}m)</span>
+                </>
+              ) : (
+                <>
+                  <Coffee className="w-4 h-4 text-amber-500" />
+                  <span>Take Break (60m Standard)</span>
+                </>
+              )}
+            </button>
+
+            {isOnBreak && (
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                <AlertTriangle className="w-3.5 h-3.5" />
+                <span>
+                  {breakDurationMinutes > 75 
+                    ? '⚠️ Over-Break Warning (>75m Grace Period Exceeded)!'
+                    : `Active Break: ${breakDurationMinutes} mins used (Standard: 60m)`}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Small text check-in time display */}
         {isCheckedIn && currentSessionStart && (
-          <div className="mt-6 flex flex-col items-center gap-1">
-            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-6 py-2.5 rounded-full font-bold shadow-lg shadow-emerald-500/5 text-sm">
+          <div className="mt-5 flex flex-col items-center gap-1">
+            <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-6 py-2 rounded-full font-bold shadow-lg shadow-emerald-500/5 text-sm">
               <Clock className="w-4 h-4" />
               <span>Active Session • {elapsedTime}</span>
             </div>
@@ -412,6 +545,44 @@ export function EmployeeDashboard() {
           </button>
         </div>
       </div>
+
+      {/* DOCUMENT EXPIRATION ALERT BANNER */}
+      {expiringDocuments.length > 0 && (
+        <div className="w-full max-w-4xl mb-6 space-y-2">
+          {expiringDocuments.map((doc, idx) => {
+            const isExpired = doc.daysRemaining < 0;
+            return (
+              <div
+                key={doc.id || idx}
+                className={`p-4 rounded-2xl border flex items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
+                  isExpired
+                    ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/50 text-red-900 dark:text-red-200'
+                    : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-xl shrink-0 ${isExpired ? 'bg-red-500/20 text-red-600 dark:text-red-400' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'}`}>
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div className="text-xs">
+                    <p className="font-extrabold text-sm">
+                      {isExpired ? 'Action Required: Document Expired' : 'Document Renewal Notice'}
+                    </p>
+                    <p className="opacity-90 mt-0.5">
+                      Your <strong>{doc.name}</strong> ({doc.type || 'Official ID'}) {isExpired ? `expired ${Math.abs(doc.daysRemaining)} days ago` : `will expire in ${doc.daysRemaining} days`} on <strong>{new Date(doc.expiryDate).toLocaleDateString('en-GB')}</strong>.
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider ${isExpired ? 'bg-red-600 text-white' : 'bg-amber-600 text-white'}`}>
+                    {isExpired ? 'Expired' : `${doc.daysRemaining}d Left`}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col items-center justify-center w-full">
         {isPipActive ? (

@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { AlertCircle, Clock, FileCheck, RefreshCw } from 'lucide-react';
+import { AlertCircle, Clock, FileCheck, RefreshCw, MessageSquare } from 'lucide-react';
 import type { User } from '../../types';
 import { DocumentRenewalModal } from './DocumentRenewalModal';
+import { sendDocumentExpiryWhatsAppNotice } from '../../lib/whatsappService';
 
 interface ComplianceItem {
   employeeId: string;
   employeeName: string;
+  employeePhone?: string;
   employeeCompany: string;
   documentId: string;
   documentName: string;
@@ -57,6 +59,7 @@ export function DocumentComplianceWidget({ employees, onEmployeeUpdate }: Docume
           items.push({
             employeeId: emp.id,
             employeeName: emp.name,
+            employeePhone: emp.phone,
             employeeCompany: emp.company || emp.company_id || 'Company',
             documentId: doc.id,
             documentName: doc.name,
@@ -210,7 +213,7 @@ export function DocumentComplianceWidget({ employees, onEmployeeUpdate }: Docume
               </div>
 
               {/* Status Badge & Action */}
-              <div className="flex items-center gap-4 self-end md:self-center">
+              <div className="flex items-center gap-3 self-end md:self-center">
                 <div className="text-right">
                   <span className="text-slate-500 dark:text-gray-400 text-[10px] block font-medium">Expiry Date: {item.expiryDate}</span>
                   <span className={`text-xs font-bold ${item.daysRemaining < 0 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
@@ -220,22 +223,41 @@ export function DocumentComplianceWidget({ employees, onEmployeeUpdate }: Docume
                   </span>
                 </div>
 
-                <button
-                  onClick={() => setRenewalTarget({
-                    employeeName: item.employeeName,
-                    employeeId: item.employeeId,
-                    documentItem: {
-                      id: item.documentId,
-                      name: item.documentName,
-                      type: item.documentType,
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => sendDocumentExpiryWhatsAppNotice({
+                      employeeName: item.employeeName,
+                      phone: item.employeePhone,
+                      companyName: item.employeeCompany,
+                      documentName: item.documentName,
+                      documentType: item.documentType,
                       expiryDate: item.expiryDate,
-                      number: item.documentNumber
-                    }
-                  })}
-                  className="px-3.5 py-2 bg-primary hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all flex items-center gap-1.5 shrink-0"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" /> Renew Now
-                </button>
+                      daysRemaining: item.daysRemaining
+                    })}
+                    className="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shrink-0 cursor-pointer shadow-xs"
+                    title="Send WhatsApp Expiry Reminder"
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    <span>WhatsApp</span>
+                  </button>
+
+                  <button
+                    onClick={() => setRenewalTarget({
+                      employeeName: item.employeeName,
+                      employeeId: item.employeeId,
+                      documentItem: {
+                        id: item.documentId,
+                        name: item.documentName,
+                        type: item.documentType,
+                        expiryDate: item.expiryDate,
+                        number: item.documentNumber
+                      }
+                    })}
+                    className="px-3.5 py-2 bg-primary hover:bg-emerald-600 text-white font-bold text-xs rounded-xl shadow-md shadow-primary/20 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" /> Renew Now
+                  </button>
+                </div>
               </div>
             </div>
           ))

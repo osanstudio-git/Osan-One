@@ -735,6 +735,66 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
   }
 }
 
+export async function createLeaveRequestInDb(request: {
+  userId: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  durationDays: number;
+  documentUrl?: string;
+}): Promise<boolean> {
+  if (!isLiveSupabaseConfigured()) {
+    return true;
+  }
+
+  try {
+    // 1. Resolve UUID for userId if passed as identifier or email
+    let validUserId = request.userId;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(request.userId);
+    if (!isUuid) {
+      const { data: userMatch } = await supabase
+        .from('users')
+        .select('id')
+        .or(`id.eq.${request.userId},email.eq.${request.userId}`)
+        .maybeSingle();
+
+      if (userMatch?.id) {
+        validUserId = userMatch.id;
+      }
+    }
+
+    const { error } = await supabase.from('leave_requests').insert([{
+      user_id: validUserId,
+      leave_type: request.leaveType,
+      start_date: request.startDate,
+      end_date: request.endDate,
+      duration_days: request.durationDays,
+      document_url: request.documentUrl || null,
+      status: 'Pending'
+    }]);
+
+    if (error) {
+      console.error('Supabase createLeaveRequest error:', error.message);
+      // Fallback insert with core columns if optional columns don't exist
+      const { error: fallbackErr } = await supabase.from('leave_requests').insert([{
+        user_id: validUserId,
+        leave_type: request.leaveType,
+        start_date: request.startDate,
+        end_date: request.endDate,
+        status: 'Pending'
+      }]);
+      if (fallbackErr) {
+        console.error('Fallback leave request insert error:', fallbackErr.message);
+        return false;
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to submit leave request to Supabase:', err);
+    return false;
+  }
+}
+
 export async function updateLeaveRequestStatusInDb(id: string, status: 'Approved' | 'Rejected'): Promise<boolean> {
   if (!isLiveSupabaseConfigured()) {
     const leave = MOCK_LEAVES.find(l => l.id === id);
@@ -742,12 +802,49 @@ export async function updateLeaveRequestStatusInDb(id: string, status: 'Approved
     return true;
   }
 
-  const { error } = await supabase.from('leave_requests').update({ status }).eq('id', id);
-  if (error) {
-    console.error('Error updating leave status in Supabase:', error);
+  try {
+    // Fetch request details before updating to deduct balances if approving
+    const { data: currentLeave } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    const { error } = await supabase.from('leave_requests').update({ status }).eq('id', id);
+    if (error) {
+      console.error('Error updating leave status in Supabase:', error);
+      return false;
+    }
+
+    // Auto-deduct employee balance if Approved
+    if (status === 'Approved' && currentLeave?.user_id) {
+      const leaveType = (currentLeave.leave_type || '').toLowerCase();
+      const start = new Date(currentLeave.start_date);
+      const end = new Date(currentLeave.end_date);
+      const days = currentLeave.duration_days || Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('leave_balance_yearly, leave_balance_sick')
+        .eq('id', currentLeave.user_id)
+        .maybeSingle();
+
+      if (userRecord) {
+        if (leaveType.includes('yearly') || leaveType.includes('annual')) {
+          const newBal = Math.max(0, (userRecord.leave_balance_yearly ?? 30) - days);
+          await supabase.from('users').update({ leave_balance_yearly: newBal }).eq('id', currentLeave.user_id);
+        } else if (leaveType.includes('sick')) {
+          const newBal = Math.max(0, (userRecord.leave_balance_sick ?? 14) - days);
+          await supabase.from('users').update({ leave_balance_sick: newBal }).eq('id', currentLeave.user_id);
+        }
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Error processing leave request status update:', err);
     return false;
   }
-  return true;
 }
 
 export async function getEmployeeAttendanceLogsFromDb(userId: string): Promise<any[]> {
@@ -773,7 +870,7 @@ export async function getEmployeeAttendanceLogsFromDb(userId: string): Promise<a
   }
 }
 
-export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_out', timestamp?: Date, explicitCompanyId?: string): Promise<boolean> {
+export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_out' | 'break_start' | 'break_end', timestamp?: Date, explicitCompanyId?: string): Promise<boolean> {
   if (!isLiveSupabaseConfigured()) {
     return true;
   }
@@ -863,6 +960,38 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
           if (validCompanyId) fallbackPayload.company_id = validCompanyId;
           await supabase.from('attendance_logs').insert([fallbackPayload]);
         }
+      }
+    } else if (type === 'break_start') {
+      if (existing) {
+        await supabase
+          .from('attendance_logs')
+          .update({
+            break_start_time: isoString,
+            company_id: existing.company_id || validCompanyId
+          })
+          .eq('id', existing.id);
+      }
+    } else if (type === 'break_end') {
+      if (existing) {
+        let exceptionsList = Array.isArray(existing.exceptions) ? [...existing.exceptions] : [];
+        
+        // Calculate break duration
+        if (existing.break_start_time) {
+          const startMs = new Date(existing.break_start_time).getTime();
+          const breakMins = Math.round((now.getTime() - startMs) / 60000);
+          if (breakMins > 75) {
+            exceptionsList.push(`Over-Break (${breakMins} mins)`);
+          }
+        }
+
+        await supabase
+          .from('attendance_logs')
+          .update({
+            break_end_time: isoString,
+            exceptions: exceptionsList,
+            company_id: existing.company_id || validCompanyId
+          })
+          .eq('id', existing.id);
       }
     } else {
       if (existing) {
@@ -1052,6 +1181,168 @@ export async function deletePublicHolidayInDb(id: string): Promise<void> {
     await supabase.from('public_holidays').delete().eq('id', id);
   } catch (err) {
     console.error('Error deleting public holiday in Supabase:', err);
+  }
+}
+
+// ---------------------------------------------------------------------
+// 8. PAYROLL & TRANSACTIONS SERVICES
+// ---------------------------------------------------------------------
+export interface DbPayrollTransaction {
+  id: string;
+  user_id: string;
+  month: string;
+  year: string;
+  amount: number;
+  payment_method: string;
+  payment_date: string;
+  notes?: string;
+}
+
+export async function getPayrollTransactionsFromDb(month: string, year: string): Promise<Record<string, any[]>> {
+  if (!isLiveSupabaseConfigured()) {
+    return {};
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('payroll_transactions')
+      .select('*')
+      .eq('month', month)
+      .eq('year', year)
+      .order('payment_date', { ascending: false });
+
+    if (error) {
+      console.warn('Supabase payroll_transactions select notice:', error.message);
+      return {};
+    }
+
+    const txMap: Record<string, any[]> = {};
+    (data || []).forEach(tx => {
+      if (!txMap[tx.user_id]) txMap[tx.user_id] = [];
+      txMap[tx.user_id].push({
+        id: tx.id,
+        date: tx.payment_date,
+        amount: Number(tx.amount),
+        method: tx.payment_method
+      });
+    });
+    return txMap;
+  } catch (err) {
+    console.error('Failed to get payroll transactions:', err);
+    return {};
+  }
+}
+
+export async function savePayrollTransactionToDb(transaction: {
+  userId: string;
+  month: string;
+  year: string;
+  amount: number;
+  method: string;
+  date: string;
+}): Promise<boolean> {
+  if (!isLiveSupabaseConfigured()) {
+    return true;
+  }
+
+  try {
+    const { error } = await supabase.from('payroll_transactions').insert([{
+      user_id: transaction.userId,
+      month: transaction.month,
+      year: transaction.year,
+      amount: transaction.amount,
+      payment_method: transaction.method,
+      payment_date: transaction.date
+    }]);
+
+    if (error) {
+      console.error('Supabase payroll transaction insert error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to save payroll transaction:', err);
+    return false;
+  }
+}
+
+export async function getEmployeePayslipOverrides(month: string, year: string): Promise<Record<string, any>> {
+  if (!isLiveSupabaseConfigured()) {
+    return {};
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('payslip_records')
+      .select('*')
+      .eq('month', month)
+      .eq('year', year);
+
+    if (error) {
+      return {};
+    }
+
+    const map: Record<string, any> = {};
+    (data || []).forEach(r => {
+      map[r.user_id] = r;
+    });
+    return map;
+  } catch {
+    return {};
+  }
+}
+
+export async function saveEmployeePayslipRecord(record: {
+  userId: string;
+  month: string;
+  year: string;
+  basicSalary?: number;
+  otherAllowance?: number;
+  transportation?: number;
+  advanceSalary?: number;
+  deductionNotCame?: number;
+  probationFirstMonth?: number;
+  deductionAnnualLeave?: number;
+  overtimeAmount?: number;
+  paidDays?: number;
+  leaveDays?: number;
+  hoursWorked?: string;
+  accountNumber?: string;
+  mobileNumber?: string;
+}): Promise<boolean> {
+  if (!isLiveSupabaseConfigured()) {
+    return true;
+  }
+
+  try {
+    const { error } = await supabase.from('payslip_records').upsert([{
+      user_id: record.userId,
+      month: record.month,
+      year: record.year,
+      basic_salary: record.basicSalary,
+      other_allowance: record.otherAllowance,
+      transportation: record.transportation,
+      advance_salary: record.advanceSalary,
+      deduction_not_came: record.deductionNotCame,
+      probation_first_month: record.probationFirstMonth,
+      deduction_annual_leave: record.deductionAnnualLeave,
+      overtime_amount: record.overtimeAmount,
+      paid_days: record.paidDays,
+      leave_days: record.leaveDays,
+      hours_worked: record.hoursWorked,
+      account_number: record.accountNumber,
+      mobile_number: record.mobileNumber,
+      updated_at: new Date().toISOString()
+    }], { onConflict: 'user_id,month,year' });
+
+    if (error) {
+      console.warn('Payslip record save error:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Error saving payslip record:', err);
+    return false;
   }
 }
 
