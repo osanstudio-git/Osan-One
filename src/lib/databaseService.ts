@@ -1267,8 +1267,24 @@ export async function savePayrollTransactionToDb(transaction: {
 }
 
 export async function getEmployeePayslipOverrides(month: string, year: string): Promise<Record<string, any>> {
+  const localMap: Record<string, any> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(`osan_payslip_`) && key.includes(`_${month}_${year}`)) {
+        const val = localStorage.getItem(key);
+        if (val) {
+          const parsed = JSON.parse(val);
+          if (parsed.userId) localMap[parsed.userId] = parsed;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
   if (!isLiveSupabaseConfigured()) {
-    return {};
+    return localMap;
   }
 
   try {
@@ -1279,16 +1295,16 @@ export async function getEmployeePayslipOverrides(month: string, year: string): 
       .eq('year', year);
 
     if (error) {
-      return {};
+      return localMap;
     }
 
-    const map: Record<string, any> = {};
+    const map: Record<string, any> = { ...localMap };
     (data || []).forEach(r => {
-      map[r.user_id] = r;
+      map[r.user_id] = { ...map[r.user_id], ...r };
     });
     return map;
   } catch {
-    return {};
+    return localMap;
   }
 }
 
@@ -1296,6 +1312,11 @@ export async function saveEmployeePayslipRecord(record: {
   userId: string;
   month: string;
   year: string;
+  employeeName?: string;
+  designation?: string;
+  dateOfJoining?: string;
+  payPeriod?: string;
+  payDate?: string;
   basicSalary?: number;
   otherAllowance?: number;
   transportation?: number;
@@ -1304,12 +1325,20 @@ export async function saveEmployeePayslipRecord(record: {
   probationFirstMonth?: number;
   deductionAnnualLeave?: number;
   overtimeAmount?: number;
+  totalBalance?: number;
   paidDays?: number;
   leaveDays?: number;
   hoursWorked?: string;
   accountNumber?: string;
   mobileNumber?: string;
 }): Promise<boolean> {
+  try {
+    const localKey = `osan_payslip_${record.userId}_${record.month}_${record.year}`;
+    localStorage.setItem(localKey, JSON.stringify(record));
+  } catch {
+    // ignore
+  }
+
   if (!isLiveSupabaseConfigured()) {
     return true;
   }
