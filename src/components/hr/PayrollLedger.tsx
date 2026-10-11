@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Save, FileText, Check } from 'lucide-react';
+import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Save, FileText, Check, Calculator, Sparkles, Calendar } from 'lucide-react';
 import { MOCK_EXCEPTIONS } from '../../pages/hr/mockData';
 import { 
   getEmployees, 
@@ -32,6 +32,8 @@ export function PayrollLedger() {
 
   const [payslipOverrides, setPayslipOverrides] = useState<Record<string, any>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [autoCalcEnabled, setAutoCalcEnabled] = useState(true);
+  const [overtimeMultiplier, setOvertimeMultiplier] = useState(1.25);
   const [payslipEditForm, setPayslipEditForm] = useState<any>({});
 
   const loadData = async () => {
@@ -233,10 +235,47 @@ export function PayrollLedger() {
   const activeEmpDetails = activeEmployeeId ? ledgerData.find(e => e.id === activeEmployeeId) : null;
   const activePayslipDetails = activePayslipId ? ledgerData.find(e => e.id === activePayslipId) : null;
 
+  const calculateAutoValues = (form: any, customMultiplier?: number) => {
+    const basic = Number(form.basicSalary) || 0;
+    const leave = Number(form.leaveDays) || 0;
+    const hoursStr = form.hoursWorked || '00:000';
+    const mult = customMultiplier ?? overtimeMultiplier;
+
+    // Standard monthly base: 30 days in Oman labor law
+    const dailyWage = basic > 0 ? basic / 30 : 0;
+    // Standard monthly hours: 8 hrs/day * 30 days = 240 hrs
+    const hourlyWage = basic > 0 ? basic / 240 : 0;
+
+    // Leave deduction = leaveDays * dailyWage
+    const autoLeaveDeduction = Number((leave * dailyWage).toFixed(3));
+    const autoPaidDays = Math.max(0, 30 - leave);
+
+    // Overtime hours calculation from hoursWorked
+    let otHours = 0;
+    if (typeof hoursStr === 'string' && hoursStr.includes(':')) {
+      const parts = hoursStr.split(':');
+      const h = parseFloat(parts[0]) || 0;
+      const m = parseFloat(parts[1]) || 0;
+      otHours = h + (m / 60);
+    } else {
+      otHours = parseFloat(String(hoursStr)) || 0;
+    }
+    const autoOvertimeAmount = Number((otHours * hourlyWage * mult).toFixed(3));
+
+    return {
+      autoLeaveDeduction,
+      autoPaidDays,
+      autoOvertimeAmount,
+      dailyWage,
+      hourlyWage,
+      otHours
+    };
+  };
+
   const handleOpenPayslip = (row: any) => {
     setActivePayslipId(row.id);
     const existing = payslipOverrides[row.id] || {};
-    setPayslipEditForm({
+    const baseObj = {
       employeeName: existing.employee_name || row.name || '',
       designation: existing.designation || row.job_title || row.role || 'Accountant',
       dateOfJoining: existing.date_of_joining || (row.join_date ? new Date(row.join_date).toLocaleDateString('en-GB') : '23/07/2026'),
@@ -256,8 +295,40 @@ export function PayrollLedger() {
       probationFirstMonth: existing.probation_first_month !== undefined ? Number(existing.probation_first_month) : (row.probationFirstMonth || 0),
       deductionAnnualLeave: existing.deduction_annual_leave !== undefined ? Number(existing.deduction_annual_leave) : (row.deductionAnnualLeave || 0),
       totalBalance: existing.total_balance !== undefined ? Number(existing.total_balance) : (row.balance || 0),
-    });
+    };
+
+    setPayslipEditForm(baseObj);
   };
+
+  // Sync payslipEditForm whenever month or year changes while modal is open
+  useEffect(() => {
+    if (!activePayslipId) return;
+    const empRow = ledgerData.find(e => e.id === activePayslipId);
+    if (!empRow) return;
+    const existing = payslipOverrides[activePayslipId] || {};
+    setPayslipEditForm((prev: any) => ({
+      ...prev,
+      employeeName: existing.employee_name || empRow.name || prev.employeeName || '',
+      designation: existing.designation || empRow.job_title || empRow.role || prev.designation || 'Accountant',
+      dateOfJoining: existing.date_of_joining || (empRow.join_date ? new Date(empRow.join_date).toLocaleDateString('en-GB') : prev.dateOfJoining || '23/07/2026'),
+      payPeriod: existing.pay_period || prev.payPeriod || 'Monthly',
+      payDate: existing.pay_date || `06/${(MONTHS.indexOf(selectedMonth) + 1).toString().padStart(2, '0')}/${selectedYear}`,
+      accountNumber: existing.account_number || empRow.accountNumber || empRow.account_number || prev.accountNumber || 'CASH IN HAND',
+      mobileNumber: existing.mobile_number || empRow.mobileNumber || empRow.phone || prev.mobileNumber || '',
+      paidDays: existing.paid_days !== undefined ? Number(existing.paid_days) : (empRow.daysWorked || 30),
+      leaveDays: existing.leave_days !== undefined ? Number(existing.leave_days) : (empRow.leaveDays || 0),
+      hoursWorked: existing.hours_worked || empRow.hoursWorked || '00:000',
+      basicSalary: existing.basic_salary !== undefined ? Number(existing.basic_salary) : (empRow.baseSalary || 120),
+      otherAllowance: existing.other_allowance !== undefined ? Number(existing.other_allowance) : (empRow.otherAllowance || 70),
+      transportation: existing.transportation !== undefined ? Number(existing.transportation) : (empRow.transportation || 0),
+      overtimeAmount: existing.overtime_amount !== undefined ? Number(existing.overtime_amount) : (empRow.overtimeAmount || 0),
+      advanceSalary: existing.advance_salary !== undefined ? Number(existing.advance_salary) : (empRow.advanceSalary || 0),
+      deductionNotCame: existing.deduction_not_came !== undefined ? Number(existing.deduction_not_came) : (empRow.deductionNotCame || 0),
+      probationFirstMonth: existing.probation_first_month !== undefined ? Number(existing.probation_first_month) : (empRow.probationFirstMonth || 0),
+      deductionAnnualLeave: existing.deduction_annual_leave !== undefined ? Number(existing.deduction_annual_leave) : (empRow.deductionAnnualLeave || 0),
+      totalBalance: existing.total_balance !== undefined ? Number(existing.total_balance) : (empRow.balance || 0),
+    }));
+  }, [selectedMonth, selectedYear, payslipOverrides]);
 
   const liveBasicSalary = Number(payslipEditForm.basicSalary) || 0;
   const liveOtherAllowance = Number(payslipEditForm.otherAllowance) || 0;
@@ -698,6 +769,106 @@ export function PayrollLedger() {
                   </span>
                 </div>
 
+                {/* PAYROLL MONTH & PERIOD SELECTOR */}
+                <div className="p-3.5 bg-[#131d33] rounded-xl border border-rose-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-white flex items-center gap-1.5 uppercase tracking-wide">
+                      <Calendar className="w-3.5 h-3.5 text-rose-400" />
+                      Payslip Month & Year
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const m = MONTHS[now.getMonth()];
+                        const y = now.getFullYear().toString();
+                        setSelectedMonth(m);
+                        setSelectedYear(y);
+                        setPayslipEditForm((prev: any) => ({
+                          ...prev,
+                          customMonthTitle: '',
+                          payDate: `06/${(now.getMonth() + 1).toString().padStart(2, '0')}/${y}`
+                        }));
+                      }}
+                      className="text-[10px] font-bold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 px-2 py-0.5 rounded-md border border-rose-500/30 transition-all cursor-pointer flex items-center gap-1"
+                      title="Automatically switch to current calendar month"
+                    >
+                      <Sparkles className="w-3 h-3 text-rose-400" />
+                      Current Month
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Month</label>
+                      <select
+                        value={selectedMonth}
+                        onChange={e => {
+                          const newM = e.target.value;
+                          setSelectedMonth(newM);
+                          setPayslipEditForm((prev: any) => ({
+                            ...prev,
+                            customMonthTitle: '',
+                            payDate: `06/${(MONTHS.indexOf(newM) + 1).toString().padStart(2, '0')}/${selectedYear}`
+                          }));
+                        }}
+                        className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2.5 py-2 text-white font-bold text-xs outline-none focus:border-rose-500 cursor-pointer"
+                      >
+                        {MONTHS.map(m => (
+                          <option key={m} value={m} className="bg-slate-900 text-white">{m}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Year</label>
+                      <select
+                        value={selectedYear}
+                        onChange={e => {
+                          const newY = e.target.value;
+                          setSelectedYear(newY);
+                          setPayslipEditForm((prev: any) => ({
+                            ...prev,
+                            customMonthTitle: '',
+                            payDate: `06/${(MONTHS.indexOf(selectedMonth) + 1).toString().padStart(2, '0')}/${newY}`
+                          }));
+                        }}
+                        className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2.5 py-2 text-white font-bold text-xs outline-none focus:border-rose-500 cursor-pointer"
+                      >
+                        {['2024', '2025', '2026', '2027', '2028'].map(y => (
+                          <option key={y} value={y} className="bg-slate-900 text-white">{y}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold uppercase text-slate-400">Header Display Override (Optional)</label>
+                      {payslipEditForm.customMonthTitle && (
+                        <button
+                          type="button"
+                          onClick={() => setPayslipEditForm({ ...payslipEditForm, customMonthTitle: '' })}
+                          className="text-[9px] text-slate-400 hover:text-white underline cursor-pointer"
+                        >
+                          Reset
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="text"
+                      placeholder={`e.g. Payslip for the Month of ${selectedMonth.slice(0, 3).toUpperCase()} ${selectedYear}`}
+                      value={payslipEditForm.customMonthTitle || ''}
+                      onChange={e => setPayslipEditForm({ ...payslipEditForm, customMonthTitle: e.target.value })}
+                      className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-1.5 text-white text-xs outline-none focus:border-rose-500"
+                    />
+                    <div className="text-[10px] text-slate-400 mt-1 flex items-center justify-between">
+                      <span>Header preview:</span>
+                      <strong className="text-amber-400 uppercase">{payslipEditForm.customMonthTitle || `PAYSLIP FOR THE MONTH OF ${selectedMonth.slice(0, 3).toUpperCase()} ${selectedYear}`}</strong>
+                    </div>
+                  </div>
+                </div>
+
                 {/* EMPLOYEE INFO SECTION */}
                 <div className="space-y-3">
                   <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Employee Information</div>
@@ -776,6 +947,75 @@ export function PayrollLedger() {
                   </div>
                 </div>
 
+                {/* SMART AUTO-CALCULATION CONTROLS */}
+                <div className="bg-[#131d33] border border-blue-500/30 rounded-2xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Calculator className="w-4 h-4 text-blue-400" />
+                      <span className="font-bold text-white text-[11px]">Auto-Calculation Engine</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setAutoCalcEnabled(!autoCalcEnabled)}
+                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition-all border ${
+                        autoCalcEnabled
+                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                          : 'bg-slate-700/50 text-slate-400 border-slate-600'
+                      }`}
+                    >
+                      {autoCalcEnabled ? '● AUTO ON' : '○ MANUAL'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[10px] text-slate-300">
+                    <span className="text-slate-400">Overtime Rate:</span>
+                    <select
+                      value={overtimeMultiplier}
+                      onChange={e => {
+                        const newMult = parseFloat(e.target.value);
+                        setOvertimeMultiplier(newMult);
+                        if (autoCalcEnabled) {
+                          const auto = calculateAutoValues(payslipEditForm, newMult);
+                          setPayslipEditForm((prev: any) => ({ ...prev, overtimeAmount: auto.autoOvertimeAmount }));
+                        }
+                      }}
+                      className="bg-[#1c2a47] border border-slate-700 rounded-lg px-2 py-0.5 text-white font-bold outline-none"
+                    >
+                      <option value={1.25}>1.25x (Standard Regular OT)</option>
+                      <option value={1.50}>1.50x (Holiday / Night OT)</option>
+                      <option value={1.00}>1.00x (Standard Normal Rate)</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="bg-[#18233d] px-2.5 py-1.5 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block text-[9px] uppercase">Daily Wage (30d)</span>
+                      <span className="font-bold text-white">OMR {(liveBasicSalary > 0 ? liveBasicSalary / 30 : 0).toFixed(3)}</span>
+                    </div>
+                    <div className="bg-[#18233d] px-2.5 py-1.5 rounded-lg border border-slate-800">
+                      <span className="text-slate-400 block text-[9px] uppercase">Hourly Wage (240h)</span>
+                      <span className="font-bold text-white">OMR {(liveBasicSalary > 0 ? liveBasicSalary / 240 : 0).toFixed(3)}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const auto = calculateAutoValues(payslipEditForm);
+                      setPayslipEditForm((prev: any) => ({
+                        ...prev,
+                        paidDays: auto.autoPaidDays,
+                        deductionNotCame: auto.autoLeaveDeduction,
+                        overtimeAmount: auto.autoOvertimeAmount
+                      }));
+                    }}
+                    className="w-full py-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Recalculate Deductions & Overtime</span>
+                  </button>
+                </div>
+
                 {/* ATTENDANCE METRICS */}
                 <div className="space-y-3 pt-2 border-t border-slate-800">
                   <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Attendance Summary</div>
@@ -790,20 +1030,56 @@ export function PayrollLedger() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Leave Days</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10px] font-bold uppercase text-slate-400">Leave Days</label>
+                        {autoCalcEnabled && (
+                          <span className="text-[9px] text-red-400 font-semibold">Auto-Deduct</span>
+                        )}
+                      </div>
                       <input
                         type="number"
                         value={payslipEditForm.leaveDays ?? 0}
-                        onChange={e => setPayslipEditForm({ ...payslipEditForm, leaveDays: parseInt(e.target.value) || 0 })}
+                        onChange={e => {
+                          const newLeave = parseInt(e.target.value) || 0;
+                          if (autoCalcEnabled) {
+                            const auto = calculateAutoValues({ ...payslipEditForm, leaveDays: newLeave });
+                            setPayslipEditForm((prev: any) => ({
+                              ...prev,
+                              leaveDays: newLeave,
+                              paidDays: auto.autoPaidDays,
+                              deductionNotCame: auto.autoLeaveDeduction
+                            }));
+                          } else {
+                            setPayslipEditForm({ ...payslipEditForm, leaveDays: newLeave });
+                          }
+                        }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2.5 py-2 text-white font-bold outline-none focus:border-rose-500 text-center"
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Hours</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10px] font-bold uppercase text-slate-400">Hours</label>
+                        {autoCalcEnabled && (
+                          <span className="text-[9px] text-emerald-400 font-semibold">Auto-OT</span>
+                        )}
+                      </div>
                       <input
                         type="text"
                         value={payslipEditForm.hoursWorked || '00:000'}
-                        onChange={e => setPayslipEditForm({ ...payslipEditForm, hoursWorked: e.target.value })}
+                        placeholder="e.g. 10 or 10:00"
+                        onChange={e => {
+                          const newHours = e.target.value;
+                          if (autoCalcEnabled) {
+                            const auto = calculateAutoValues({ ...payslipEditForm, hoursWorked: newHours });
+                            setPayslipEditForm((prev: any) => ({
+                              ...prev,
+                              hoursWorked: newHours,
+                              overtimeAmount: auto.autoOvertimeAmount
+                            }));
+                          } else {
+                            setPayslipEditForm({ ...payslipEditForm, hoursWorked: newHours });
+                          }
+                        }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2 py-2 text-white font-bold outline-none focus:border-rose-500 text-center"
                       />
                     </div>
@@ -820,7 +1096,20 @@ export function PayrollLedger() {
                         type="number"
                         step="0.001"
                         value={payslipEditForm.basicSalary ?? 0}
-                        onChange={e => setPayslipEditForm({ ...payslipEditForm, basicSalary: parseFloat(e.target.value) || 0 })}
+                        onChange={e => {
+                          const newBasic = parseFloat(e.target.value) || 0;
+                          if (autoCalcEnabled) {
+                            const auto = calculateAutoValues({ ...payslipEditForm, basicSalary: newBasic });
+                            setPayslipEditForm((prev: any) => ({
+                              ...prev,
+                              basicSalary: newBasic,
+                              deductionNotCame: auto.autoLeaveDeduction,
+                              overtimeAmount: auto.autoOvertimeAmount
+                            }));
+                          } else {
+                            setPayslipEditForm({ ...payslipEditForm, basicSalary: newBasic });
+                          }
+                        }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-emerald-400 font-extrabold outline-none focus:border-rose-500"
                       />
                     </div>
@@ -848,7 +1137,12 @@ export function PayrollLedger() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Overtime / Incentives</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10px] font-bold uppercase text-slate-400">Overtime / Incentives</label>
+                        {autoCalcEnabled && (
+                          <span className="text-[9px] text-emerald-400">Auto</span>
+                        )}
+                      </div>
                       <input
                         type="number"
                         step="0.001"
@@ -875,7 +1169,12 @@ export function PayrollLedger() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Not Came & Sick</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10px] font-bold uppercase text-slate-400">Not Came & Sick</label>
+                        {autoCalcEnabled && (
+                          <span className="text-[9px] text-red-400">Auto (Leaves)</span>
+                        )}
+                      </div>
                       <input
                         type="number"
                         step="0.001"
@@ -910,7 +1209,16 @@ export function PayrollLedger() {
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Total Balance / Carryover (OMR)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[10px] font-bold uppercase text-slate-400">Total Balance / Carryover (OMR)</label>
+                      <button
+                        type="button"
+                        onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, totalBalance: liveNetPay }))}
+                        className="text-[9px] text-amber-400 hover:text-amber-300 font-semibold underline cursor-pointer"
+                      >
+                        Sync with Net Pay
+                      </button>
+                    </div>
                     <input
                       type="number"
                       step="0.001"
@@ -974,7 +1282,7 @@ export function PayrollLedger() {
                       {/* Boxed Subheader: Payslip for the Month of ... */}
                       <div className="border border-black py-1 text-center mb-3 bg-white">
                         <span className="text-xs sm:text-sm font-bold text-black uppercase tracking-wide">
-                          Payslip for the Month of {selectedMonth.slice(0, 3).toUpperCase()} {selectedYear}
+                          {payslipEditForm.customMonthTitle || `Payslip for the Month of ${selectedMonth.slice(0, 3).toUpperCase()} ${selectedYear}`}
                         </span>
                       </div>
 
@@ -1132,20 +1440,16 @@ export function PayrollLedger() {
                       </div>
                     </div>
 
-                    {/* Bottom Signature Blocks: 4 Columns with Authentic Ink Signatures and Stamp */}
+                    {/* Bottom Signature Blocks: 4 Columns with Clean Blank Space for Manual Signatures and Stamp */}
                     <div className="border-t-2 border-black pt-4 mt-6">
                       <div className="grid grid-cols-4 gap-3 text-center items-end">
                         
                         {/* 1. Approved by */}
                         <div className="flex flex-col items-center">
-                          <div className="h-16 flex items-end justify-center relative">
-                            {/* Blue cursive signature path matching Hamid's signature */}
-                            <svg className="w-28 h-14" viewBox="0 0 120 50">
-                              <path d="M10 40 Q 25 5, 38 30 Q 48 45, 58 18 Q 72 32, 90 20 Q 105 10, 110 35" stroke="#0044cc" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M18 36 Q 60 30, 102 34" stroke="#0044cc" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-                            </svg>
+                          <div className="h-16 w-full flex items-center justify-center">
+                            {/* Blank space for manual signing */}
                           </div>
-                          <div className="text-[10px] font-bold text-blue-900 mt-1">06.10.2026</div>
+                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '06.10.2026'}</div>
                           <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
                             Approved by
                           </div>
@@ -1153,37 +1457,21 @@ export function PayrollLedger() {
 
                         {/* 2. Prepared by */}
                         <div className="flex flex-col items-center">
-                          <div className="h-16 flex items-end justify-center relative">
-                            {/* Blue cursive signature path */}
-                            <svg className="w-28 h-14" viewBox="0 0 120 50">
-                              <path d="M15 32 Q 35 5, 48 24 Q 62 8, 75 35 Q 90 15, 108 28" stroke="#0044cc" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M25 38 Q 65 28, 98 35" stroke="#0044cc" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-                            </svg>
+                          <div className="h-16 w-full flex items-center justify-center">
+                            {/* Blank space for manual signing */}
                           </div>
-                          <div className="text-[10px] font-bold text-blue-900 mt-1">6.10.2026</div>
+                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '6.10.2026'}</div>
                           <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
                             Prepared by
                           </div>
                         </div>
 
-                        {/* 3. Authorized Signature + Authentic Osan Group SPC Stamp */}
+                        {/* 3. Authorized Signature */}
                         <div className="flex flex-col items-center">
-                          <div className="h-16 flex items-center justify-center relative">
-                            {/* Blue Official Stamp Box */}
-                            <div className="border-2 border-blue-900 text-blue-900 px-2 py-0.5 rounded-xs text-[9px] font-black uppercase tracking-wider rotate-[-4deg] bg-blue-50/20 text-center leading-tight shadow-xs">
-                              <div className="border border-blue-900 px-1 py-0.5">
-                                <div className="font-bold text-[10px] text-blue-900">مجموعة اوسان ش.ش.و</div>
-                                <div className="font-extrabold text-[9px] text-blue-900 tracking-wider">OSAN GROUP SPC</div>
-                                <div className="font-bold text-[8px] text-blue-800">C.R: 1245480 س.ت</div>
-                              </div>
-                            </div>
-                            {/* Overlay blue ink signature stroke */}
-                            <svg className="absolute -top-1 left-1 w-28 h-14 pointer-events-none rotate-[-6deg]" viewBox="0 0 110 45">
-                              <path d="M8 30 Q 30 8, 52 25 Q 75 12, 102 20" stroke="#0044cc" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-                              <path d="M22 35 L 90 30" stroke="#0044cc" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-                            </svg>
+                          <div className="h-16 w-full flex items-center justify-center">
+                            {/* Blank space for manual company stamp and signature */}
                           </div>
-                          <div className="text-[10px] font-bold text-blue-900 mt-1">6.10.2026</div>
+                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '6.10.2026'}</div>
                           <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
                             Authorized Signature
                           </div>
@@ -1191,14 +1479,10 @@ export function PayrollLedger() {
 
                         {/* 4. Employee Signature */}
                         <div className="flex flex-col items-center">
-                          <div className="h-16 flex items-end justify-center relative">
-                            {/* Employee blue handwritten signature */}
-                            <svg className="w-28 h-14" viewBox="0 0 120 50">
-                              <path d="M12 30 Q 32 40, 48 16 Q 66 38, 85 12 Q 100 30, 112 24" stroke="#0044cc" strokeWidth="2.2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d="M25 35 L 95 32" stroke="#0044cc" strokeWidth="1.8" fill="none" strokeLinecap="round" />
-                            </svg>
+                          <div className="h-16 w-full flex items-center justify-center">
+                            {/* Blank space for employee manual signature */}
                           </div>
-                          <div className="text-[10px] font-bold text-blue-900 mt-1">06/10/2026</div>
+                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '06/10/2026'}</div>
                           <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
                             Employee Signature
                           </div>
