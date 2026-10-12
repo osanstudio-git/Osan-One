@@ -290,6 +290,7 @@ export function PayrollLedger() {
       otherAllowance: existing.other_allowance !== undefined ? Number(existing.other_allowance) : (row.otherAllowance || 70),
       transportation: existing.transportation !== undefined ? Number(existing.transportation) : (row.transportation || 0),
       overtimeAmount: existing.overtime_amount !== undefined ? Number(existing.overtime_amount) : (row.overtimeAmount || 0),
+      incentiveAmount: existing.incentive_amount !== undefined ? Number(existing.incentive_amount) : (existing.incentiveAmount !== undefined ? Number(existing.incentiveAmount) : 0),
       advanceSalary: existing.advance_salary !== undefined ? Number(existing.advance_salary) : (row.advanceSalary || 0),
       deductionNotCame: existing.deduction_not_came !== undefined ? Number(existing.deduction_not_came) : (row.deductionNotCame || 0),
       probationFirstMonth: existing.probation_first_month !== undefined ? Number(existing.probation_first_month) : (row.probationFirstMonth || 0),
@@ -322,6 +323,7 @@ export function PayrollLedger() {
       otherAllowance: existing.other_allowance !== undefined ? Number(existing.other_allowance) : (empRow.otherAllowance || 70),
       transportation: existing.transportation !== undefined ? Number(existing.transportation) : (empRow.transportation || 0),
       overtimeAmount: existing.overtime_amount !== undefined ? Number(existing.overtime_amount) : (empRow.overtimeAmount || 0),
+      incentiveAmount: existing.incentive_amount !== undefined ? Number(existing.incentive_amount) : (existing.incentiveAmount !== undefined ? Number(existing.incentiveAmount) : (prev.incentiveAmount || 0)),
       advanceSalary: existing.advance_salary !== undefined ? Number(existing.advance_salary) : (empRow.advanceSalary || 0),
       deductionNotCame: existing.deduction_not_came !== undefined ? Number(existing.deduction_not_came) : (empRow.deductionNotCame || 0),
       probationFirstMonth: existing.probation_first_month !== undefined ? Number(existing.probation_first_month) : (empRow.probationFirstMonth || 0),
@@ -330,10 +332,16 @@ export function PayrollLedger() {
     }));
   }, [selectedMonth, selectedYear, payslipOverrides]);
 
+  const autoCalculations = useMemo(() => {
+    return calculateAutoValues(payslipEditForm, overtimeMultiplier);
+  }, [payslipEditForm.basicSalary, payslipEditForm.leaveDays, payslipEditForm.hoursWorked, overtimeMultiplier]);
+
   const liveBasicSalary = Number(payslipEditForm.basicSalary) || 0;
   const liveOtherAllowance = Number(payslipEditForm.otherAllowance) || 0;
   const liveTransportation = Number(payslipEditForm.transportation) || 0;
   const liveOvertimeAmount = Number(payslipEditForm.overtimeAmount) || 0;
+  const liveIncentiveAmount = Number(payslipEditForm.incentiveAmount) || 0;
+  const liveTotalIncentivesOT = liveOvertimeAmount + liveIncentiveAmount;
   const liveAdvanceSalary = Number(payslipEditForm.advanceSalary) || 0;
   const liveDeductionNotCame = Number(payslipEditForm.deductionNotCame) || 0;
   const liveProbationFirstMonth = Number(payslipEditForm.probationFirstMonth) || 0;
@@ -342,7 +350,7 @@ export function PayrollLedger() {
 
   const liveGrossEarnings = liveBasicSalary + liveOtherAllowance + liveTransportation;
   const liveTotalDeductions = liveAdvanceSalary + liveDeductionNotCame + liveProbationFirstMonth + liveDeductionAnnualLeave;
-  const liveNetPay = Math.max(0, liveGrossEarnings + liveOvertimeAmount - liveTotalDeductions);
+  const liveNetPay = Math.max(0, liveGrossEarnings + liveTotalIncentivesOT - liveTotalDeductions);
 
   const handleSavePayslipRecord = async () => {
     if (!activePayslipDetails) return;
@@ -360,6 +368,7 @@ export function PayrollLedger() {
       otherAllowance: liveOtherAllowance,
       transportation: liveTransportation,
       overtimeAmount: liveOvertimeAmount,
+      incentiveAmount: liveIncentiveAmount,
       advanceSalary: liveAdvanceSalary,
       deductionNotCame: liveDeductionNotCame,
       probationFirstMonth: liveProbationFirstMonth,
@@ -947,94 +956,146 @@ export function PayrollLedger() {
                   </div>
                 </div>
 
-                {/* SMART AUTO-CALCULATION CONTROLS */}
-                <div className="bg-[#131d33] border border-blue-500/30 rounded-2xl p-3.5 space-y-2.5">
-                  <div className="flex items-center justify-between">
+                {/* SMART AUTO-CALCULATION & FORMULA ENGINE */}
+                <div className="bg-[#10192e] border border-blue-500/30 rounded-2xl p-4 space-y-3 shadow-md">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                     <div className="flex items-center gap-2">
-                      <Calculator className="w-4 h-4 text-blue-400" />
-                      <span className="font-bold text-white text-[11px]">Auto-Calculation Engine</span>
+                      <div className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400">
+                        <Calculator className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="font-bold text-white text-xs block">Auto-Calculation Engine</span>
+                        <span className="text-[10px] text-slate-400">Calculates leave deductions & overtime automatically</span>
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => setAutoCalcEnabled(!autoCalcEnabled)}
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition-all border ${
+                      className={`px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition-all border flex items-center gap-1.5 ${
                         autoCalcEnabled
-                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                          : 'bg-slate-700/50 text-slate-400 border-slate-600'
+                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/50 shadow-sm shadow-blue-500/20'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
                       }`}
+                      title="Toggle auto-syncing values or manual custom entry"
                     >
-                      {autoCalcEnabled ? '● AUTO ON' : '○ MANUAL'}
+                      <span className={`w-2 h-2 rounded-full ${autoCalcEnabled ? 'bg-blue-400 animate-pulse' : 'bg-slate-500'}`} />
+                      {autoCalcEnabled ? '● AUTO-SYNC ON' : '○ MANUAL MODE'}
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between text-[10px] text-slate-300">
-                    <span className="text-slate-400">Overtime Rate:</span>
+                  {/* Wage Rates */}
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="bg-[#162238] p-2 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Daily Wage (Base / 30d)</span>
+                      <span className="font-extrabold text-blue-300 text-xs">OMR {autoCalculations.dailyWage.toFixed(3)}</span>
+                    </div>
+                    <div className="bg-[#162238] p-2 rounded-xl border border-slate-800">
+                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Hourly Wage (Base / 240h)</span>
+                      <span className="font-extrabold text-blue-300 text-xs">OMR {autoCalculations.hourlyWage.toFixed(3)}</span>
+                    </div>
+                  </div>
+
+                  {/* Overtime Rate Multiplier */}
+                  <div className="flex items-center justify-between text-[11px] bg-[#162238] p-2 rounded-xl border border-slate-800">
+                    <span className="text-slate-300 font-semibold">Overtime Rate:</span>
                     <select
                       value={overtimeMultiplier}
                       onChange={e => {
                         const newMult = parseFloat(e.target.value);
                         setOvertimeMultiplier(newMult);
                         if (autoCalcEnabled) {
-                          const auto = calculateAutoValues(payslipEditForm, newMult);
-                          setPayslipEditForm((prev: any) => ({ ...prev, overtimeAmount: auto.autoOvertimeAmount }));
+                          const ot = Number((autoCalculations.otHours * autoCalculations.hourlyWage * newMult).toFixed(3));
+                          setPayslipEditForm((prev: any) => ({ ...prev, overtimeAmount: ot }));
                         }
                       }}
-                      className="bg-[#1c2a47] border border-slate-700 rounded-lg px-2 py-0.5 text-white font-bold outline-none"
+                      className="bg-[#0f172a] border border-slate-700 rounded-lg px-2.5 py-1 text-white font-bold outline-none cursor-pointer text-xs"
                     >
-                      <option value={1.25}>1.25x (Standard Regular OT)</option>
-                      <option value={1.50}>1.50x (Holiday / Night OT)</option>
                       <option value={1.00}>1.00x (Standard Normal Rate)</option>
+                      <option value={1.25}>1.25x (Standard 125% Rate)</option>
+                      <option value={1.50}>1.50x (Weekend / Holiday 150%)</option>
                     </select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="bg-[#18233d] px-2.5 py-1.5 rounded-lg border border-slate-800">
-                      <span className="text-slate-400 block text-[9px] uppercase">Daily Wage (30d)</span>
-                      <span className="font-bold text-white">OMR {(liveBasicSalary > 0 ? liveBasicSalary / 30 : 0).toFixed(3)}</span>
+                  {/* Live Auto Breakdown Badges */}
+                  <div className="space-y-1.5 pt-1 text-[11px]">
+                    <div className="flex items-center justify-between bg-red-950/20 border border-red-500/20 px-2.5 py-1.5 rounded-lg">
+                      <span className="text-red-300 font-medium">
+                        Leave Deduct ({payslipEditForm.leaveDays ?? 0}d × OMR {autoCalculations.dailyWage.toFixed(3)}):
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-red-400 font-mono">OMR {autoCalculations.autoLeaveDeduction.toFixed(3)}</strong>
+                        <button
+                          type="button"
+                          onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, deductionNotCame: autoCalculations.autoLeaveDeduction }))}
+                          className="text-[9px] font-bold bg-red-500/20 hover:bg-red-500/30 text-red-300 px-1.5 py-0.5 rounded border border-red-500/30 cursor-pointer"
+                          title="Apply auto-calculated leave deduction"
+                        >
+                          Apply
+                        </button>
+                      </div>
                     </div>
-                    <div className="bg-[#18233d] px-2.5 py-1.5 rounded-lg border border-slate-800">
-                      <span className="text-slate-400 block text-[9px] uppercase">Hourly Wage (240h)</span>
-                      <span className="font-bold text-white">OMR {(liveBasicSalary > 0 ? liveBasicSalary / 240 : 0).toFixed(3)}</span>
+
+                    <div className="flex items-center justify-between bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                      <span className="text-emerald-300 font-medium">
+                        Overtime ({autoCalculations.otHours.toFixed(1)}h × OMR {autoCalculations.hourlyWage.toFixed(3)} × {overtimeMultiplier}x):
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <strong className="text-emerald-400 font-mono">OMR {autoCalculations.autoOvertimeAmount.toFixed(3)}</strong>
+                        <button
+                          type="button"
+                          onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, overtimeAmount: autoCalculations.autoOvertimeAmount }))}
+                          className="text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 cursor-pointer"
+                          title="Apply auto-calculated overtime amount"
+                        >
+                          Apply
+                        </button>
+                      </div>
                     </div>
                   </div>
 
+                  {/* Recalculate and apply all auto values */}
                   <button
                     type="button"
                     onClick={() => {
-                      const auto = calculateAutoValues(payslipEditForm);
                       setPayslipEditForm((prev: any) => ({
                         ...prev,
-                        paidDays: auto.autoPaidDays,
-                        deductionNotCame: auto.autoLeaveDeduction,
-                        overtimeAmount: auto.autoOvertimeAmount
+                        paidDays: autoCalculations.autoPaidDays,
+                        deductionNotCame: autoCalculations.autoLeaveDeduction,
+                        overtimeAmount: autoCalculations.autoOvertimeAmount
                       }));
                     }}
-                    className="w-full py-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/30 rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-blue-600/30"
                   >
-                    <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Recalculate Deductions & Overtime</span>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Apply Auto-Calculated Amounts</span>
                   </button>
                 </div>
 
                 {/* ATTENDANCE METRICS */}
                 <div className="space-y-3 pt-2 border-t border-slate-800">
-                  <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Attendance Summary</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Attendance Summary</div>
+                    <span className="text-[10px] text-slate-400">Custom Editable</span>
+                  </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Paid Days</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[10px] font-bold uppercase text-slate-400">Paid Days</label>
+                      </div>
                       <input
                         type="number"
                         value={payslipEditForm.paidDays ?? 30}
                         onChange={e => setPayslipEditForm({ ...payslipEditForm, paidDays: parseInt(e.target.value) || 0 })}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2.5 py-2 text-white font-bold outline-none focus:border-rose-500 text-center"
                       />
+                      <span className="block text-[9px] text-slate-400 text-center mt-1">
+                        Auto: {autoCalculations.autoPaidDays}d
+                      </span>
                     </div>
+
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-[10px] font-bold uppercase text-slate-400">Leave Days</label>
-                        {autoCalcEnabled && (
-                          <span className="text-[9px] text-red-400 font-semibold">Auto-Deduct</span>
-                        )}
                       </div>
                       <input
                         type="number"
@@ -1042,12 +1103,13 @@ export function PayrollLedger() {
                         onChange={e => {
                           const newLeave = parseInt(e.target.value) || 0;
                           if (autoCalcEnabled) {
-                            const auto = calculateAutoValues({ ...payslipEditForm, leaveDays: newLeave });
+                            const daily = liveBasicSalary > 0 ? liveBasicSalary / 30 : 0;
+                            const calcLeaveDeduct = Number((newLeave * daily).toFixed(3));
                             setPayslipEditForm((prev: any) => ({
                               ...prev,
                               leaveDays: newLeave,
-                              paidDays: auto.autoPaidDays,
-                              deductionNotCame: auto.autoLeaveDeduction
+                              paidDays: Math.max(0, 30 - newLeave),
+                              deductionNotCame: calcLeaveDeduct
                             }));
                           } else {
                             setPayslipEditForm({ ...payslipEditForm, leaveDays: newLeave });
@@ -1055,13 +1117,14 @@ export function PayrollLedger() {
                         }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2.5 py-2 text-white font-bold outline-none focus:border-rose-500 text-center"
                       />
+                      <span className="block text-[9px] text-red-400 text-center mt-1 font-semibold truncate" title={`Auto: OMR ${autoCalculations.autoLeaveDeduction.toFixed(3)}`}>
+                        -OMR {autoCalculations.autoLeaveDeduction.toFixed(3)}
+                      </span>
                     </div>
+
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[10px] font-bold uppercase text-slate-400">Hours</label>
-                        {autoCalcEnabled && (
-                          <span className="text-[9px] text-emerald-400 font-semibold">Auto-OT</span>
-                        )}
+                        <label className="block text-[10px] font-bold uppercase text-slate-400">Hours (OT)</label>
                       </div>
                       <input
                         type="text"
@@ -1070,11 +1133,19 @@ export function PayrollLedger() {
                         onChange={e => {
                           const newHours = e.target.value;
                           if (autoCalcEnabled) {
-                            const auto = calculateAutoValues({ ...payslipEditForm, hoursWorked: newHours });
+                            let otH = 0;
+                            if (newHours.includes(':')) {
+                              const parts = newHours.split(':');
+                              otH = (parseFloat(parts[0]) || 0) + ((parseFloat(parts[1]) || 0) / 60);
+                            } else {
+                              otH = parseFloat(newHours) || 0;
+                            }
+                            const hourly = liveBasicSalary > 0 ? liveBasicSalary / 240 : 0;
+                            const calcOT = Number((otH * hourly * overtimeMultiplier).toFixed(3));
                             setPayslipEditForm((prev: any) => ({
                               ...prev,
                               hoursWorked: newHours,
-                              overtimeAmount: auto.autoOvertimeAmount
+                              overtimeAmount: calcOT
                             }));
                           } else {
                             setPayslipEditForm({ ...payslipEditForm, hoursWorked: newHours });
@@ -1082,13 +1153,20 @@ export function PayrollLedger() {
                         }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2 py-2 text-white font-bold outline-none focus:border-rose-500 text-center"
                       />
+                      <span className="block text-[9px] text-emerald-400 text-center mt-1 font-semibold truncate" title={`Auto: OMR ${autoCalculations.autoOvertimeAmount.toFixed(3)}`}>
+                        +OMR {autoCalculations.autoOvertimeAmount.toFixed(3)}
+                      </span>
                     </div>
                   </div>
                 </div>
 
-                {/* EARNINGS SECTION */}
+                {/* EARNINGS & INCENTIVES SECTION */}
                 <div className="space-y-3 pt-2 border-t border-slate-800">
-                  <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wide">Earnings (OMR)</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-bold text-emerald-400 uppercase tracking-wide">Earnings & Incentives (OMR)</div>
+                    <span className="text-[10px] text-slate-400">Directly Editable</span>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Basic Salary</label>
@@ -1099,12 +1177,15 @@ export function PayrollLedger() {
                         onChange={e => {
                           const newBasic = parseFloat(e.target.value) || 0;
                           if (autoCalcEnabled) {
-                            const auto = calculateAutoValues({ ...payslipEditForm, basicSalary: newBasic });
+                            const daily = newBasic > 0 ? newBasic / 30 : 0;
+                            const hourly = newBasic > 0 ? newBasic / 240 : 0;
+                            const leaveD = Number(((payslipEditForm.leaveDays || 0) * daily).toFixed(3));
+                            const otA = Number((autoCalculations.otHours * hourly * overtimeMultiplier).toFixed(3));
                             setPayslipEditForm((prev: any) => ({
                               ...prev,
                               basicSalary: newBasic,
-                              deductionNotCame: auto.autoLeaveDeduction,
-                              overtimeAmount: auto.autoOvertimeAmount
+                              deductionNotCame: leaveD,
+                              overtimeAmount: otA
                             }));
                           } else {
                             setPayslipEditForm({ ...payslipEditForm, basicSalary: newBasic });
@@ -1113,6 +1194,7 @@ export function PayrollLedger() {
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-emerald-400 font-extrabold outline-none focus:border-rose-500"
                       />
                     </div>
+
                     <div>
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Other Allowance</label>
                       <input
@@ -1136,12 +1218,19 @@ export function PayrollLedger() {
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-white font-bold outline-none focus:border-rose-500"
                       />
                     </div>
+
+                    {/* OVERTIME AMOUNT (EDITABLE + AUTO FILL) */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
-                        <label className="block text-[10px] font-bold uppercase text-slate-400">Overtime / Incentives</label>
-                        {autoCalcEnabled && (
-                          <span className="text-[9px] text-emerald-400">Auto</span>
-                        )}
+                        <label className="block text-[10px] font-bold uppercase text-slate-400">Overtime Amount</label>
+                        <button
+                          type="button"
+                          onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, overtimeAmount: autoCalculations.autoOvertimeAmount }))}
+                          className="text-[9px] text-emerald-400 hover:text-emerald-300 font-semibold underline cursor-pointer"
+                          title="Apply auto-calculated overtime amount"
+                        >
+                          Auto: {autoCalculations.autoOvertimeAmount.toFixed(3)}
+                        </button>
                       </div>
                       <input
                         type="number"
@@ -1150,13 +1239,42 @@ export function PayrollLedger() {
                         onChange={e => setPayslipEditForm({ ...payslipEditForm, overtimeAmount: parseFloat(e.target.value) || 0 })}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-white font-bold outline-none focus:border-rose-500"
                       />
+                      {payslipEditForm.overtimeAmount !== undefined && Number(payslipEditForm.overtimeAmount) !== autoCalculations.autoOvertimeAmount && (
+                        <span className="block text-[9px] text-amber-400 mt-0.5">✏️ Custom Overtime Value</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* INCENTIVES & BONUS INPUT (NEW CUSTOM FIELD) */}
+                  <div className="bg-[#142038] p-3 rounded-xl border border-emerald-500/20 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[10px] font-bold uppercase text-emerald-300">Incentives / Bonus (OMR)</label>
+                      <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
+                        + Added to Slip
+                      </span>
+                    </div>
+                    <input
+                      type="number"
+                      step="0.001"
+                      placeholder="e.g. 15.000 or 50.000"
+                      value={payslipEditForm.incentiveAmount ?? 0}
+                      onChange={e => setPayslipEditForm({ ...payslipEditForm, incentiveAmount: parseFloat(e.target.value) || 0 })}
+                      className="w-full bg-[#192845] border border-emerald-500/30 rounded-xl px-3 py-2 text-emerald-300 font-extrabold outline-none focus:border-emerald-400"
+                    />
+                    <div className="flex items-center justify-between text-[10px] text-slate-300 pt-0.5">
+                      <span>Total (Overtime + Incentive):</span>
+                      <strong className="text-white font-mono">OMR {liveTotalIncentivesOT.toFixed(3)}</strong>
                     </div>
                   </div>
                 </div>
 
                 {/* DEDUCTIONS SECTION */}
                 <div className="space-y-3 pt-2 border-t border-slate-800">
-                  <div className="text-[11px] font-bold text-red-400 uppercase tracking-wide">Deductions (OMR)</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[11px] font-bold text-red-400 uppercase tracking-wide">Deductions (OMR)</div>
+                    <span className="text-[10px] text-slate-400">Directly Editable</span>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-[10px] font-bold uppercase text-slate-400 mb-1">Advance Salary</label>
@@ -1168,12 +1286,19 @@ export function PayrollLedger() {
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-red-400 font-bold outline-none focus:border-rose-500"
                       />
                     </div>
+
+                    {/* NOT CAME & SICK LEAVE DEDUCTION (EDITABLE + AUTO FILL) */}
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-[10px] font-bold uppercase text-slate-400">Not Came & Sick</label>
-                        {autoCalcEnabled && (
-                          <span className="text-[9px] text-red-400">Auto (Leaves)</span>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, deductionNotCame: autoCalculations.autoLeaveDeduction }))}
+                          className="text-[9px] text-red-400 hover:text-red-300 font-semibold underline cursor-pointer"
+                          title="Apply auto-calculated leave deduction"
+                        >
+                          Auto: {autoCalculations.autoLeaveDeduction.toFixed(3)}
+                        </button>
                       </div>
                       <input
                         type="number"
@@ -1182,6 +1307,9 @@ export function PayrollLedger() {
                         onChange={e => setPayslipEditForm({ ...payslipEditForm, deductionNotCame: parseFloat(e.target.value) || 0 })}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-red-400 font-bold outline-none focus:border-rose-500"
                       />
+                      {payslipEditForm.deductionNotCame !== undefined && Number(payslipEditForm.deductionNotCame) !== autoCalculations.autoLeaveDeduction && (
+                        <span className="block text-[9px] text-amber-400 mt-0.5">✏️ Custom Deduction Value</span>
+                      )}
                     </div>
                   </div>
 
@@ -1367,7 +1495,7 @@ export function PayrollLedger() {
                               <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">OMR {liveBasicSalary.toFixed(3)}</td>
                               <td className="p-1.5 px-2 border-r-2 border-black">Advance salary</td>
                               <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveAdvanceSalary > 0 ? liveAdvanceSalary.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right">OMR {liveOvertimeAmount > 0 ? liveOvertimeAmount.toFixed(3) : '-'}</td>
+                              <td className="p-1.5 px-2 text-right">OMR {liveTotalIncentivesOT > 0 ? liveTotalIncentivesOT.toFixed(3) : '-'}</td>
                             </tr>
                             <tr>
                               <td className="p-1.5 px-2 border-r-2 border-black">Other Allowance</td>
@@ -1395,7 +1523,7 @@ export function PayrollLedger() {
                               <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">OMR {liveGrossEarnings.toFixed(3)}</td>
                               <td className="p-1.5 px-2 border-r-2 border-black">Total Deductions</td>
                               <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">OMR {liveTotalDeductions > 0 ? liveTotalDeductions.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right font-black">OMR {liveOvertimeAmount > 0 ? liveOvertimeAmount.toFixed(3) : '-'}</td>
+                              <td className="p-1.5 px-2 text-right font-black">OMR {liveTotalIncentivesOT > 0 ? liveTotalIncentivesOT.toFixed(3) : '-'}</td>
                             </tr>
                           </tbody>
                         </table>
@@ -1421,7 +1549,7 @@ export function PayrollLedger() {
                             </tr>
                             <tr>
                               <td className="p-1.5 px-2">Total Incentive/Overtime</td>
-                              <td className="p-1.5 px-2 text-right font-bold">OMR {liveOvertimeAmount > 0 ? liveOvertimeAmount.toFixed(3) : '-'}</td>
+                              <td className="p-1.5 px-2 text-right font-bold">OMR {liveTotalIncentivesOT > 0 ? liveTotalIncentivesOT.toFixed(3) : '-'}</td>
                             </tr>
                             <tr className="border-t-2 border-black font-extrabold">
                               <td className="p-1.5 px-2 font-black">Total Net Payable</td>

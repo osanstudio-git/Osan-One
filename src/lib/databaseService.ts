@@ -1325,6 +1325,7 @@ export async function saveEmployeePayslipRecord(record: {
   probationFirstMonth?: number;
   deductionAnnualLeave?: number;
   overtimeAmount?: number;
+  incentiveAmount?: number;
   totalBalance?: number;
   paidDays?: number;
   leaveDays?: number;
