@@ -1301,9 +1301,32 @@ export interface DbPayrollTransaction {
   notes?: string;
 }
 
+/**
+ * Check whether payroll tables sync with Supabase is enabled.
+ * Disabled by default to prevent 404 errors until tables are created in Supabase.
+ */
+export const isSupabasePayrollSyncEnabled = (): boolean => {
+  return (
+    import.meta.env.VITE_ENABLE_SUPABASE_PAYROLL === 'true' ||
+    (typeof window !== 'undefined' && window.localStorage?.getItem('osan_enable_supabase_payroll') === 'true')
+  );
+};
+
 export async function getPayrollTransactionsFromDb(month: string, year: string): Promise<Record<string, any[]>> {
-  if (!isLiveSupabaseConfigured()) {
-    return {};
+  // 1. Read local storage fallback
+  const localMap: Record<string, any[]> = {};
+  try {
+    const localData = localStorage.getItem(`osan_payroll_tx_${month}_${year}`);
+    if (localData) {
+      Object.assign(localMap, JSON.parse(localData));
+    }
+  } catch {
+    // ignore
+  }
+
+  // Avoid network 404 errors if Supabase is not configured or payroll tables are not yet enabled
+  if (!isLiveSupabaseConfigured() || !isSupabasePayrollSyncEnabled()) {
+    return localMap;
   }
 
   try {
@@ -1315,26 +1338,24 @@ export async function getPayrollTransactionsFromDb(month: string, year: string):
       .order('payment_date', { ascending: false });
 
     if (error) {
-      if (!error.message?.includes('schema cache') && !error.message?.includes('does not exist')) {
-        console.warn('Supabase payroll_transactions select notice:', error.message);
-      }
-      return {};
+      return localMap;
     }
 
-    const txMap: Record<string, any[]> = {};
+    const txMap: Record<string, any[]> = { ...localMap };
     (data || []).forEach(tx => {
       if (!txMap[tx.user_id]) txMap[tx.user_id] = [];
-      txMap[tx.user_id].push({
-        id: tx.id,
-        date: tx.payment_date,
-        amount: Number(tx.amount),
-        method: tx.payment_method
-      });
+      if (!txMap[tx.user_id].some(t => t.id === tx.id)) {
+        txMap[tx.user_id].push({
+          id: tx.id,
+          date: tx.payment_date,
+          amount: Number(tx.amount),
+          method: tx.payment_method
+        });
+      }
     });
     return txMap;
   } catch (err) {
-    console.error('Failed to get payroll transactions:', err);
-    return {};
+    return localMap;
   }
 }
 
@@ -1346,7 +1367,23 @@ export async function savePayrollTransactionToDb(transaction: {
   method: string;
   date: string;
 }): Promise<boolean> {
-  if (!isLiveSupabaseConfigured()) {
+  // Always persist locally first so payment actions never fail
+  try {
+    const localKey = `osan_payroll_tx_${transaction.month}_${transaction.year}`;
+    const existing = JSON.parse(localStorage.getItem(localKey) || '{}');
+    if (!existing[transaction.userId]) existing[transaction.userId] = [];
+    existing[transaction.userId].push({
+      id: 'tx_' + Date.now(),
+      date: transaction.date,
+      amount: transaction.amount,
+      method: transaction.method
+    });
+    localStorage.setItem(localKey, JSON.stringify(existing));
+  } catch {
+    // ignore
+  }
+
+  if (!isLiveSupabaseConfigured() || !isSupabasePayrollSyncEnabled()) {
     return true;
   }
 
@@ -1361,13 +1398,11 @@ export async function savePayrollTransactionToDb(transaction: {
     }]);
 
     if (error) {
-      console.error('Supabase payroll transaction insert error:', error.message);
-      return false;
+      return true; // Still true because saved locally
     }
     return true;
   } catch (err) {
-    console.error('Failed to save payroll transaction:', err);
-    return false;
+    return true;
   }
 }
 
@@ -1388,7 +1423,8 @@ export async function getEmployeePayslipOverrides(month: string, year: string): 
     // ignore
   }
 
-  if (!isLiveSupabaseConfigured()) {
+  // Avoid network 404 errors if Supabase is not configured or payroll tables are not yet enabled
+  if (!isLiveSupabaseConfigured() || !isSupabasePayrollSyncEnabled()) {
     return localMap;
   }
 
@@ -1445,7 +1481,7 @@ export async function saveEmployeePayslipRecord(record: {
     // ignore
   }
 
-  if (!isLiveSupabaseConfigured()) {
+  if (!isLiveSupabaseConfigured() || !isSupabasePayrollSyncEnabled()) {
     return true;
   }
 

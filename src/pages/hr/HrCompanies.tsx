@@ -164,22 +164,20 @@ export function HrCompanies() {
           <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                viewMode === 'grid'
+              className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === 'grid'
                   ? 'bg-primary text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-              }`}
+                }`}
               title="Grid View"
             >
               <LayoutGrid className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition-colors cursor-pointer ${
-                viewMode === 'list'
+              className={`p-2 rounded-lg transition-colors cursor-pointer ${viewMode === 'list'
                   ? 'bg-primary text-white shadow-sm'
                   : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-              }`}
+                }`}
               title="List View"
             >
               <List className="w-4 h-4" />
@@ -201,8 +199,8 @@ export function HrCompanies() {
             const theme = getThemeConfig(company);
 
             return (
-              <div 
-                key={company.id || company.name} 
+              <div
+                key={company.id || company.name}
                 className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-sm hover:shadow-md dark:shadow-none overflow-hidden group hover:border-slate-300 dark:hover:border-white/20 transition-all hover:-translate-y-1"
               >
                 <div className={`h-16 bg-gradient-to-br ${theme.bgGrad} relative flex items-center justify-end px-3 border-b border-slate-100/60 dark:border-transparent`}>
@@ -227,9 +225,9 @@ export function HrCompanies() {
                 <div className="px-5 pb-5 pt-0 relative">
                   <div className={`w-14 h-14 -mt-7 mb-3 rounded-2xl bg-white dark:bg-slate-900 border-2 ${theme.borderColor} flex items-center justify-center text-sm font-black ${theme.textColor} shadow-md overflow-hidden p-1.5`}>
                     {hasValidCustomLogo(company.logoUrl) ? (
-                      <img 
-                        src={company.logoUrl} 
-                        alt={company.name} 
+                      <img
+                        src={company.logoUrl}
+                        alt={company.name}
                         className="w-full h-full object-contain"
                         onError={(e) => {
                           (e.currentTarget.parentElement as HTMLElement).innerHTML = `<span class="${theme.textColor}">${getInitials(company.name)}</span>`;
@@ -283,96 +281,96 @@ export function HrCompanies() {
         <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse min-w-[650px]">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
-                <th className="p-4 pl-6">Company Entity</th>
-                <th className="p-4">Location</th>
-                <th className="p-4">Login Policy</th>
-                <th className="p-4">Total Staff</th>
-                <th className="p-4 pr-6 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
-              {companies.map(company => {
-                const theme = getThemeConfig(company);
+              <thead>
+                <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="p-4 pl-6">Company Entity</th>
+                  <th className="p-4">Location</th>
+                  <th className="p-4">Login Policy</th>
+                  <th className="p-4">Total Staff</th>
+                  <th className="p-4 pr-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
+                {companies.map(company => {
+                  const theme = getThemeConfig(company);
 
-                return (
-                  <tr key={company.id || company.name} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
-                    <td className="p-4 pl-6">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border-2 ${theme.borderColor} flex items-center justify-center text-xs font-black ${theme.textColor} overflow-hidden shrink-0 shadow-sm p-1`}>
-                          {hasValidCustomLogo(company.logoUrl) ? (
-                            <img 
-                              src={company.logoUrl} 
-                              alt={company.name} 
-                              className="w-full h-full object-contain"
-                              onError={(e) => {
-                                (e.currentTarget.parentElement as HTMLElement).innerHTML = `<span class="${theme.textColor}">${getInitials(company.name)}</span>`;
-                              }}
-                            />
-                          ) : (
-                            <span className={theme.textColor}>{getInitials(company.name)}</span>
-                          )}
+                  return (
+                    <tr key={company.id || company.name} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                      <td className="p-4 pl-6">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border-2 ${theme.borderColor} flex items-center justify-center text-xs font-black ${theme.textColor} overflow-hidden shrink-0 shadow-sm p-1`}>
+                            {hasValidCustomLogo(company.logoUrl) ? (
+                              <img
+                                src={company.logoUrl}
+                                alt={company.name}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                  (e.currentTarget.parentElement as HTMLElement).innerHTML = `<span class="${theme.textColor}">${getInitials(company.name)}</span>`;
+                                }}
+                              />
+                            ) : (
+                              <span className={theme.textColor}>{getInitials(company.name)}</span>
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-bold text-slate-900 dark:text-white">{company.name}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="font-bold text-slate-900 dark:text-white">{company.name}</div>
+                      </td>
+                      <td className="p-4 text-slate-600 dark:text-gray-400 font-medium">{company.location || 'Headquarters'}</td>
+                      <td className="p-4">
+                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-1 rounded-full font-bold">
+                          <Shield className="w-3.5 h-3.5 text-primary" />
+                          {getPolicyLabel(company.authPolicy)}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-white/5 px-3 py-1 rounded-lg">
+                          <Users className={`w-4 h-4 ${theme.textColor}`} />
+                          <span className="font-extrabold text-slate-900 dark:text-white text-sm">{company.count}</span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="p-4 text-slate-600 dark:text-gray-400 font-medium">{company.location || 'Headquarters'}</td>
-                    <td className="p-4">
-                      <span className="inline-flex items-center gap-1.5 text-xs text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2.5 py-1 rounded-full font-bold">
-                        <Shield className="w-3.5 h-3.5 text-primary" />
-                        {getPolicyLabel(company.authPolicy)}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <div className="inline-flex items-center gap-2 bg-slate-100 dark:bg-white/5 px-3 py-1 rounded-lg">
-                        <Users className={`w-4 h-4 ${theme.textColor}`} />
-                        <span className="font-extrabold text-slate-900 dark:text-white text-sm">{company.count}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 pr-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      </td>
+                      <td className="p-4 pr-6 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEditModal(company)}
+                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                          >
+                            <Pencil className="w-3 h-3" /> Edit
+                          </button>
+                          <button
+                            onClick={() => setDeletingCompany(company)}
+                            className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Company"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {companies.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="p-12 text-center text-slate-500 dark:text-gray-400">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <Building2 className="w-10 h-10 text-slate-400 dark:text-gray-500 opacity-40" />
+                        <p className="text-base font-bold text-slate-900 dark:text-white">No companies registered yet</p>
+                        <p className="text-xs text-slate-500 dark:text-gray-400 max-w-sm">
+                          Your multi-tenant database is empty. Click the button below to register your first organization.
+                        </p>
                         <button
-                          onClick={() => openEditModal(company)}
-                          className="px-3 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+                          onClick={openAddModal}
+                          className="mt-2 px-4 py-2 bg-primary hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-primary/20"
                         >
-                          <Pencil className="w-3 h-3" /> Edit
-                        </button>
-                        <button
-                          onClick={() => setDeletingCompany(company)}
-                          className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Delete Company"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          + Add First Company
                         </button>
                       </div>
                     </td>
                   </tr>
-                );
-              })}
-              {companies.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="p-12 text-center text-slate-500 dark:text-gray-400">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <Building2 className="w-10 h-10 text-slate-400 dark:text-gray-500 opacity-40" />
-                      <p className="text-base font-bold text-slate-900 dark:text-white">No companies registered yet</p>
-                      <p className="text-xs text-slate-500 dark:text-gray-400 max-w-sm">
-                        Your multi-tenant database is empty. Click the button below to register your first organization.
-                      </p>
-                      <button
-                        onClick={openAddModal}
-                        className="mt-2 px-4 py-2 bg-primary hover:bg-emerald-600 text-white font-bold rounded-xl text-xs transition-all shadow-lg shadow-primary/20"
-                      >
-                        + Add First Company
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
