@@ -3,6 +3,7 @@ import { AlertCircle, Clock, FileCheck, RefreshCw, MessageSquare } from 'lucide-
 import type { User } from '../../types';
 import { DocumentRenewalModal } from './DocumentRenewalModal';
 import { sendDocumentExpiryWhatsAppNotice } from '../../lib/whatsappService';
+import { renewEmployeeDocumentInDb } from '../../lib/databaseService';
 
 interface ComplianceItem {
   employeeId: string;
@@ -81,14 +82,22 @@ export function DocumentComplianceWidget({ employees, onEmployeeUpdate }: Docume
     return true;
   });
 
-  const handleWidgetRenew = (docId: string, newExpiryDate: string, newNumber?: string) => {
+  const handleWidgetRenew = async (docId: string, newExpiryDate: string, newNumber?: string, attachedFile?: string) => {
     if (!renewalTarget) return;
+
+    // Persist renewal into Supabase database
+    await renewEmployeeDocumentInDb(renewalTarget.employeeId, docId, newExpiryDate, newNumber, attachedFile);
 
     const updatedEmployees = employees.map(emp => {
       if (emp.id === renewalTarget.employeeId) {
         const updatedDocs = (emp.documents || []).map(d => {
           if (d.id === docId) {
-            return { ...d, expiryDate: newExpiryDate, number: newNumber || d.number };
+            return { 
+              ...d, 
+              expiryDate: newExpiryDate, 
+              number: newNumber || d.number,
+              attachedFile: attachedFile || d.attachedFile 
+            };
           }
           return d;
         });

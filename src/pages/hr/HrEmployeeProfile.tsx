@@ -1,14 +1,23 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X,
+  ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X, Eye,
   User, ShieldAlert, Award, AlertCircle, Settings, Trash2, UserCheck, UserX,
   Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw, CreditCard, Edit3, Landmark, CheckCircle2,
   ChevronLeft, ChevronRight, Plus, MessageSquare
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
-import { getEmployeeById, deleteEmployeeInDb, updateEmployeeInDb, getEmployeeAttendanceLogsFromDb, getLeaveRequestsFromDb } from '../../lib/databaseService';
+import { 
+  getEmployeeById, 
+  deleteEmployeeInDb, 
+  updateEmployeeInDb, 
+  getEmployeeAttendanceLogsFromDb, 
+  getLeaveRequestsFromDb,
+  addEmployeeDocumentToDb,
+  deleteEmployeeDocumentFromDb,
+  renewEmployeeDocumentInDb
+} from '../../lib/databaseService';
 import { isDatePublicHoliday } from '../../lib/holidayService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 import type { User as UserType, Nationality } from '../../types';
@@ -55,12 +64,20 @@ export function HrEmployeeProfile() {
   const [exitReasonState, setExitReasonState] = useState('Resignation');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [renewalDocTarget, setRenewalDocTarget] = useState<{ id: string; name: string; type: string; expiryDate?: string; number?: string } | null>(null);
+  const [viewingDoc, setViewingDoc] = useState<any | null>(null);
 
-  const handleProfileDocRenew = (docId: string, newExpiryDate: string, newNumber?: string) => {
+  const handleProfileDocRenew = async (docId: string, newExpiryDate: string, newNumber?: string, attachedFile?: string) => {
     if (!employee) return;
+    await renewEmployeeDocumentInDb(employee.id, docId, newExpiryDate, newNumber, attachedFile);
+
     const updatedDocs = (employee.documents || []).map(d => {
       if (d.id === docId) {
-        return { ...d, expiryDate: newExpiryDate, number: newNumber || d.number };
+        return { 
+          ...d, 
+          expiryDate: newExpiryDate, 
+          number: newNumber || d.number,
+          attachedFile: attachedFile || d.attachedFile
+        };
       }
       return d;
     });
@@ -374,17 +391,32 @@ export function HrEmployeeProfile() {
     if (!employee || !docForm.name.trim()) return;
     setIsSavingDoc(true);
     try {
-      const newDoc = {
-        id: Math.random().toString(36).substring(2, 9),
+      const insertedId = await addEmployeeDocumentToDb(employee.id, {
         name: docForm.name,
         type: docForm.type,
+        number: docForm.docNumber,
         expiryDate: docForm.expiryDate,
-        attachedFile: docForm.attachedFile || 'document_copy.pdf'
+        attachedFile: docForm.attachedFile || ''
+      });
+
+      const newDoc = {
+        id: insertedId,
+        name: docForm.name,
+        type: docForm.type,
+        number: docForm.docNumber,
+        expiryDate: docForm.expiryDate,
+        attachedFile: docForm.attachedFile || ''
       };
+
       const updatedDocs = [...(employee.documents || []), newDoc];
       const updated = { ...employee, documents: updatedDocs };
       setEmployee(updated);
-      await updateEmployeeInDb(employee.id, { documents: updatedDocs });
+
+      const idx = MOCK_EMPLOYEES.findIndex(e => e.id === employee.id);
+      if (idx !== -1) {
+        MOCK_EMPLOYEES[idx] = updated as any;
+      }
+
       setIsDocModalOpen(false);
       setDocForm({
         name: '',
@@ -402,10 +434,16 @@ export function HrEmployeeProfile() {
 
   const handleDeleteDocument = async (docId: string) => {
     if (!employee) return;
+    await deleteEmployeeDocumentFromDb(docId, employee.id);
+
     const updatedDocs = (employee.documents || []).filter(d => d.id !== docId);
     const updated = { ...employee, documents: updatedDocs };
     setEmployee(updated);
-    await updateEmployeeInDb(employee.id, { documents: updatedDocs });
+
+    const idx = MOCK_EMPLOYEES.findIndex(e => e.id === employee.id);
+    if (idx !== -1) {
+      MOCK_EMPLOYEES[idx] = updated as any;
+    }
   };
 
   const handleUpdateStatus = () => {
@@ -1419,10 +1457,27 @@ export function HrEmployeeProfile() {
 
                     <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200/60 dark:border-white/10">
                       <button
-                        onClick={() => alert(`Downloading document: ${doc.name}`)}
-                        className="flex-1 text-xs font-semibold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 py-2 border border-slate-200 dark:border-white/10 hover:border-primary/30 bg-white dark:bg-white/5 hover:bg-primary/5 rounded-lg transition-all shadow-sm cursor-pointer"
+                        onClick={() => setViewingDoc(doc)}
+                        className="flex-1 text-xs font-semibold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 py-2 border border-slate-200 dark:border-white/10 hover:border-primary/30 bg-white dark:bg-white/5 hover:bg-primary/5 rounded-lg transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                        title="View Document Details & Preview"
                       >
-                        Download Copy
+                        <Eye className="w-3.5 h-3.5" /> View
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (doc.attachedFile && doc.attachedFile.startsWith('data:')) {
+                            const link = document.createElement('a');
+                            link.href = doc.attachedFile;
+                            link.download = `${doc.name.replace(/\s+/g, '_')}_Document`;
+                            link.click();
+                          } else {
+                            alert(`Document record: ${doc.name}\nRef: ${doc.number || 'N/A'}\nValid until: ${doc.expiryDate || 'N/A'}`);
+                          }
+                        }}
+                        className="px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:border-slate-300 bg-white dark:bg-white/5 rounded-lg transition-all shadow-sm cursor-pointer flex items-center gap-1"
+                        title="Download Copy"
+                      >
+                        <Download className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setRenewalDocTarget(doc)}
@@ -2608,9 +2663,24 @@ export function HrEmployeeProfile() {
                 <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Attach File (PDF, PNG, JPG)</label>
                 <input
                   type="file"
-                  onChange={(e) => setDocForm({ ...docForm, attachedFile: e.target.files?.[0]?.name || '' })}
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-2 text-slate-900 dark:text-white outline-none"
+                  accept="image/*,application/pdf"
+                  onChange={(e) => {
+                    const selected = e.target.files?.[0];
+                    if (selected) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        setDocForm(prev => ({ ...prev, attachedFile: reader.result as string }));
+                      };
+                      reader.readAsDataURL(selected);
+                    }
+                  }}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl p-2 text-slate-900 dark:text-white outline-none text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-white hover:file:bg-emerald-600 cursor-pointer"
                 />
+                {docForm.attachedFile && (
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block mt-1">
+                    ✓ File attached & ready for preview
+                  </span>
+                )}
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-slate-200 dark:border-white/10 justify-end">
@@ -2622,6 +2692,141 @@ export function HrEmployeeProfile() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Interactive Document Viewer Modal */}
+      {viewingDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
+            {/* Viewer Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-white/10 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight flex items-center gap-2">
+                    {viewingDoc.name}
+                    {getDocStatusBadge(viewingDoc.expiryDate)}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                    {employee?.name} &bull; {viewingDoc.type} {viewingDoc.number ? `(#${viewingDoc.number})` : ''}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingDoc(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Viewer Content / Preview Area */}
+            <div className="p-5 flex-1 overflow-y-auto space-y-4">
+              {/* Document Meta Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-white/5 p-3.5 rounded-xl border border-slate-200/80 dark:border-white/10 text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 text-[10px] uppercase font-bold block">Document Type</span>
+                  <span className="font-semibold text-slate-800 dark:text-gray-200">{viewingDoc.type}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 text-[10px] uppercase font-bold block">Expiry Date</span>
+                  <span className="font-semibold text-slate-800 dark:text-gray-200">{viewingDoc.expiryDate || 'N/A'}</span>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 text-[10px] uppercase font-bold block">Document Reference</span>
+                  <span className="font-mono font-semibold text-slate-800 dark:text-gray-200">{viewingDoc.number || 'N/A'}</span>
+                </div>
+              </div>
+
+              {/* Preview Container */}
+              <div className="border border-slate-200 dark:border-white/10 rounded-xl overflow-hidden bg-slate-100 dark:bg-black/30 min-h-[260px] flex items-center justify-center">
+                {viewingDoc.attachedFile && viewingDoc.attachedFile.startsWith('data:image') ? (
+                  <img
+                    src={viewingDoc.attachedFile}
+                    alt={viewingDoc.name}
+                    className="max-h-[500px] w-auto max-w-full object-contain mx-auto rounded-lg shadow-sm"
+                  />
+                ) : viewingDoc.attachedFile && viewingDoc.attachedFile.startsWith('data:application/pdf') ? (
+                  <iframe
+                    src={viewingDoc.attachedFile}
+                    title={viewingDoc.name}
+                    className="w-full h-[450px] border-0 rounded-lg"
+                  />
+                ) : (
+                  /* Elegant Official Record Certificate */
+                  <div className="p-8 text-center space-y-4 max-w-md w-full">
+                    <div className="w-16 h-16 rounded-2xl bg-primary/10 text-primary mx-auto flex items-center justify-center border border-primary/20 shadow-inner">
+                      <FileText className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                        {viewingDoc.name}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                        Official verified document record in OSAN HR System
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-white/5 p-3.5 rounded-xl border border-slate-200 dark:border-white/10 text-left text-xs space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Employee:</span>
+                        <span className="font-bold text-slate-900 dark:text-white">{employee?.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Classification:</span>
+                        <span className="font-semibold text-slate-900 dark:text-white">{viewingDoc.type}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Valid Until:</span>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">{viewingDoc.expiryDate || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Document Number:</span>
+                        <span className="font-mono text-slate-800 dark:text-gray-300">{viewingDoc.number || 'N/A'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Viewer Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-white/10 flex items-center justify-between bg-slate-50 dark:bg-white/5">
+              <button
+                onClick={() => {
+                  setRenewalDocTarget(viewingDoc);
+                  setViewingDoc(null);
+                }}
+                className="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Renew This Document
+              </button>
+
+              <div className="flex items-center gap-2">
+                {viewingDoc.attachedFile && viewingDoc.attachedFile.startsWith('data:') && (
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = viewingDoc.attachedFile;
+                      link.download = `${viewingDoc.name.replace(/\s+/g, '_')}_Document`;
+                      link.click();
+                    }}
+                    className="px-4 py-2 bg-primary hover:bg-emerald-600 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5" /> Download File
+                  </button>
+                )}
+                <button
+                  onClick={() => setViewingDoc(null)}
+                  className="px-4 py-2 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-800 dark:text-white rounded-xl font-semibold text-xs cursor-pointer transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

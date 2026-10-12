@@ -307,7 +307,29 @@ export async function getEmployees(): Promise<User[]> {
       console.error('Supabase users query error:', error.message);
       return [];
     }
-    return (data || []).map(u => mapDbUserToUser(u, compMap));
+
+    // Batch fetch official documents for all employees to power real-time compliance tracking
+    const { data: docsData } = await supabase.from('employee_documents').select('*');
+    const docsByUserId: Record<string, any[]> = {};
+    (docsData || []).forEach(d => {
+      if (!docsByUserId[d.user_id]) docsByUserId[d.user_id] = [];
+      docsByUserId[d.user_id].push({
+        id: d.id,
+        name: d.document_name,
+        type: d.document_type,
+        number: d.document_number,
+        expiryDate: d.expiry_date,
+        attachedFile: d.file_url,
+      });
+    });
+
+    return (data || []).map(u => {
+      const userObj = mapDbUserToUser(u, compMap);
+      if (docsByUserId[u.id] && docsByUserId[u.id].length > 0) {
+        userObj.documents = docsByUserId[u.id];
+      }
+      return userObj;
+    });
   } catch (err) {
     console.error('Failed to fetch employees from Supabase:', err);
     return [];
@@ -656,13 +678,89 @@ export async function clockOutUserInDb(logId: string): Promise<boolean> {
 }
 
 // ---------------------------------------------------------------------
-// 4. DOCUMENT RENEWAL SERVICES
+// 4. DOCUMENT SERVICES (ADD, RENEW, DELETE)
 // ---------------------------------------------------------------------
+export async function addEmployeeDocumentToDb(
+  userId: string,
+  doc: { name: string; type: string; number?: string; expiryDate?: string; attachedFile?: string }
+): Promise<string> {
+  const localId = Math.random().toString(36).substring(2, 9);
+  
+  if (!isLiveSupabaseConfigured()) {
+    const emp = MOCK_EMPLOYEES.find(e => e.id === userId);
+    if (emp) {
+      if (!emp.documents) emp.documents = [];
+      emp.documents.push({
+        id: localId,
+        name: doc.name,
+        type: doc.type,
+        number: doc.number,
+        expiryDate: doc.expiryDate,
+        attachedFile: doc.attachedFile
+      });
+    }
+    return localId;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('employee_documents')
+      .insert({
+        user_id: userId,
+        document_name: doc.name,
+        document_type: doc.type,
+        document_number: doc.number || null,
+        expiry_date: doc.expiryDate || null,
+        file_url: doc.attachedFile || null
+      })
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      console.error('Error inserting document into Supabase:', error.message);
+      return localId;
+    }
+    return data?.id || localId;
+  } catch (err) {
+    console.error('Failed to add document to database:', err);
+    return localId;
+  }
+}
+
+export async function deleteEmployeeDocumentFromDb(docId: string, userId?: string): Promise<boolean> {
+  if (!isLiveSupabaseConfigured()) {
+    if (userId) {
+      const emp = MOCK_EMPLOYEES.find(e => e.id === userId);
+      if (emp && emp.documents) {
+        emp.documents = emp.documents.filter(d => d.id !== docId);
+      }
+    }
+    return true;
+  }
+
+  try {
+    const { error } = await supabase
+      .from('employee_documents')
+      .delete()
+      .eq('id', docId);
+
+    if (error) {
+      console.error('Error deleting document from Supabase:', error.message);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('Failed to delete document from database:', err);
+    return false;
+  }
+}
+
 export async function renewEmployeeDocumentInDb(
   userId: string, 
   docId: string, 
   newExpiryDate: string, 
-  newNumber?: string
+  newNumber?: string,
+  attachedFile?: string
 ): Promise<boolean> {
   if (!isLiveSupabaseConfigured()) {
     const emp = MOCK_EMPLOYEES.find(e => e.id === userId);
@@ -671,14 +769,19 @@ export async function renewEmployeeDocumentInDb(
       if (doc) {
         doc.expiryDate = newExpiryDate;
         if (newNumber) doc.number = newNumber;
+        if (attachedFile) doc.attachedFile = attachedFile;
       }
     }
     return true;
   }
 
+  const updatePayload: Record<string, any> = { expiry_date: newExpiryDate };
+  if (newNumber) updatePayload.document_number = newNumber;
+  if (attachedFile) updatePayload.file_url = attachedFile;
+
   const { error } = await supabase
     .from('employee_documents')
-    .update({ expiry_date: newExpiryDate, document_number: newNumber })
+    .update(updatePayload)
     .eq('id', docId)
     .eq('user_id', userId);
 
