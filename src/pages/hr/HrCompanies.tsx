@@ -17,7 +17,12 @@ export function HrCompanies() {
   const [editingCompany, setEditingCompany] = useState<CompanyData | null>(null);
   const [deletingCompany, setDeletingCompany] = useState<CompanyData | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024 ? 'grid' : 'list';
+    }
+    return 'grid';
+  });
 
   const loadCompanies = async () => {
     try {

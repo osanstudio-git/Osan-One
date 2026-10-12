@@ -15,7 +15,12 @@ export function HrDirectory() {
   const [companyFilter, setCompanyFilter] = useState<string>('All');
   const [genderFilter, setGenderFilter] = useState<string>('All');
   const [nationalityFilter, setNationalityFilter] = useState<string>('All');
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024 ? 'grid' : 'table';
+    }
+    return 'table';
+  });
 
   const loadData = async () => {
     try {

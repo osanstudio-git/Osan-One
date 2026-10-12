@@ -29,7 +29,12 @@ export function PayrollLedger() {
   const [selectedNationality, setSelectedNationality] = useState<string>('All');
   const [selectedGender, setSelectedGender] = useState<string>('All');
   const [isLocked, setIsLocked] = useState(false);
-  const [ledgerViewMode, setLedgerViewMode] = useState<'table' | 'cards'>('table');
+  const [ledgerViewMode, setLedgerViewMode] = useState<'table' | 'cards'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024 ? 'cards' : 'table';
+    }
+    return 'table';
+  });
 
   const [payslipOverrides, setPayslipOverrides] = useState<Record<string, any>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');

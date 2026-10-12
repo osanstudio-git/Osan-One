@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { MapPin, Globe, Loader2, Save, Building2, CheckCircle2, ShieldAlert, Compass } from 'lucide-react';
+import { MapPin, Globe, Loader2, Save, Building2, CheckCircle2, ShieldAlert, Compass, LayoutGrid, List, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { getCompanies } from '../../lib/databaseService';
 import { getCompanySettings, updateCompanySettings } from '../../lib/settings';
@@ -10,6 +10,12 @@ export function HrOffice() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>('');
   const [branchStatusMap, setBranchStatusMap] = useState<Record<string, { lat?: number | null; lng?: number | null; ip?: string | null }>>({});
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024 ? 'cards' : 'table';
+    }
+    return 'table';
+  });
   
   const [isFetchingLocation, setIsFetchingLocation] = useState(false);
   const [isFetchingIp, setIsFetchingIp] = useState(false);
@@ -150,99 +156,228 @@ export function HrOffice() {
         </p>
       </div>
 
-      {/* Branch Office Setup Directory Table */}
+      {/* Branch Office Setup Directory Table / Cards */}
       <div className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none overflow-hidden">
-        <div className="p-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Building2 className="w-4 h-4 text-primary" /> Branch Office Setup Overview
             </h3>
             <p className="text-xs text-slate-500 dark:text-gray-400">Live GPS & Wi-Fi whitelist status for all corporate entities</p>
           </div>
-          <span className="text-xs font-bold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-white/5 px-3 py-1 rounded-full">
-            {companies.length} Office Entities
-          </span>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            {/* View Switcher: Table vs Cards */}
+            <div className="flex items-center bg-slate-100 dark:bg-white/5 p-0.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-xs">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-white dark:bg-slate-800 text-primary shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                }`}
+                title="Table View"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>Table</span>
+              </button>
+              <button
+                onClick={() => setViewMode('cards')}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'cards'
+                    ? 'bg-white dark:bg-slate-800 text-primary shadow-xs'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                }`}
+                title="Cards View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Cards</span>
+              </button>
+            </div>
+
+            <span className="text-xs font-bold text-slate-500 dark:text-gray-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-white/10">
+              {companies.length} Branches
+            </span>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs min-w-[650px]">
-            <thead>
-              <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">
-                <th className="p-3.5 pl-5">Company / Branch</th>
-                <th className="p-3.5">GPS Location</th>
-                <th className="p-3.5">Wi-Fi IPv4 Network</th>
-                <th className="p-3.5">Attendance Status</th>
-                <th className="p-3.5 pr-5 text-right">Quick Setup</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
-              {companies.map((comp) => {
-                const key = comp.id || comp.name;
-                const status = branchStatusMap[key] || {};
-                const hasGps = Boolean(status.lat && status.lng);
-                const hasWifi = Boolean(status.ip);
-                const isSelected = selectedCompanyId === key;
-
-                return (
-                  <tr key={key} className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${isSelected ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
-                    <td className="p-3.5 pl-5">
-                      <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        🏢 {comp.name}
-                        {isSelected && <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded-md font-extrabold">Editing</span>}
-                      </div>
-                      <div className="text-[11px] text-slate-500 dark:text-gray-400">{comp.location || 'Headquarters'}</div>
-                    </td>
-                    <td className="p-3.5">
-                      {hasGps ? (
-                        <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>{status.lat?.toFixed(4)}, {status.lng?.toFixed(4)}</span>
-                        </div>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md font-bold text-[11px]">
-                          <ShieldAlert className="w-3 h-3" /> GPS Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3.5">
-                      {hasWifi ? (
-                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold font-mono">
-                          <Globe className="w-3.5 h-3.5" />
-                          <span>{status.ip}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 dark:text-gray-500 font-normal">Optional</span>
-                      )}
-                    </td>
-                    <td className="p-3.5">
-                      {hasGps || hasWifi ? (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                          🟢 Ready for Punch
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                          🟡 Setup Needed
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3.5 pr-5 text-right">
-                      <button
-                        onClick={() => setSelectedCompanyId(key)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          isSelected 
-                            ? 'bg-primary text-white shadow-xs'
-                            : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white'
-                        }`}
-                      >
-                        {isSelected ? 'Editing Now' : 'Configure →'}
-                      </button>
-                    </td>
+        {viewMode === 'table' ? (
+          <div>
+            <div className="sm:hidden px-3.5 py-1.5 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-[10px] text-slate-500 dark:text-gray-400 flex items-center justify-between">
+              <span>← Swipe table or switch to Cards view →</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[650px]">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider text-[11px]">
+                    <th className="py-3 px-3 sm:py-3.5 sm:px-4 pl-4 sm:pl-5">Company / Branch</th>
+                    <th className="py-3 px-3 sm:py-3.5 sm:px-4">GPS Location</th>
+                    <th className="py-3 px-3 sm:py-3.5 sm:px-4">Wi-Fi IPv4 Network</th>
+                    <th className="py-3 px-3 sm:py-3.5 sm:px-4">Attendance Status</th>
+                    <th className="py-3 px-3 sm:py-3.5 sm:px-4 pr-4 sm:pr-5 text-right min-w-[110px]">Quick Setup</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
+                  {companies.map((comp) => {
+                    const key = comp.id || comp.name;
+                    const status = branchStatusMap[key] || {};
+                    const hasGps = Boolean(status.lat && status.lng);
+                    const hasWifi = Boolean(status.ip);
+                    const isSelected = selectedCompanyId === key;
+
+                    return (
+                      <tr key={key} className={`hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors ${isSelected ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 pl-4 sm:pl-5">
+                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <span>🏢</span>
+                            <span>{comp.name}</span>
+                            {isSelected && <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded-md font-extrabold">Editing</span>}
+                          </div>
+                          <div className="text-[11px] text-slate-500 dark:text-gray-400">{comp.location || 'Headquarters'}</div>
+                        </td>
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4">
+                          {hasGps ? (
+                            <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold">
+                              <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                              <span className="font-mono">{status.lat?.toFixed(4)}, {status.lng?.toFixed(4)}</span>
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md font-bold text-[11px]">
+                              <ShieldAlert className="w-3 h-3" /> GPS Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4">
+                          {hasWifi ? (
+                            <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-bold font-mono">
+                              <Globe className="w-3.5 h-3.5 shrink-0" />
+                              <span>{status.ip}</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 dark:text-gray-500 font-normal">Optional</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4">
+                          {hasGps || hasWifi ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              🟢 Ready for Punch
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              🟡 Setup Needed
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 sm:py-3.5 sm:px-4 pr-4 sm:pr-5 text-right">
+                          <button
+                            onClick={() => setSelectedCompanyId(key)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              isSelected 
+                                ? 'bg-primary text-white shadow-xs'
+                                : 'bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white'
+                            }`}
+                          >
+                            {isSelected ? 'Editing Now' : 'Configure →'}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          /* Cards View for Mobile & Tablet */
+          <div className="p-4 sm:p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 bg-slate-50/50 dark:bg-transparent">
+            {companies.map((comp) => {
+              const key = comp.id || comp.name;
+              const status = branchStatusMap[key] || {};
+              const hasGps = Boolean(status.lat && status.lng);
+              const hasWifi = Boolean(status.ip);
+              const isSelected = selectedCompanyId === key;
+
+              return (
+                <div
+                  key={key}
+                  className={`bg-white dark:bg-white/5 rounded-2xl border p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group ${
+                    isSelected
+                      ? 'border-primary ring-2 ring-primary/20 dark:border-primary'
+                      : 'border-slate-200/80 dark:border-white/10 hover:border-slate-300 dark:hover:border-white/20'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 font-extrabold text-slate-900 dark:text-white text-sm truncate">
+                        <span className="text-base">🏢</span>
+                        <span className="truncate group-hover:text-primary transition-colors">{comp.name}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-gray-400 mt-0.5 truncate">
+                        {comp.location || 'Headquarters'}
+                      </p>
+                    </div>
+
+                    {isSelected ? (
+                      <span className="text-[10px] bg-primary text-white px-2 py-0.5 rounded-full font-extrabold shrink-0 shadow-xs">
+                        Editing Now
+                      </span>
+                    ) : hasGps || hasWifi ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
+                        🟢 Ready
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
+                        🟡 Setup Needed
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 p-2.5 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] text-slate-500 dark:text-gray-400 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400" /> GPS Location:
+                      </span>
+                      {hasGps ? (
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400 font-mono text-[11px]">
+                          {status.lat?.toFixed(4)}, {status.lng?.toFixed(4)}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded text-[10px] font-bold">
+                          <ShieldAlert className="w-3 h-3" /> Pending
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-white/5">
+                      <span className="text-[11px] text-slate-500 dark:text-gray-400 flex items-center gap-1">
+                        <Globe className="w-3.5 h-3.5 text-slate-400" /> Wi-Fi Network:
+                      </span>
+                      {hasWifi ? (
+                        <span className="font-bold text-blue-600 dark:text-blue-400 font-mono text-[11px]">
+                          {status.ip}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 dark:text-gray-500 text-[11px]">Optional</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedCompanyId(key)}
+                    className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      isSelected
+                        ? 'bg-primary text-white shadow-md shadow-primary/20'
+                        : 'bg-slate-100 hover:bg-primary/10 hover:text-primary dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white'
+                    }`}
+                  >
+                    <span>{isSelected ? 'Currently Selected' : 'Configure Geofence & Wi-Fi'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Target Company Selector Bar */}

@@ -8,13 +8,23 @@ export function HrLeaves() {
   const [leaves, setLeaves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<'requests' | 'holidays'>('requests');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024 ? 'grid' : 'list';
+    }
+    return 'grid';
+  });
   const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'Approved' | 'Rejected'>('Pending');
   const [searchQuery, setSearchQuery] = useState('');
 
   // Holidays state
   const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
-  const [holidayViewMode, setHolidayViewMode] = useState<'table' | 'grid'>('table');
+  const [holidayViewMode, setHolidayViewMode] = useState<'table' | 'grid'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1024 ? 'grid' : 'table';
+    }
+    return 'table';
+  });
   const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
   const [holidayForm, setHolidayForm] = useState({
     name: '',
