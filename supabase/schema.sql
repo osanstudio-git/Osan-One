@@ -282,6 +282,7 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------
+-- ---------------------------------------------------------------------
 -- 9. COMPANY OFFICE SETTINGS TABLE
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS company_settings (
@@ -299,6 +300,66 @@ DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to company_settings') THEN
     CREATE POLICY "Allow full manage access to company_settings" ON company_settings FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 10. PAYROLL TRANSACTIONS TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS payroll_transactions (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id VARCHAR(255) NOT NULL,
+  month VARCHAR(50) NOT NULL,
+  year VARCHAR(10) NOT NULL,
+  amount NUMERIC(10,3) NOT NULL DEFAULT 0,
+  payment_method VARCHAR(50) NOT NULL DEFAULT 'Bank Transfer',
+  payment_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE payroll_transactions ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to payroll_transactions') THEN
+    CREATE POLICY "Allow full manage access to payroll_transactions" ON payroll_transactions FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
+-- ---------------------------------------------------------------------
+-- 11. PAYSLIP RECORDS TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS payslip_records (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id VARCHAR(255) NOT NULL,
+  month VARCHAR(50) NOT NULL,
+  year VARCHAR(10) NOT NULL,
+  basic_salary NUMERIC(10,3),
+  other_allowance NUMERIC(10,3),
+  transportation NUMERIC(10,3),
+  advance_salary NUMERIC(10,3),
+  deduction_not_came NUMERIC(10,3),
+  probation_first_month NUMERIC(10,3),
+  deduction_annual_leave NUMERIC(10,3),
+  overtime_amount NUMERIC(10,3),
+  incentive_amount NUMERIC(10,3),
+  total_balance NUMERIC(10,3),
+  paid_days NUMERIC(10,2),
+  leave_days NUMERIC(10,2),
+  hours_worked VARCHAR(50),
+  account_number VARCHAR(100),
+  mobile_number VARCHAR(50),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(user_id, month, year)
+);
+
+ALTER TABLE payslip_records ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to payslip_records') THEN
+    CREATE POLICY "Allow full manage access to payslip_records" ON payslip_records FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
 

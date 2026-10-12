@@ -1315,7 +1315,9 @@ export async function getPayrollTransactionsFromDb(month: string, year: string):
       .order('payment_date', { ascending: false });
 
     if (error) {
-      console.warn('Supabase payroll_transactions select notice:', error.message);
+      if (!error.message?.includes('schema cache') && !error.message?.includes('does not exist')) {
+        console.warn('Supabase payroll_transactions select notice:', error.message);
+      }
       return {};
     }
 
@@ -1460,6 +1462,8 @@ export async function saveEmployeePayslipRecord(record: {
       probation_first_month: record.probationFirstMonth,
       deduction_annual_leave: record.deductionAnnualLeave,
       overtime_amount: record.overtimeAmount,
+      incentive_amount: record.incentiveAmount,
+      total_balance: record.totalBalance,
       paid_days: record.paidDays,
       leave_days: record.leaveDays,
       hours_worked: record.hoursWorked,
