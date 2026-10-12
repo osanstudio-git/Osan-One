@@ -191,7 +191,7 @@ export function HrCompanies() {
       </div>
 
       {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {companies.map(company => {
             const theme = getThemeConfig(company);
 
@@ -276,7 +276,8 @@ export function HrCompanies() {
         </div>
       ) : (
         <div className="bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 shadow-sm dark:shadow-none overflow-hidden">
-          <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[650px]">
             <thead>
               <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                 <th className="p-4 pl-6">Company Entity</th>
@@ -367,6 +368,7 @@ export function HrCompanies() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

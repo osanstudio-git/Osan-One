@@ -394,13 +394,13 @@ export function EmployeeDashboard() {
     return (
       <div className="flex flex-col items-center justify-center h-full w-full p-4">
         {/* Main Panel Clock */}
-        <div className="text-center mb-8">
-          <div className="text-5xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-xs mb-3">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-xs mb-2 sm:mb-3">
             {formattedTime}
           </div>
-          <div className="text-slate-500 dark:text-gray-400 font-bold uppercase tracking-widest text-sm flex items-center justify-center gap-2">
-            <Calendar className="w-4 h-4 text-primary" />
-            {formattedDate}
+          <div className="text-slate-500 dark:text-gray-400 font-bold uppercase tracking-widest text-xs sm:text-sm flex items-center justify-center gap-2">
+            <Calendar className="w-4 h-4 text-primary shrink-0" />
+            <span className="truncate">{formattedDate}</span>
           </div>
         </div>
 
@@ -515,24 +515,24 @@ export function EmployeeDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col items-center pt-12 px-4 pb-24 relative transition-colors duration-300">
-      <div className="w-full max-w-4xl flex justify-between items-center mb-12">
+      <div className="w-full max-w-4xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 sm:mb-12">
         <div>
-          <h1 className="text-3xl font-extrabold mb-1 text-slate-900 dark:text-white">Hello, {profile?.name || 'Employee'}</h1>
-          <p className="text-primary text-sm font-bold tracking-wider uppercase">
+          <h1 className="text-2xl sm:text-3xl font-extrabold mb-1 text-slate-900 dark:text-white">Hello, {profile?.name || 'Employee'}</h1>
+          <p className="text-primary text-xs sm:text-sm font-bold tracking-wider uppercase">
             {companyName || 'OSAN GROUP'}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
           <ThemeToggle />
 
           {('documentPictureInPicture' in window) && (
             <button
               onClick={() => setIsPipActive(true)}
               disabled={isPipActive}
-              className="px-4 py-2 bg-blue-500/10 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-500/30 hover:bg-blue-500/20 rounded-xl transition-all font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="px-3.5 sm:px-4 py-2 bg-blue-500/10 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400 border border-blue-500/20 dark:border-blue-500/30 hover:bg-blue-500/20 rounded-xl transition-all font-bold text-xs flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="12" y="12" width="7" height="5"></rect><line x1="12" y1="12" x2="19" y2="17"></line></svg>
-              Pop-out Widget
+              <span>Pop-out</span>
             </button>
           )}
 
@@ -554,7 +554,7 @@ export function EmployeeDashboard() {
             return (
               <div
                 key={doc.id || idx}
-                className={`p-4 rounded-2xl border flex items-center justify-between gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
+                className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
                   isExpired
                     ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/50 text-red-900 dark:text-red-200'
                     : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200'

@@ -66,30 +66,48 @@ export function HrDirectory() {
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
 
       {/* Header & Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">Employee Directory</h2>
-          <p className="text-sm text-slate-500 dark:text-gray-400">Manage all personnel across the organization.</p>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white mb-0.5">Employee Directory</h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-gray-400">Manage all personnel across the organization.</p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white shadow-xs cursor-pointer">
+              <Download className="w-3.5 h-3.5 text-slate-500 dark:text-gray-400" />
+              <span>Export</span>
+            </button>
+
+            <button
+              onClick={() => setIsAddEmployeeOpen(true)}
+              className="bg-primary hover:bg-emerald-600 px-4 sm:px-5 py-2 rounded-xl text-xs font-bold transition-colors text-white shadow-lg shadow-primary/20 flex items-center gap-1.5 cursor-pointer shrink-0"
+            >
+              <UserCircle2 className="w-4 h-4" />
+              <span>Add Employee</span>
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
+        {/* Search & Filters Bar */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-2.5 sm:gap-3">
+          <div className="relative col-span-1 sm:col-span-2 lg:col-span-1 lg:flex-1 min-w-[200px]">
             <Search className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search by name..."
+              placeholder="Search by name, company..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary w-full md:w-60 shadow-xs transition-all placeholder:text-slate-400 dark:placeholder:text-gray-500"
+              className="pl-9 pr-4 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary w-full shadow-xs transition-all placeholder:text-slate-400 dark:placeholder:text-gray-500"
             />
           </div>
 
           <div className="relative">
-            <Filter className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Filter className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={companyFilter}
               onChange={(e) => setCompanyFilter(e.target.value)}
-              className="pl-9 pr-8 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-xs transition-all hover:bg-slate-50 dark:hover:bg-white/10"
+              className="w-full pl-9 pr-8 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-xs transition-all hover:bg-slate-50 dark:hover:bg-white/10"
             >
               <option value="All" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">All Companies</option>
               {companiesList.map(name => (
@@ -99,11 +117,11 @@ export function HrDirectory() {
           </div>
 
           <div className="relative">
-            <Filter className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Filter className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={genderFilter}
               onChange={(e) => setGenderFilter(e.target.value)}
-              className="pl-9 pr-8 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-xs transition-all hover:bg-slate-50 dark:hover:bg-white/10"
+              className="w-full pl-9 pr-8 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-xs transition-all hover:bg-slate-50 dark:hover:bg-white/10"
             >
               <option value="All" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">All Genders</option>
               <option value="Male" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Male</option>
@@ -112,30 +130,17 @@ export function HrDirectory() {
           </div>
 
           <div className="relative">
-            <Filter className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Filter className="w-4 h-4 text-slate-400 dark:text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <select
               value={nationalityFilter}
               onChange={(e) => setNationalityFilter(e.target.value)}
-              className="pl-9 pr-8 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-xs transition-all hover:bg-slate-50 dark:hover:bg-white/10"
+              className="w-full pl-9 pr-8 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-xs transition-all hover:bg-slate-50 dark:hover:bg-white/10"
             >
               <option value="All" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">All Nationalities</option>
               <option value="Omani" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Omani</option>
               <option value="Expat" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Expat</option>
             </select>
           </div>
-
-          <button className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 border border-slate-300 dark:border-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white shadow-xs">
-            <Download className="w-4 h-4 text-slate-500 dark:text-gray-400" />
-            Export CSV
-          </button>
-
-          <button
-            onClick={() => setIsAddEmployeeOpen(true)}
-            className="bg-primary hover:bg-emerald-600 px-5 py-2 rounded-xl text-xs font-bold transition-colors text-white shadow-lg shadow-primary/20 flex items-center gap-2"
-          >
-            <UserCircle2 className="w-4 h-4" />
-            Add Employee
-          </button>
         </div>
       </div>
 

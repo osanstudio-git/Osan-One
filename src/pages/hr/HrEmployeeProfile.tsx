@@ -732,34 +732,34 @@ export function HrEmployeeProfile() {
       </div>
 
       {/* Main Employee Information Card */}
-      <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 animate-pulse" />
+      <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none animate-pulse" />
 
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-6 relative z-10">
-          <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/30 flex items-center justify-center text-3xl font-bold text-primary shadow-lg shrink-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 relative z-10">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/30 flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary shadow-lg shrink-0">
             {getInitials(employee.name)}
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">{employee.name}</h1>
+          <div className="flex-1 min-w-0">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">{employee.name}</h1>
               <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${employee.status === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/20'}`}>
                 {employee.status}
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-600 dark:text-gray-400 mb-4 font-medium">
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" />
-                {employee.role.replace('_', ' ')}
+            <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 text-xs sm:text-sm text-slate-600 dark:text-gray-400 mb-2 sm:mb-4 font-medium">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Briefcase className="w-4 h-4 text-primary shrink-0" />
+                <span className="truncate">{employee.role.replace('_', ' ')}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                {employee.company}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="truncate">{employee.company}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                {employee.email}
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span className="truncate">{employee.email}</span>
               </div>
             </div>
           </div>
@@ -937,15 +937,15 @@ export function HrEmployeeProfile() {
       </div>
 
       {/* Render selected sub-section panel */}
-      <div className="mt-6">
+      <div className="mt-4 sm:mt-6">
 
         {/* 1. PERSONAL & FAMILY TAB */}
         {activeTab === 'profile' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Personal card */}
-            <div className="lg:col-span-2 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Personal Details</h3>
+            <div className="lg:col-span-2 bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4 sm:space-y-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Personal Details</h3>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={openPersonalModal}
@@ -960,7 +960,7 @@ export function HrEmployeeProfile() {
                   )}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-6 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-6 text-sm">
                 <div>
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Full Legal Name</span>
                   <span className="text-slate-900 dark:text-white font-semibold">{employee.name}</span>
@@ -985,11 +985,11 @@ export function HrEmployeeProfile() {
                 </div>
                 <div>
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Email Account</span>
-                  <span className="text-slate-900 dark:text-white font-semibold">{employee.email}</span>
+                  <span className="text-slate-900 dark:text-white font-semibold break-all">{employee.email}</span>
                 </div>
 
                 {employee.status === 'Inactive' && (
-                  <div className="col-span-2 p-4 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl space-y-1.5 text-xs">
+                  <div className="col-span-1 sm:col-span-2 p-3.5 sm:p-4 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-xl space-y-1.5 text-xs">
                     <div className="font-bold flex items-center gap-1 text-sm text-red-700 dark:text-red-300">
                       <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400" /> Electronic Exit Log
                     </div>
@@ -1001,7 +1001,7 @@ export function HrEmployeeProfile() {
             </div>
 
             {/* Emergency contacts card */}
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
+            <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
               <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3">Emergency Contact File</h3>
               {employee.emergency_contacts && employee.emergency_contacts.length > 0 ? (
                 employee.emergency_contacts.map((contact, idx) => (
@@ -1017,10 +1017,10 @@ export function HrEmployeeProfile() {
             </div>
 
             {/* Housing & Accommodation Card */}
-            <div className="lg:col-span-3 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
-                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Home className="w-5 h-5 text-primary" /> Housing & Accommodation Monitoring
+            <div className="lg:col-span-3 bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Home className="w-4 sm:w-5 h-4 sm:h-5 text-primary shrink-0" /> Housing & Accommodation Monitoring
                 </h3>
                 <div className="flex items-center gap-2">
                   <button
@@ -1036,12 +1036,12 @@ export function HrEmployeeProfile() {
               </div>
 
               {employee.housing_status === 'Company Accommodation' ? (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
                   <div className="p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl space-y-1">
                     <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Building / Camp Name</span>
                     <span className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
                       <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
-                      {employee.accommodation_details?.building_name || 'Al Khuwair Staff Complex'}
+                      <span className="truncate">{employee.accommodation_details?.building_name || 'Al Khuwair Staff Complex'}</span>
                     </span>
                   </div>
 
@@ -1049,13 +1049,13 @@ export function HrEmployeeProfile() {
                     <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Building Address</span>
                     <span className="text-xs font-medium text-slate-700 dark:text-gray-300 flex items-center gap-1.5">
                       <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                      {employee.accommodation_details?.building_address || 'Way 3512, Muscat'}
+                      <span className="truncate">{employee.accommodation_details?.building_address || 'Way 3512, Muscat'}</span>
                     </span>
                   </div>
 
                   <div className="p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl space-y-1">
                     <span className="text-[10px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider block">Room / Unit #</span>
-                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <span className="text-xs font-bold text-amber-600 dark:text-amber-400 truncate block">
                       {employee.accommodation_details?.room_number || 'Flat 101'}
                     </span>
                   </div>
@@ -1069,26 +1069,26 @@ export function HrEmployeeProfile() {
                   </div>
                 </div>
               ) : (
-                <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl text-xs text-slate-600 dark:text-gray-400">
+                <div className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-xs text-slate-600 dark:text-gray-400">
                   🏡 Employee resides in private accommodation / family residence. No company housing monitoring required.
                 </div>
               )}
             </div>
 
             {/* Family Members card */}
-            <div className="lg:col-span-3 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
+            <div className="lg:col-span-3 bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
               <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3">Registered Family Dependents</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
                 {employee.family_members && employee.family_members.length > 0 ? (
                   employee.family_members.map((member, idx) => (
-                    <div key={idx} className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl">
-                      <div className="p-2 bg-primary/10 dark:bg-primary/20 rounded-lg text-primary">
+                    <div key={idx} className="flex items-center gap-3 p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl">
+                      <div className="p-2 bg-primary/10 dark:bg-primary/20 rounded-lg text-primary shrink-0">
                         <Users className="w-5 h-5" />
                       </div>
-                      <div className="text-xs">
-                        <div className="text-slate-900 dark:text-white font-bold">{member.name}</div>
-                        <div className="text-slate-500 dark:text-gray-400">Relationship: {member.relation}</div>
-                        <div className="text-slate-400 dark:text-gray-500">Birth Date: {member.dob}</div>
+                      <div className="text-xs min-w-0">
+                        <div className="text-slate-900 dark:text-white font-bold truncate">{member.name}</div>
+                        <div className="text-slate-500 dark:text-gray-400 truncate">Relationship: {member.relation}</div>
+                        <div className="text-slate-400 dark:text-gray-500 truncate">Birth Date: {member.dob}</div>
                       </div>
                     </div>
                   ))
@@ -1102,11 +1102,11 @@ export function HrEmployeeProfile() {
 
         {/* 2. JOB & HISTORY TAB */}
         {activeTab === 'career' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Position details */}
-            <div className="lg:col-span-2 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Corporate Placement</h3>
+            <div className="lg:col-span-2 bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4 sm:space-y-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Corporate Placement</h3>
                 <button
                   onClick={openJobModal}
                   className="px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
@@ -1114,7 +1114,7 @@ export function HrEmployeeProfile() {
                   <Edit3 className="w-3.5 h-3.5" /> Edit Placement & Salary
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-6 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-6 text-sm">
                 <div>
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Company Entity</span>
                   <span className="text-slate-900 dark:text-white font-semibold">{employee.company}</span>
@@ -1133,19 +1133,19 @@ export function HrEmployeeProfile() {
                 </div>
               </div>
 
-              <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-2 pt-4">Compensation & Allowances</h3>
-              <div className="grid grid-cols-2 gap-6 text-sm">
-                <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl">
-                  <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-2 pt-2 sm:pt-4">Compensation & Allowances</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
+                <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl">
+                  <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <div>
-                    <span className="text-slate-500 dark:text-gray-400 text-[10px] block leading-none">Base Salary</span>
+                    <span className="text-slate-500 dark:text-gray-400 text-[10px] block leading-none mb-1">Base Salary</span>
                     <span className="text-slate-900 dark:text-white font-bold">{employee.base_salary} OMR / month</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl">
-                  <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                <div className="flex items-center gap-3 p-3.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 rounded-xl">
+                  <DollarSign className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
                   <div>
-                    <span className="text-slate-500 dark:text-gray-400 text-[10px] block leading-none">Allowances</span>
+                    <span className="text-slate-500 dark:text-gray-400 text-[10px] block leading-none mb-1">Allowances</span>
                     <span className="text-slate-900 dark:text-white font-bold">{employee.allowances} OMR / month</span>
                   </div>
                 </div>
@@ -1153,7 +1153,7 @@ export function HrEmployeeProfile() {
             </div>
 
             {/* Promotions and Department Transfers logs */}
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
+            <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4 sm:space-y-6">
               <div>
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-2 mb-3">Promotion Log</h3>
                 {employee.promotions && employee.promotions.length > 0 ? (
@@ -1184,15 +1184,16 @@ export function HrEmployeeProfile() {
             </div>
           </div>
         )}
+
         {/* 3. BANKING & SALARY TAB */}
         {activeTab === 'banking' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Bank Account Details Card */}
-            <div className="lg:col-span-2 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+            <div className="lg:col-span-2 bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4 sm:space-y-6">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <Landmark className="w-5 h-5 text-primary" /> Bank Account & WPS Direct Deposit
+                  <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Landmark className="w-5 h-5 text-primary shrink-0" /> Bank Account & WPS Direct Deposit
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-gray-400">Used for monthly salary transfers and automated payroll processing</p>
                 </div>
@@ -1204,38 +1205,38 @@ export function HrEmployeeProfile() {
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4 text-sm">
+                <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Bank Name</span>
-                  <span className="text-slate-900 dark:text-white font-bold text-base">
+                  <span className="text-slate-900 dark:text-white font-bold text-sm sm:text-base">
                     {employee.bank_name || 'Not Configured (Cash/Cheque)'}
                   </span>
                 </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Account Number</span>
-                  <span className="text-slate-900 dark:text-white font-bold font-mono text-base tracking-wider">
+                  <span className="text-slate-900 dark:text-white font-bold font-mono text-sm sm:text-base tracking-wider break-all">
                     {employee.account_number || 'N/A'}
                   </span>
                 </div>
 
-                <div className="md:col-span-2 p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                <div className="sm:col-span-2 p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">IBAN Number (Oman WPS Format)</span>
-                  <span className="text-slate-900 dark:text-white font-bold font-mono text-sm tracking-wider">
+                  <span className="text-slate-900 dark:text-white font-bold font-mono text-xs sm:text-sm tracking-wider break-all">
                     {employee.iban || 'N/A'}
                   </span>
                 </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">SWIFT / BIC Code</span>
-                  <span className="text-slate-900 dark:text-white font-bold font-mono text-sm">
+                  <span className="text-slate-900 dark:text-white font-bold font-mono text-xs sm:text-sm">
                     {employee.swift_code || 'N/A'}
                   </span>
                 </div>
 
-                <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
+                <div className="p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-200/80 dark:border-white/10">
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Bank Branch Location</span>
-                  <span className="text-slate-900 dark:text-white font-bold text-sm">
+                  <span className="text-slate-900 dark:text-white font-bold text-xs sm:text-sm">
                     {employee.branch_name || 'Main Branch, Muscat'}
                   </span>
                 </div>
@@ -1247,14 +1248,14 @@ export function HrEmployeeProfile() {
                   Bank account verified & active for Wage Protection System (WPS) direct deposit.
                 </div>
               ) : (
-                <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs flex items-center justify-between font-semibold">
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-semibold">
                   <div className="flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                     <span>No bank account details configured yet.</span>
                   </div>
                   <button
                     onClick={openBankModal}
-                    className="px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors cursor-pointer"
+                    className="px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors cursor-pointer self-start sm:self-auto"
                   >
                     + Add Bank Details
                   </button>
@@ -1263,12 +1264,12 @@ export function HrEmployeeProfile() {
             </div>
 
             {/* Compensation & Wages Summary Card */}
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6">
+            <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4 sm:space-y-6">
               <h3 className="text-base font-bold text-slate-900 dark:text-white border-b border-slate-200 dark:border-white/10 pb-3 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Monthly Wage Structure
+                <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" /> Monthly Wage Structure
               </h3>
 
-              <div className="space-y-4 text-xs">
+              <div className="space-y-3 sm:space-y-4 text-xs">
                 <div className="flex justify-between items-center p-3 bg-slate-50 dark:bg-white/5 rounded-xl">
                   <span className="text-slate-600 dark:text-gray-400 font-medium">Basic Salary</span>
                   <span className="text-slate-900 dark:text-white font-bold text-sm">{employee.base_salary} OMR</span>
@@ -1288,14 +1289,14 @@ export function HrEmployeeProfile() {
           </div>
         )}
 
-        {/* 3. QUALIFICATIONS & EXPERIENCE TAB */}
+        {/* 4. QUALIFICATIONS & EXPERIENCE TAB */}
         {activeTab === 'qualifications' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Educational credentials */}
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+            <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <GraduationCap className="w-5 h-5 text-primary" /> Educational Qualifications
+                  <GraduationCap className="w-5 h-5 text-primary shrink-0" /> Educational Qualifications
                 </h3>
                 <button
                   onClick={() => setIsQualModalOpen(true)}
@@ -1306,15 +1307,15 @@ export function HrEmployeeProfile() {
               </div>
               {employee.qualifications && employee.qualifications.length > 0 ? (
                 employee.qualifications.map((q, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-start justify-between gap-3 text-xs">
-                    <div className="space-y-1">
-                      <div className="text-slate-900 dark:text-white font-bold text-sm">{q.degree}</div>
-                      <div className="text-slate-500 dark:text-gray-400">{q.school}</div>
+                  <div key={idx} className="p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-start justify-between gap-3 text-xs">
+                    <div className="space-y-1 min-w-0">
+                      <div className="text-slate-900 dark:text-white font-bold text-sm truncate">{q.degree}</div>
+                      <div className="text-slate-500 dark:text-gray-400 truncate">{q.school}</div>
                       <div className="text-primary font-semibold">Graduation Year: {q.year}</div>
                     </div>
                     <button
                       onClick={() => handleDeleteQualification(idx)}
-                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
                       title="Remove Qualification"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1327,10 +1328,10 @@ export function HrEmployeeProfile() {
             </div>
 
             {/* Professional work experience history */}
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+            <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Briefcase className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /> Work Experience History
+                  <Briefcase className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" /> Work Experience History
                 </h3>
                 <button
                   onClick={() => setIsExpModalOpen(true)}
@@ -1341,15 +1342,15 @@ export function HrEmployeeProfile() {
               </div>
               {employee.experience && employee.experience.length > 0 ? (
                 employee.experience.map((exp, idx) => (
-                  <div key={idx} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-start justify-between gap-3 text-xs">
-                    <div className="space-y-1">
-                      <div className="text-slate-900 dark:text-white font-bold text-sm">{exp.role}</div>
-                      <div className="text-slate-500 dark:text-gray-400">Company: {exp.company}</div>
+                  <div key={idx} className="p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl flex items-start justify-between gap-3 text-xs">
+                    <div className="space-y-1 min-w-0">
+                      <div className="text-slate-900 dark:text-white font-bold text-sm truncate">{exp.role}</div>
+                      <div className="text-slate-500 dark:text-gray-400 truncate">Company: {exp.company}</div>
                       <div className="text-emerald-600 dark:text-emerald-400 font-semibold">Period: {exp.period}</div>
                     </div>
                     <button
                       onClick={() => handleDeleteExperience(idx)}
-                      className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
                       title="Remove Experience"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1363,14 +1364,14 @@ export function HrEmployeeProfile() {
           </div>
         )}
 
-        {/* 4. PERFORMANCE LEDGER (RECORDS) TAB */}
+        {/* 5. PERFORMANCE LEDGER (RECORDS) TAB */}
         {activeTab === 'records' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
             {/* Bonuses */}
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+            <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Award className="w-5 h-5 text-primary" /> Awarded Bonuses & Perks
+                  <Award className="w-5 h-5 text-primary shrink-0" /> Awarded Bonuses & Perks
                 </h3>
                 <button
                   onClick={() => setIsBonusModalOpen(true)}
@@ -1381,12 +1382,12 @@ export function HrEmployeeProfile() {
               </div>
               {employee.bonuses && employee.bonuses.length > 0 ? (
                 employee.bonuses.map((b, idx) => (
-                  <div key={idx} className="flex justify-between items-center p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-xs">
-                    <div>
-                      <div className="text-slate-900 dark:text-white font-bold">Reason: {b.reason}</div>
+                  <div key={idx} className="flex justify-between items-center p-3.5 sm:p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl text-xs">
+                    <div className="min-w-0 pr-2">
+                      <div className="text-slate-900 dark:text-white font-bold truncate">Reason: {b.reason}</div>
                       <div className="text-slate-500 dark:text-gray-500">Awarded Date: {b.date}</div>
                     </div>
-                    <div className="text-base font-bold text-emerald-600 dark:text-emerald-400">+{b.amount} OMR</div>
+                    <div className="text-sm sm:text-base font-bold text-emerald-600 dark:text-emerald-400 shrink-0">+{b.amount} OMR</div>
                   </div>
                 ))
               ) : (
@@ -1395,10 +1396,10 @@ export function HrEmployeeProfile() {
             </div>
 
             {/* Disciplinary records */}
-            <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+            <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4">
+              <div className="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" /> Disciplinary Violations
+                  <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0" /> Disciplinary Violations
                 </h3>
                 <button
                   onClick={() => setIsDiscModalOpen(true)}
@@ -1409,10 +1410,10 @@ export function HrEmployeeProfile() {
               </div>
               {employee.disciplinary && employee.disciplinary.length > 0 ? (
                 employee.disciplinary.map((d, idx) => (
-                  <div key={idx} className="p-4 bg-red-500/5 border border-red-500/10 rounded-xl text-xs space-y-1">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-900 dark:text-white font-bold">{d.violation}</span>
-                      <span className="text-red-600 dark:text-red-400 font-medium bg-red-500/10 px-2 py-0.5 rounded">{d.action}</span>
+                  <div key={idx} className="p-3.5 sm:p-4 bg-red-500/5 border border-red-500/10 rounded-xl text-xs space-y-1">
+                    <div className="flex flex-wrap justify-between items-center gap-1">
+                      <span className="text-slate-900 dark:text-white font-bold truncate">{d.violation}</span>
+                      <span className="text-red-600 dark:text-red-400 font-medium bg-red-500/10 px-2 py-0.5 rounded shrink-0">{d.action}</span>
                     </div>
                     <div className="text-slate-500 dark:text-gray-500">Issued Date: {d.date}</div>
                   </div>
@@ -1424,12 +1425,12 @@ export function HrEmployeeProfile() {
           </div>
         )}
 
-        {/* 5. OFFICIAL DOCUMENTS TAB */}
+        {/* 6. OFFICIAL DOCUMENTS TAB */}
         {activeTab === 'documents' && (
-          <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
-            <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-3">
+          <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-400">
+            <div className="flex flex-wrap justify-between items-center gap-3 border-b border-slate-200 dark:border-white/10 pb-3">
               <div>
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white">Official Document Locker</h3>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Official Document Locker</h3>
                 <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">Manage Civil IDs, Passports, Residence Work Visas & Visit Visas</p>
               </div>
               <button
@@ -1440,13 +1441,13 @@ export function HrEmployeeProfile() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3.5 sm:gap-4">
               {employee.documents && employee.documents.length > 0 ? (
                 employee.documents.map((doc) => (
-                  <div key={doc.id} className="p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl space-y-3 flex flex-col justify-between">
+                  <div key={doc.id} className="p-3.5 sm:p-4 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl space-y-3 flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start gap-2">
-                        <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight">{doc.name}</span>
+                        <span className="text-sm font-bold text-slate-900 dark:text-white leading-tight truncate">{doc.name}</span>
                         {getDocStatusBadge(doc.expiryDate)}
                       </div>
                       <div className="text-xs text-slate-500 dark:text-gray-400 mt-1">Classification: <span className="font-semibold text-slate-800 dark:text-gray-200">{doc.type}</span></div>
@@ -1455,10 +1456,10 @@ export function HrEmployeeProfile() {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-200/60 dark:border-white/10">
+                    <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-3 pt-3 border-t border-slate-200/60 dark:border-white/10">
                       <button
                         onClick={() => setViewingDoc(doc)}
-                        className="flex-1 text-xs font-semibold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 py-2 border border-slate-200 dark:border-white/10 hover:border-primary/30 bg-white dark:bg-white/5 hover:bg-primary/5 rounded-lg transition-all shadow-sm cursor-pointer flex items-center justify-center gap-1.5"
+                        className="flex-1 min-w-[65px] text-xs font-semibold text-primary hover:text-emerald-600 dark:hover:text-emerald-400 py-1.5 sm:py-2 border border-slate-200 dark:border-white/10 hover:border-primary/30 bg-white dark:bg-white/5 hover:bg-primary/5 rounded-lg transition-all shadow-xs cursor-pointer flex items-center justify-center gap-1"
                         title="View Document Details & Preview"
                       >
                         <Eye className="w-3.5 h-3.5" /> View
@@ -1474,21 +1475,21 @@ export function HrEmployeeProfile() {
                             alert(`Document record: ${doc.name}\nRef: ${doc.number || 'N/A'}\nValid until: ${doc.expiryDate || 'N/A'}`);
                           }
                         }}
-                        className="px-2.5 py-2 text-xs font-semibold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:border-slate-300 bg-white dark:bg-white/5 rounded-lg transition-all shadow-sm cursor-pointer flex items-center gap-1"
+                        className="px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-slate-700 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-white/10 hover:border-slate-300 bg-white dark:bg-white/5 rounded-lg transition-all shadow-xs cursor-pointer flex items-center gap-1"
                         title="Download Copy"
                       >
                         <Download className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => setRenewalDocTarget(doc)}
-                        className="px-2.5 py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-white border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                        className="px-2.5 py-1.5 sm:py-2 text-xs font-semibold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-white border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg transition-all flex items-center gap-1 cursor-pointer"
                         title="Renew Document"
                       >
                         <RefreshCw className="w-3.5 h-3.5" /> Renew
                       </button>
                       <button
                         onClick={() => handleDeleteDocument(doc.id)}
-                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                        className="p-1.5 sm:p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
                         title="Delete Document"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -1497,7 +1498,7 @@ export function HrEmployeeProfile() {
                   </div>
                 ))
               ) : (
-                <div className="p-8 text-center text-slate-400 dark:text-gray-500 text-xs col-span-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
+                <div className="p-8 text-center text-slate-400 dark:text-gray-500 text-xs col-span-1 sm:col-span-2 xl:col-span-3 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-2xl">
                   No official documents attached yet. Click <strong>Upload New Document</strong> above to add Visas, Civil IDs, Passports or Contracts.
                 </div>
               )}
@@ -1505,107 +1506,109 @@ export function HrEmployeeProfile() {
           </div>
         )}
 
-        {/* 6. LEAVES TAB */}
+        {/* 7. LEAVES TAB */}
         {activeTab === 'leaves' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">Active Leaves & Balances</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-2 sm:mb-4">Active Leaves & Balances</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6">
 
-              <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
-                <div className="w-28 h-28 rounded-full flex flex-col items-center justify-center mb-4 border-4 border-primary">
-                  <span className="text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.yearly}</span>
+              <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center mb-3 sm:mb-4 border-4 border-primary">
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.yearly}</span>
                   <span className="text-[9px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Days Available</span>
                 </div>
-                <h4 className="font-bold text-base text-slate-900 dark:text-white mb-1">Annual Leave</h4>
+                <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white mb-1">Annual Leave</h4>
                 <p className="text-xs text-slate-500 dark:text-gray-400">Total allowance: 30 days / year</p>
               </div>
 
-              <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
-                <div className="w-28 h-28 rounded-full flex flex-col items-center justify-center mb-4 border-4 border-amber-500">
-                  <span className="text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.sick}</span>
+              <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center mb-3 sm:mb-4 border-4 border-amber-500">
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.sick}</span>
                   <span className="text-[9px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Days Available</span>
                 </div>
-                <h4 className="font-bold text-base text-slate-900 dark:text-white mb-1">Sick Leave</h4>
+                <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white mb-1">Sick Leave</h4>
                 <p className="text-xs text-slate-500 dark:text-gray-400">Paid scale rules applied</p>
               </div>
 
-              <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
-                <div className="w-28 h-28 rounded-full flex flex-col items-center justify-center mb-4 border-4 border-blue-400">
-                  <span className="text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.pregnancy}</span>
+              <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center mb-3 sm:mb-4 border-4 border-blue-400">
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.pregnancy}</span>
                   <span className="text-[9px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Days Available</span>
                 </div>
-                <h4 className="font-bold text-base text-slate-900 dark:text-white mb-1">Maternity Leave</h4>
+                <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white mb-1">Maternity Leave</h4>
                 <p className="text-xs text-slate-500 dark:text-gray-400">Eligible female employees only</p>
               </div>
 
             </div>
 
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4 mt-8">Recent Leave Applications</h3>
+            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-3 mt-6 sm:mt-8">Recent Leave Applications</h3>
             <div className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
-                  <tr>
-                    <th className="p-4 pl-6">Leave Type</th>
-                    <th className="p-4">Requested Dates</th>
-                    <th className="p-4">Approval Flow Status</th>
-                    <th className="p-4">Attachments</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                  {userLeaves.length > 0 ? (
-                    userLeaves.map((req) => (
-                      <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs">
-                        <td className="p-4 pl-6">
-                          <div className="font-semibold text-slate-900 dark:text-white">{req.type} Leave</div>
-                        </td>
-                        <td className="p-4">
-                          <div className="text-slate-600 dark:text-gray-300">{req.start} to {req.end}</div>
-                        </td>
-                        <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
-                            req.status === 'Rejected' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
-                              'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                            }`}>
-                            {req.status}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          {req.documentUrl ? (
-                            <button className="text-primary hover:underline font-semibold">Download Certificate</button>
-                          ) : (
-                            <span className="text-slate-400 dark:text-gray-500">None</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse min-w-[540px]">
+                  <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
                     <tr>
-                      <td className="p-6 pl-6 text-slate-400 dark:text-gray-500" colSpan={4}>No recent leave logs.</td>
+                      <th className="p-3.5 sm:p-4 pl-4 sm:pl-6">Leave Type</th>
+                      <th className="p-3.5 sm:p-4">Requested Dates</th>
+                      <th className="p-3.5 sm:p-4">Approval Flow Status</th>
+                      <th className="p-3.5 sm:p-4 pr-4 sm:pr-6">Attachments</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+                    {userLeaves.length > 0 ? (
+                      userLeaves.map((req) => (
+                        <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs">
+                          <td className="p-3.5 sm:p-4 pl-4 sm:pl-6">
+                            <div className="font-semibold text-slate-900 dark:text-white">{req.type} Leave</div>
+                          </td>
+                          <td className="p-3.5 sm:p-4">
+                            <div className="text-slate-600 dark:text-gray-300">{req.start} to {req.end}</div>
+                          </td>
+                          <td className="p-3.5 sm:p-4">
+                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                              req.status === 'Rejected' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
+                                'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              }`}>
+                              {req.status}
+                            </span>
+                          </td>
+                          <td className="p-3.5 sm:p-4 pr-4 sm:pr-6">
+                            {req.documentUrl ? (
+                              <button className="text-primary hover:underline font-semibold cursor-pointer">Download Certificate</button>
+                            ) : (
+                              <span className="text-slate-400 dark:text-gray-500">None</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="p-6 pl-6 text-slate-400 dark:text-gray-500" colSpan={4}>No recent leave logs.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
         {/* 7. SHIFT LOGS (ATTENDANCE) TAB */}
         {activeTab === 'attendance' && (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Month & Year Selection Bar */}
-            <div className="bg-white dark:bg-white/5 p-4 rounded-2xl border border-slate-200/80 dark:border-white/5 flex flex-wrap items-center justify-between gap-4">
+            <div className="bg-white dark:bg-white/5 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
               <div className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                <Calendar className="w-5 h-5 text-primary shrink-0" />
+                <h3 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">
                   Attendance Calendar ({MONTH_NAMES[selectedMonth]} {selectedYear})
                 </h3>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 self-end sm:self-auto">
                 <button
                   type="button"
                   onClick={handlePrevMonth}
-                  className="p-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-slate-700 dark:text-white transition-colors cursor-pointer"
+                  className="p-1.5 sm:p-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-slate-700 dark:text-white transition-colors cursor-pointer"
                   title="Previous Month"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -1617,7 +1620,7 @@ export function HrEmployeeProfile() {
                     setSelectedMonth(Number(e.target.value));
                     setSelectedCalendarDate(null);
                   }}
-                  className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer"
+                  className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-2.5 sm:px-3 py-1.5 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer"
                 >
                   {MONTH_NAMES.map((m, idx) => (
                     <option key={m} value={idx} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
@@ -1632,7 +1635,7 @@ export function HrEmployeeProfile() {
                     setSelectedYear(Number(e.target.value));
                     setSelectedCalendarDate(null);
                   }}
-                  className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-1.5 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer"
+                  className="bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-2.5 sm:px-3 py-1.5 text-slate-900 dark:text-white text-xs font-bold outline-none cursor-pointer"
                 >
                   {[2024, 2025, 2026, 2027].map((y) => (
                     <option key={y} value={y} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">
@@ -1644,7 +1647,7 @@ export function HrEmployeeProfile() {
                 <button
                   type="button"
                   onClick={handleNextMonth}
-                  className="p-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-slate-700 dark:text-white transition-colors cursor-pointer"
+                  className="p-1.5 sm:p-2 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 rounded-xl text-slate-700 dark:text-white transition-colors cursor-pointer"
                   title="Next Month"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -1653,26 +1656,26 @@ export function HrEmployeeProfile() {
             </div>
 
             {/* Monthly Dynamic Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
-                <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">On-Time Days</div>
-                <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">{monthlyStats.onTime}</div>
-                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white dark:bg-white/5 p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
+                <div className="text-slate-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">On-Time Days</div>
+                <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{monthlyStats.onTime}</div>
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
               </div>
-              <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
-                <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Late Warnings</div>
-                <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">{monthlyStats.late}</div>
-                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
+              <div className="bg-white dark:bg-white/5 p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
+                <div className="text-slate-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Late Warnings</div>
+                <div className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">{monthlyStats.late}</div>
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
               </div>
-              <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
-                <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Absences</div>
-                <div className="text-3xl font-bold text-red-600 dark:text-red-400">{monthlyStats.absent}</div>
-                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">Unexcused</div>
+              <div className="bg-white dark:bg-white/5 p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
+                <div className="text-slate-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Absences</div>
+                <div className="text-2xl sm:text-3xl font-bold text-red-600 dark:text-red-400">{monthlyStats.absent}</div>
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">Unexcused</div>
               </div>
-              <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
-                <div className="text-slate-500 dark:text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Hours Logged</div>
-                <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">{monthlyStats.totalHours}h</div>
-                <div className="text-xs text-slate-400 dark:text-gray-500 mt-1">Completed this month</div>
+              <div className="bg-white dark:bg-white/5 p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
+                <div className="text-slate-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Hours Logged</div>
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{monthlyStats.totalHours}h</div>
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">Completed this month</div>
               </div>
             </div>
 
@@ -1803,12 +1806,12 @@ export function HrEmployeeProfile() {
 
       {/* Status Management Modal */}
       {isManageModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
               <div className="flex items-center gap-2">
                 <Settings className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Manage Status</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Manage Status</h2>
               </div>
               <button
                 onClick={() => { setIsManageModalOpen(false); setConfirmDelete(false); }}
@@ -1818,7 +1821,7 @@ export function HrEmployeeProfile() {
               </button>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               {/* If employee is active: Deactivate/Exit Form */}
               {employee.status === 'Active' ? (
                 <div className="space-y-4">
@@ -1858,7 +1861,7 @@ export function HrEmployeeProfile() {
 
                   <button
                     onClick={handleUpdateStatus}
-                    className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 dark:bg-red-500/20 dark:hover:bg-red-500/30 border border-red-500/30 text-red-600 dark:text-red-400 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-red-500/10 hover:bg-red-500/20 dark:bg-red-500/20 dark:hover:bg-red-500/30 border border-red-500/30 text-red-600 dark:text-red-400 font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <UserX className="w-4 h-4" /> Log Exit & Deactivate Profile
                   </button>
@@ -1875,7 +1878,7 @@ export function HrEmployeeProfile() {
 
                   <button
                     onClick={handleReactivate}
-                    className="w-full py-2.5 bg-primary hover:bg-emerald-600 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-primary hover:bg-emerald-600 text-white font-semibold rounded-xl text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <UserCheck className="w-4 h-4" /> Reactivate Profile
                   </button>
@@ -1896,14 +1899,14 @@ export function HrEmployeeProfile() {
                       <button
                         type="button"
                         onClick={handleDeleteEmployee}
-                        className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-[10px] uppercase transition-colors"
+                        className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-[10px] uppercase transition-colors cursor-pointer"
                       >
                         Yes, Delete
                       </button>
                       <button
                         type="button"
                         onClick={() => setConfirmDelete(false)}
-                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg text-[10px] font-medium transition-colors"
+                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-white border border-slate-200 dark:border-white/10 rounded-lg text-[10px] font-medium transition-colors cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -1913,7 +1916,7 @@ export function HrEmployeeProfile() {
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="w-full py-2.5 bg-transparent hover:bg-red-500/10 border border-dashed border-red-500/30 hover:border-red-500 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2"
+                    className="w-full py-2.5 bg-transparent hover:bg-red-500/10 border border-dashed border-red-500/30 hover:border-red-500 text-red-600 dark:text-red-400 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" /> Permanently Delete Employee Profile
                   </button>
@@ -1935,8 +1938,8 @@ export function HrEmployeeProfile() {
 
       {/* Edit Bank Account Details Modal */}
       {isBankModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -1988,7 +1991,7 @@ export function HrEmployeeProfile() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">SWIFT / BIC Code</label>
                   <input
@@ -2035,8 +2038,8 @@ export function HrEmployeeProfile() {
 
       {/* 1. Edit Personal Details Modal */}
       {isPersonalModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -2061,7 +2064,7 @@ export function HrEmployeeProfile() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Phone Contact</label>
                   <input
@@ -2156,8 +2159,8 @@ export function HrEmployeeProfile() {
 
       {/* 2. Edit Placement & Salary Modal */}
       {isJobModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -2171,7 +2174,7 @@ export function HrEmployeeProfile() {
             </div>
 
             <form onSubmit={handleSaveJob} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Job Designation</label>
                   <input
@@ -2206,7 +2209,7 @@ export function HrEmployeeProfile() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4 pt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Base Salary (OMR)</label>
                   <input
@@ -2245,8 +2248,8 @@ export function HrEmployeeProfile() {
 
       {/* 3. Edit Housing & Accommodation Modal */}
       {isHousingModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full p-6 space-y-6">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div className="flex justify-between items-center border-b border-slate-200 dark:border-white/10 pb-4">
               <div>
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
@@ -2265,7 +2268,7 @@ export function HrEmployeeProfile() {
                 <select
                   value={housingForm.housing_status}
                   onChange={(e) => setHousingForm({ ...housingForm, housing_status: e.target.value as any })}
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none cursor-pointer"
                 >
                   <option value="Lives with Family">Lives with Family / Private Residence</option>
                   <option value="Company Accommodation">Company Shared Accommodation / Staff Camp</option>
@@ -2297,7 +2300,7 @@ export function HrEmployeeProfile() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Room / Unit #</label>
                       <input
@@ -2337,14 +2340,14 @@ export function HrEmployeeProfile() {
 
       {/* Add Educational Qualification Modal */}
       {isQualModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
               <div className="flex items-center gap-2">
                 <GraduationCap className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add Educational Qualification</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Add Educational Qualification</h2>
               </div>
-              <button onClick={() => setIsQualModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+              <button onClick={() => setIsQualModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2399,14 +2402,14 @@ export function HrEmployeeProfile() {
 
       {/* Add Work Experience Modal */}
       {isExpModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
               <div className="flex items-center gap-2">
                 <Briefcase className="w-5 h-5 text-emerald-600" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add Work Experience</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Add Work Experience</h2>
               </div>
-              <button onClick={() => setIsExpModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+              <button onClick={() => setIsExpModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2461,14 +2464,14 @@ export function HrEmployeeProfile() {
 
       {/* Award Bonus Modal */}
       {isBonusModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
               <div className="flex items-center gap-2">
                 <Award className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Award Bonus or Perk</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Award Bonus or Perk</h2>
               </div>
-              <button onClick={() => setIsBonusModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+              <button onClick={() => setIsBonusModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2486,7 +2489,7 @@ export function HrEmployeeProfile() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Bonus Amount (OMR)</label>
                   <input
@@ -2525,14 +2528,14 @@ export function HrEmployeeProfile() {
 
       {/* Log Disciplinary Warning Modal */}
       {isDiscModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
               <div className="flex items-center gap-2">
                 <ShieldAlert className="w-5 h-5 text-red-600" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Log Disciplinary Violation</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Log Disciplinary Violation</h2>
               </div>
-              <button onClick={() => setIsDiscModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+              <button onClick={() => setIsDiscModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2550,7 +2553,7 @@ export function HrEmployeeProfile() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Action Taken</label>
                   <select
@@ -2592,14 +2595,14 @@ export function HrEmployeeProfile() {
 
       {/* Upload New Document Modal */}
       {isDocModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-lg p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 sm:mb-6">
               <div className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">Upload New Official Document</h2>
+                <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Upload New Official Document</h2>
               </div>
-              <button onClick={() => setIsDocModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
+              <button onClick={() => setIsDocModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -2635,7 +2638,7 @@ export function HrEmployeeProfile() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Document Number / Ref</label>
                   <input

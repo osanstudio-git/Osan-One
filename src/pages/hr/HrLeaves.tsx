@@ -96,36 +96,36 @@ export function HrLeaves() {
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
       
       {/* Top Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/10 pb-3 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveSection('requests')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeSection === 'requests'
               ? 'bg-primary text-white shadow-md shadow-primary/20'
               : 'bg-white dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-100 border border-slate-200 dark:border-white/10'
           }`}
         >
-          <Calendar className="w-4 h-4" /> Leave Applications
+          <Calendar className="w-4 h-4 shrink-0" /> Leave Applications
         </button>
         <button
           onClick={() => setActiveSection('holidays')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shrink-0 ${
             activeSection === 'holidays'
               ? 'bg-primary text-white shadow-md shadow-primary/20'
               : 'bg-white dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-100 border border-slate-200 dark:border-white/10'
           }`}
         >
-          <Globe className="w-4 h-4" /> Official Public & Company Holidays ({holidays.length})
+          <Globe className="w-4 h-4 shrink-0" /> Official Public & Company Holidays ({holidays.length})
         </button>
       </div>
 
       {activeSection === 'requests' && (
         <>
           {/* Header Info */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm">
             <div>
-              <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-[#1D70B8]" />
+              <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Calendar className="w-5 h-5 text-[#1D70B8] shrink-0" />
                 Workforce Leave Applications
               </h2>
               <p className="text-xs text-slate-500 dark:text-gray-400 font-semibold mt-1">
@@ -134,7 +134,7 @@ export function HrLeaves() {
             </div>
 
             {/* View Mode Toggle Switch */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-white/10 self-start md:self-auto">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-white/10 self-start md:self-auto shrink-0">
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -145,7 +145,7 @@ export function HrLeaves() {
                 title="Grid View"
               >
                 <LayoutGrid className="w-4 h-4" />
-                <span className="hidden md:inline">Grid View</span>
+                <span className="hidden sm:inline">Grid View</span>
               </button>
               <button
                 onClick={() => setViewMode('list')}
@@ -157,7 +157,7 @@ export function HrLeaves() {
                 title="List View"
               >
                 <List className="w-4 h-4" />
-                <span className="hidden md:inline">List View</span>
+                <span className="hidden sm:inline">List View</span>
               </button>
             </div>
           </div>
@@ -165,48 +165,48 @@ export function HrLeaves() {
       )}
 
       {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
         {/* Status Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
           <button
             onClick={() => setStatusFilter('Pending')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === 'Pending'
                 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20'
                 : 'bg-white dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-100 border border-slate-200 dark:border-white/10'
             }`}
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5 shrink-0" />
             Pending ({pendingCount})
           </button>
 
           <button
             onClick={() => setStatusFilter('Approved')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === 'Approved'
                 ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
                 : 'bg-white dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-100 border border-slate-200 dark:border-white/10'
             }`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5" />
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
             Approved ({approvedCount})
           </button>
 
           <button
             onClick={() => setStatusFilter('Rejected')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === 'Rejected'
                 ? 'bg-red-600 text-white shadow-md shadow-red-600/20'
                 : 'bg-white dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-100 border border-slate-200 dark:border-white/10'
             }`}
           >
-            <XCircle className="w-3.5 h-3.5" />
+            <XCircle className="w-3.5 h-3.5 shrink-0" />
             Rejected ({rejectedCount})
           </button>
 
           <button
             onClick={() => setStatusFilter('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
               statusFilter === 'all'
                 ? 'bg-[#1D70B8] text-white shadow-md shadow-[#1D70B8]/20'
                 : 'bg-white dark:bg-white/5 text-slate-600 dark:text-gray-400 hover:bg-slate-100 border border-slate-200 dark:border-white/10'
@@ -217,7 +217,7 @@ export function HrLeaves() {
         </div>
 
         {/* Search */}
-        <div className="relative min-w-[220px]">
+        <div className="relative w-full sm:w-auto sm:min-w-[220px]">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -316,7 +316,7 @@ export function HrLeaves() {
         /* LIST VIEW */
         <div className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-[700px]">
               <thead className="bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-gray-400 border-b border-slate-200 dark:border-white/10 font-bold uppercase tracking-wider">
                 <tr>
                   <th className="p-4 pl-6">Employee Name</th>
@@ -471,8 +471,8 @@ export function HrLeaves() {
 
       {/* Add Public Holiday Modal */}
       {isHolidayModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md p-5 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Globe className="w-5 h-5 text-primary" />

@@ -222,8 +222,8 @@ export function DocumentComplianceWidget({ employees, onEmployeeUpdate }: Docume
               </div>
 
               {/* Status Badge & Action */}
-              <div className="flex items-center gap-3 self-end md:self-center">
-                <div className="text-right">
+              <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-3 self-stretch sm:self-center pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200/60 dark:border-white/5">
+                <div className="text-left sm:text-right">
                   <span className="text-slate-500 dark:text-gray-400 text-[10px] block font-medium">Expiry Date: {item.expiryDate}</span>
                   <span className={`text-xs font-bold ${item.daysRemaining < 0 ? 'text-red-600 dark:text-red-400' : 'text-amber-600 dark:text-amber-400'}`}>
                     {item.daysRemaining < 0

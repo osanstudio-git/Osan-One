@@ -55,10 +55,10 @@ export function HrExceptions() {
     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
       
       {/* Header & Controls Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
         <div>
-          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-amber-500" />
+          <h2 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0" />
             Attendance Exceptions & Deductions
           </h2>
           <p className="text-slate-500 dark:text-gray-400 text-xs font-semibold mt-1">
@@ -66,10 +66,10 @@ export function HrExceptions() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
           {/* Severity Filter Dropdown */}
           <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 text-xs">
-            <Filter className="w-3.5 h-3.5 text-slate-400" />
+            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <select
               value={severityFilter}
               onChange={(e: any) => setSeverityFilter(e.target.value)}
@@ -93,7 +93,7 @@ export function HrExceptions() {
               title="Grid View"
             >
               <LayoutGrid className="w-4 h-4" />
-              <span className="hidden md:inline">Grid</span>
+              <span className="hidden sm:inline">Grid</span>
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -105,7 +105,7 @@ export function HrExceptions() {
               title="List View"
             >
               <List className="w-4 h-4" />
-              <span className="hidden md:inline">List</span>
+              <span className="hidden sm:inline">List</span>
             </button>
           </div>
         </div>
@@ -202,7 +202,7 @@ export function HrExceptions() {
         /* LIST VIEW (Table Representation) */
         <div className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+            <table className="w-full text-left text-xs border-collapse min-w-[700px]">
               <thead className="bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-gray-400 border-b border-slate-200 dark:border-white/10 font-bold uppercase tracking-wider">
                 <tr>
                   <th className="p-4 pl-6">Employee Name</th>

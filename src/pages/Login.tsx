@@ -104,7 +104,7 @@ export const Login = () => {
         transition={{ duration: 0.5, ease: 'easeOut' }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl shadow-2xl p-8 overflow-hidden">
+        <div className="bg-white/95 backdrop-blur-xl border border-slate-200/90 rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden">
           
           {/* Official Brand Header */}
           <div className="text-center mb-6 flex flex-col items-center">

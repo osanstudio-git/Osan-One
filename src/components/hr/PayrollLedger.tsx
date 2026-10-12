@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Save, FileText, Check, Sparkles, Calendar } from 'lucide-react';
 import { MOCK_EXCEPTIONS } from '../../pages/hr/mockData';
-import { 
-  getEmployees, 
-  getPayrollTransactionsFromDb, 
-  savePayrollTransactionToDb, 
-  getEmployeePayslipOverrides, 
-  saveEmployeePayslipRecord 
+import {
+  getEmployees,
+  getPayrollTransactionsFromDb,
+  savePayrollTransactionToDb,
+  getEmployeePayslipOverrides,
+  saveEmployeePayslipRecord
 } from '../../lib/databaseService';
 import type { User } from '../../types';
 
@@ -69,6 +69,7 @@ export function PayrollLedger() {
 
   // Payslip Modal state
   const [activePayslipId, setActivePayslipId] = useState<string | null>(null);
+  const [mobilePayslipTab, setMobilePayslipTab] = useState<'edit' | 'preview'>('edit');
 
   // Generate dynamic ledger data based on real employees and custom overrides
   const ledgerData = useMemo(() => {
@@ -83,8 +84,8 @@ export function PayrollLedger() {
       const unpaidLeave = emp.id.endsWith('4') ? 2 : (emp.id.endsWith('7') ? 1 : 0);
 
       // Default or custom earnings & allowances
-      let baseSalary = override.basic_salary !== undefined 
-        ? Number(override.basic_salary) 
+      let baseSalary = override.basic_salary !== undefined
+        ? Number(override.basic_salary)
         : (emp.base_salary ? Number(emp.base_salary) : (emp.role === 'CEO' ? 8000 : emp.role === 'HR' ? 4000 : emp.role === 'Accountant' ? 3000 : 1200));
 
       const otherAllowance = override.other_allowance !== undefined ? Number(override.other_allowance) : 70;
@@ -441,33 +442,33 @@ export function PayrollLedger() {
       `}} />
 
       {/* Action Bar & Filters */}
-      <div className="bg-white dark:bg-white/5 p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between animate-in fade-in zoom-in-95 duration-300 no-print">
-        <div className="flex flex-col md:flex-row flex-wrap items-center gap-4 w-full xl:w-auto">
+      <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col xl:flex-row gap-4 items-start xl:items-center justify-between animate-in fade-in zoom-in-95 duration-300 no-print">
+        <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3 w-full xl:w-auto">
           <div className="flex items-center gap-2 text-slate-500 dark:text-gray-400">
-            <Filter className="w-5 h-5" />
+            <Filter className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
             <span className="font-bold text-xs uppercase tracking-wider">Filters:</span>
           </div>
 
           <div className="flex gap-2">
-            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
+            <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="flex-1 sm:flex-none bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
               {MONTHS.map(m => <option key={m} value={m} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">{m}</option>)}
             </select>
-            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
+            <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="flex-1 sm:flex-none bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
               <option className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">2026</option>
               <option className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">2025</option>
             </select>
           </div>
 
           <div className="flex gap-2 flex-wrap">
-            <select value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)} className="bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary min-w-[140px]">
+            <select value={selectedCompany} onChange={(e) => setSelectedCompany(e.target.value)} className="flex-1 sm:flex-none bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary min-w-[130px]">
               {companiesList.map(c => <option key={c} value={c} className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">{c === 'All' ? 'All Companies' : c}</option>)}
             </select>
-            <select value={selectedNationality} onChange={(e) => setSelectedNationality(e.target.value)} className="bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
+            <select value={selectedNationality} onChange={(e) => setSelectedNationality(e.target.value)} className="flex-1 sm:flex-none bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
               <option value="All" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">All Nationalities</option>
               <option value="Omani" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Omani</option>
               <option value="Expat" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Expat</option>
             </select>
-            <select value={selectedGender} onChange={(e) => setSelectedGender(e.target.value)} className="bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
+            <select value={selectedGender} onChange={(e) => setSelectedGender(e.target.value)} className="flex-1 sm:flex-none bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
               <option value="All" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">All Genders</option>
               <option value="Male" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Male</option>
               <option value="Female" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Female</option>
@@ -475,54 +476,54 @@ export function PayrollLedger() {
           </div>
         </div>
 
-        <div className="flex w-full xl:w-auto items-center gap-3">
-          <button onClick={() => setIsLocked(!isLocked)} className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl transition-colors font-bold text-xs border ${isLocked ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20 hover:bg-amber-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10'}`}>
-            <Lock className="w-4 h-4" />
-            {isLocked ? 'Payroll Locked' : 'Lock Payroll'}
+        <div className="flex w-full xl:w-auto items-center gap-2 sm:gap-3">
+          <button onClick={() => setIsLocked(!isLocked)} className={`flex-1 xl:flex-none flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 rounded-xl transition-colors font-bold text-xs border ${isLocked ? 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-amber-500/20 hover:bg-amber-500/20' : 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-white border-slate-200 dark:border-white/10 hover:bg-slate-200 dark:hover:bg-white/10'}`}>
+            <Lock className="w-4 h-4 shrink-0" />
+            <span>{isLocked ? 'Payroll Locked' : 'Lock Payroll'}</span>
           </button>
-          <button onClick={handleExportCSV} className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-primary hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl transition-colors font-bold text-xs shadow-lg shadow-primary/20">
-            <Download className="w-4 h-4" />
-            Export CSV
+          <button onClick={handleExportCSV} className="flex-1 xl:flex-none flex items-center justify-center gap-2 bg-primary hover:bg-emerald-600 text-white px-4 sm:px-5 py-2.5 rounded-xl transition-colors font-bold text-xs shadow-lg shadow-primary/20">
+            <Download className="w-4 h-4 shrink-0" />
+            <span>Export CSV</span>
           </button>
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 no-print">
-        <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center">
-            <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-100 no-print">
+        <div className="bg-white dark:bg-white/5 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex items-center gap-4">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center shrink-0">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
             <p className="text-xs text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Filtered Employees</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{totalEmployees}</p>
+            <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{totalEmployees}</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+        <div className="bg-white dark:bg-white/5 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex items-center gap-4">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-emerald-500/10 dark:bg-emerald-500/20 flex items-center justify-center shrink-0">
+            <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-600 dark:text-emerald-400" />
           </div>
           <div>
             <p className="text-xs text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Fully Paid Employees</p>
-            <p className="text-2xl font-bold text-slate-900 dark:text-white">{paidCount} <span className="text-sm text-slate-400 dark:text-gray-500 font-normal">/ {totalEmployees}</span></p>
+            <p className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{paidCount} <span className="text-sm text-slate-400 dark:text-gray-500 font-normal">/ {totalEmployees}</span></p>
           </div>
         </div>
-        <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-amber-500/20 flex items-center gap-4 bg-amber-500/5 dark:bg-amber-500/10 shadow-sm dark:shadow-none">
-          <div className="w-12 h-12 rounded-full bg-amber-500/20 flex items-center justify-center">
-            <Wallet className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+        <div className="bg-white dark:bg-white/5 p-4 sm:p-5 rounded-2xl border border-amber-500/20 flex items-center gap-4 bg-amber-500/5 dark:bg-amber-500/10 shadow-sm dark:shadow-none">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+            <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-amber-600 dark:text-amber-400" />
           </div>
           <div>
             <p className="text-xs text-amber-700 dark:text-amber-400/80 font-bold uppercase tracking-wider">Total Paid Out</p>
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">OMR {totalPaidOut}</p>
+            <p className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-400">OMR {totalPaidOut}</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-white/5 p-5 rounded-2xl border border-primary/20 flex items-center gap-4 bg-primary/5 dark:bg-primary/10 shadow-sm dark:shadow-none">
-          <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-            <FileSpreadsheet className="w-6 h-6 text-primary" />
+        <div className="bg-white dark:bg-white/5 p-4 sm:p-5 rounded-2xl border border-primary/20 flex items-center gap-4 bg-primary/5 dark:bg-primary/10 shadow-sm dark:shadow-none">
+          <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+            <FileSpreadsheet className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
           </div>
           <div>
             <p className="text-xs text-emerald-700 dark:text-primary/80 font-bold uppercase tracking-wider">Total Net Pay</p>
-            <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">OMR {totalNetPay}</p>
+            <p className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-400">OMR {totalNetPay}</p>
           </div>
         </div>
       </div>
@@ -597,8 +598,8 @@ export function PayrollLedger() {
                     </td>
                     <td className="p-4">
                       <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${row.status === 'Fully Paid' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
-                          row.status === 'Partially Paid' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
-                            'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                        row.status === 'Partially Paid' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' :
+                          'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
                         }`}>
                         {row.status}
                       </span>
@@ -629,25 +630,25 @@ export function PayrollLedger() {
 
       {/* Log Payment Modal */}
       {activeEmpDetails && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 no-print">
-          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 text-xs">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                Log Payment for {activeEmpDetails.name}
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200 no-print">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-300 text-xs">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 truncate pr-2">
+                <Wallet className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                <span className="truncate">Log Payment for {activeEmpDetails.name}</span>
               </h2>
-              <button onClick={() => setActiveEmployeeId(null)} className="p-2 text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white rounded-lg transition-colors">
+              <button onClick={() => setActiveEmployeeId(null)} className="p-2 text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white rounded-lg transition-colors cursor-pointer shrink-0">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+            <div className="p-4 sm:p-6 space-y-5 overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
                   <p className="text-xs text-slate-500 dark:text-gray-400 mb-1 font-bold">Net Pay</p>
                   <p className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">OMR {activeEmpDetails.netPay}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
+                <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5">
                   <p className="text-xs text-slate-500 dark:text-gray-400 mb-1 font-bold">Remaining Balance</p>
                   <p className={`text-lg font-extrabold ${activeEmpDetails.balance > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 dark:text-gray-400'}`}>OMR {activeEmpDetails.balance}</p>
                 </div>
@@ -676,7 +677,7 @@ export function PayrollLedger() {
               {activeEmpDetails.balance > 0 ? (
                 <div className="space-y-4 pt-2">
                   <h3 className="text-xs font-bold text-slate-900 dark:text-white">New Installment</h3>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div className="space-y-1.5">
                       <label className="text-xs font-bold text-slate-700 dark:text-gray-400">Amount (OMR)</label>
                       <input
@@ -710,7 +711,7 @@ export function PayrollLedger() {
                       <option value="Cheque" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Cheque</option>
                     </select>
                   </div>
-                  <button onClick={handleLogPayment} className="w-full py-3 bg-primary hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors shadow-lg shadow-primary/20">
+                  <button onClick={handleLogPayment} className="w-full py-3 bg-primary hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors shadow-lg shadow-primary/20 cursor-pointer">
                     Log Payment
                   </button>
                 </div>
@@ -766,11 +767,37 @@ export function PayrollLedger() {
               </div>
             </div>
 
+            {/* Mobile / Tablet Tab Switcher (Visible only on < lg screens) */}
+            <div className="lg:hidden flex border-b border-slate-800 bg-[#0e172a] shrink-0 no-print">
+              <button
+                type="button"
+                onClick={() => setMobilePayslipTab('edit')}
+                className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-all cursor-pointer ${mobilePayslipTab === 'edit'
+                    ? 'border-rose-500 text-rose-400 bg-rose-500/10'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                  }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Edit Parameters</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobilePayslipTab('preview')}
+                className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 border-b-2 transition-all cursor-pointer ${mobilePayslipTab === 'preview'
+                    ? 'border-rose-500 text-rose-400 bg-rose-500/10'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                  }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Document Preview</span>
+              </button>
+            </div>
+
             {/* Split Screen Body: Left Parameters (Live Edit) + Right Document Preview */}
             <div className="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-hidden min-h-0">
 
               {/* LEFT COLUMN: PAYSLIP PARAMETERS (Real-time Editable) */}
-              <div className="lg:col-span-4 xl:col-span-4 bg-[#0d1424] border-r border-slate-800 p-5 overflow-y-auto max-h-[84vh] space-y-5 text-xs text-slate-300 no-print">
+              <div className={`lg:col-span-4 xl:col-span-4 bg-[#0d1424] border-r border-slate-800 p-4 sm:p-5 overflow-y-auto max-h-[84vh] space-y-5 text-xs text-slate-300 no-print ${mobilePayslipTab === 'preview' ? 'hidden lg:block' : 'block'}`}>
                 <div className="flex items-center justify-between pb-2 border-b border-slate-800">
                   <span className="text-rose-500 font-extrabold text-xs tracking-wider uppercase">PAYSLIP PARAMETERS</span>
                   <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -1261,13 +1288,12 @@ export function PayrollLedger() {
                   <button
                     onClick={handleSavePayslipRecord}
                     disabled={saveStatus === 'saving'}
-                    className={`w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg ${
-                      saveStatus === 'saved'
+                    className={`w-full py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg ${saveStatus === 'saved'
                         ? 'bg-emerald-600 text-white'
                         : saveStatus === 'saving'
-                        ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
-                    }`}
+                          ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20'
+                      }`}
                   >
                     {saveStatus === 'saved' ? (
                       <>
@@ -1290,260 +1316,264 @@ export function PayrollLedger() {
               </div>
 
               {/* RIGHT COLUMN: LIVE OSAN GROUP SPC PRINTABLE DOCUMENT */}
-              <div className="lg:col-span-8 xl:col-span-8 bg-slate-200 dark:bg-slate-900/90 p-4 sm:p-6 overflow-y-auto max-h-[84vh] flex justify-center items-start">
-                
-                {/* The Paper Sheet */}
-                <div id="printable-payslip" className="bg-white text-black p-6 sm:p-8 shadow-2xl rounded-sm w-full max-w-[820px] border border-slate-400 select-text font-sans">
-                  
-                  {/* Thick Outer Black Border (Exact match to Image 2) */}
-                  <div className="border-[2.5px] border-black p-3 sm:p-5 bg-white min-h-[750px] flex flex-col justify-between">
-                    
-                    <div>
-                      {/* Top Centered Header: OSAN GROUP SPC */}
-                      <div className="text-center mb-1">
-                        <h1 className="text-3xl sm:text-4xl font-serif font-black tracking-[0.25em] text-slate-800 uppercase text-center">
-                          OSAN GROUP SPC
-                        </h1>
-                      </div>
+              <div className={`lg:col-span-8 xl:col-span-8 bg-slate-200 dark:bg-slate-900/90 p-2 sm:p-6 overflow-y-auto max-h-[84vh] flex justify-center items-start ${mobilePayslipTab === 'edit' ? 'hidden lg:flex' : 'flex'}`}>
 
-                      {/* Boxed Subheader: Payslip for the Month of ... */}
-                      <div className="border border-black py-1 text-center mb-3 bg-white">
-                        <span className="text-xs sm:text-sm font-bold text-black uppercase tracking-wide">
-                          {payslipEditForm.customMonthTitle || `Payslip for the Month of ${selectedMonth.slice(0, 3).toUpperCase()} ${selectedYear}`}
-                        </span>
-                      </div>
+                {/* Horizontal scroll wrapper for printable paper on small mobile viewports */}
+                <div className="w-full flex justify-center overflow-x-auto pb-4">
+                  {/* The Paper Sheet */}
+                  <div id="printable-payslip" className="bg-white text-black p-3 sm:p-8 shadow-2xl rounded-sm w-full max-w-[820px] min-w-[320px] border border-slate-400 select-text font-sans shrink-0">
 
-                      {/* Top Two-Part Grid Box */}
-                      <div className="border-2 border-black grid grid-cols-12 text-xs mb-3">
-                        
-                        {/* Left Box: Employee Pay Summary */}
-                        <div className="col-span-7 border-r-2 border-black">
-                          <div className="bg-[#d9d9d9] font-black px-2.5 py-1 border-b-2 border-black text-xs uppercase tracking-tight">
-                            Employee Pay Summary
-                          </div>
-                          <div className="p-2.5 space-y-1 text-xs font-semibold">
-                            <div className="flex">
-                              <span className="w-32 font-bold text-black">Employee Name:</span>
-                              <span className="font-extrabold uppercase">Mr. {payslipEditForm.employeeName || activePayslipDetails.name}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32 font-bold text-black">Designation:</span>
-                              <span>{payslipEditForm.designation || 'Accountant'}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32 font-bold text-black">Date of Joining:</span>
-                              <span>{payslipEditForm.dateOfJoining || '23/07/2026'}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32 font-bold text-black">Pay Period:</span>
-                              <span>{payslipEditForm.payPeriod || 'Monthly'}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32 font-bold text-black">Pay Date:</span>
-                              <span>{payslipEditForm.payDate || '06/10/2026'}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32 font-bold text-black">A/C Number:</span>
-                              <span className="font-bold">{payslipEditForm.accountNumber || 'CASH IN HAND'}</span>
-                            </div>
-                            <div className="flex">
-                              <span className="w-32 font-bold text-black">Mobile Number:</span>
-                              <span>{payslipEditForm.mobileNumber || ''}</span>
-                            </div>
-                          </div>
+                    {/* Thick Outer Black Border (Exact match to Image 2) */}
+                    <div className="border-[2.5px] border-black p-3 sm:p-5 bg-white min-h-[750px] flex flex-col justify-between">
+
+                      <div>
+                        {/* Top Centered Header: OSAN GROUP SPC */}
+                        <div className="text-center mb-1">
+                          <h1 className="text-3xl sm:text-4xl font-serif font-black tracking-[0.25em] text-slate-800 uppercase text-center">
+                            OSAN GROUP SPC
+                          </h1>
                         </div>
 
-                        {/* Right Box: Employee Net Pay */}
-                        <div className="col-span-5 flex flex-col justify-between">
-                          <div>
-                            <div className="bg-[#d9d9d9] font-black px-2.5 py-1 border-b-2 border-black text-xs text-center uppercase tracking-tight">
-                              Employee Net Pay
-                            </div>
-                            <div className="p-3.5 flex items-baseline justify-between">
-                              <span className="text-xs font-black text-black">OMR</span>
-                              <span className="text-2xl sm:text-3xl font-black text-black">
-                                {liveFinalPayout.toFixed(3)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="border-t-2 border-black text-[10px] sm:text-[11px] font-bold p-1 text-center flex justify-around bg-white">
-                            <span>Paid Days: {payslipEditForm.paidDays ?? 30}</span>
-                            <span>| Leave Days: {payslipEditForm.leaveDays ? payslipEditForm.leaveDays : ''}</span>
-                            <span>| Hours: {payslipEditForm.hoursWorked || '00:000'}</span>
-                          </div>
+                        {/* Boxed Subheader: Payslip for the Month of ... */}
+                        <div className="border border-black py-1 text-center mb-3 bg-white">
+                          <span className="text-xs sm:text-sm font-bold text-black uppercase tracking-wide">
+                            {payslipEditForm.customMonthTitle || `Payslip for the Month of ${selectedMonth.slice(0, 3).toUpperCase()} ${selectedYear}`}
+                          </span>
                         </div>
 
-                      </div>
+                        {/* Top Two-Part Grid Box */}
+                        <div className="border-2 border-black grid grid-cols-12 text-xs mb-3">
 
-                      {/* Main 5-Column Earnings vs Deductions Table */}
-                      <div className="border-2 border-black text-xs mb-3 overflow-x-auto">
-                        <table className="w-full border-collapse text-left">
-                          <thead>
-                            <tr className="bg-[#d9d9d9] border-b-2 border-black font-extrabold uppercase text-[11px]">
-                              <th className="p-1.5 px-2 border-r-2 border-black w-[24%]">EARNINGS</th>
-                              <th className="p-1.5 px-2 border-r-2 border-black text-right w-[14%]">AMOUNT</th>
-                              <th className="p-1.5 px-2 border-r-2 border-black w-[34%]">DEDUCTIONS</th>
-                              <th className="p-1.5 px-2 border-r-2 border-black text-right w-[14%]">AMOUNT</th>
-                              <th className="p-1.5 px-2 text-right w-[14%] border-l-[2.5px] border-black bg-[#cfcfcf]">
-                                Overtime Pay
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-black/40 font-semibold text-xs">
-                            <tr>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Basic salary</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">OMR {liveBasicSalary.toFixed(3)}</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Advance salary</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveAdvanceSalary > 0 ? liveAdvanceSalary.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black font-bold">
-                                {liveOvertimeAmount > 0 ? `OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR -'}
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Other Allowance</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
-                                {liveOtherAllowance > 0 ? `OMR ${liveOtherAllowance.toFixed(3)}` : 'OMR -'}
-                              </td>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Deduction not came & Sick leave</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveDeductionNotCame > 0 ? liveDeductionNotCame.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
-                            </tr>
-                            <tr>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Incentives / Allowance</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
-                                {liveIncentiveAmount > 0 ? `OMR ${liveIncentiveAmount.toFixed(3)}` : 'OMR -'}
-                              </td>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Probation Period First Month</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveProbationFirstMonth > 0 ? liveProbationFirstMonth.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
-                            </tr>
-                            <tr>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Transportation</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
-                                {liveTransportation > 0 ? `OMR ${liveTransportation.toFixed(3)}` : 'OMR -'}
-                              </td>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Deduction Annual leave</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveDeductionAnnualLeave > 0 ? liveDeductionAnnualLeave.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
-                            </tr>
-                            <tr className="border-t-2 border-black font-extrabold bg-[#f7f7f7]">
-                              <td className="p-1.5 px-2 border-r-2 border-black">Gross Earnings</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">OMR {liveGrossEarnings.toFixed(3)}</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Total Deductions</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">
-                                {liveTotalDeductions > 0 ? `OMR ${liveTotalDeductions.toFixed(3)}` : 'OMR -'}
-                              </td>
-                              <td className="p-1.5 px-2 text-right font-black border-l-[2.5px] border-black bg-slate-100">
-                                {liveOvertimeAmount > 0 ? `OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR -'}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
+                          {/* Left Box: Employee Pay Summary */}
+                          <div className="col-span-7 border-r-2 border-black">
+                            <div className="bg-[#d9d9d9] font-black px-2.5 py-1 border-b-2 border-black text-xs uppercase tracking-tight">
+                              Employee Pay Summary
+                            </div>
+                            <div className="p-2.5 space-y-1 text-xs font-semibold">
+                              <div className="flex">
+                                <span className="w-32 font-bold text-black">Employee Name:</span>
+                                <span className="font-extrabold uppercase">Mr. {payslipEditForm.employeeName || activePayslipDetails.name}</span>
+                              </div>
+                              <div className="flex">
+                                <span className="w-32 font-bold text-black">Designation:</span>
+                                <span>{payslipEditForm.designation || 'Accountant'}</span>
+                              </div>
+                              <div className="flex">
+                                <span className="w-32 font-bold text-black">Date of Joining:</span>
+                                <span>{payslipEditForm.dateOfJoining || '23/07/2026'}</span>
+                              </div>
+                              <div className="flex">
+                                <span className="w-32 font-bold text-black">Pay Period:</span>
+                                <span>{payslipEditForm.payPeriod || 'Monthly'}</span>
+                              </div>
+                              <div className="flex">
+                                <span className="w-32 font-bold text-black">Pay Date:</span>
+                                <span>{payslipEditForm.payDate || '06/10/2026'}</span>
+                              </div>
+                              <div className="flex">
+                                <span className="w-32 font-bold text-black">A/C Number:</span>
+                                <span className="font-bold">{payslipEditForm.accountNumber || 'CASH IN HAND'}</span>
+                              </div>
+                              <div className="flex">
+                                <span className="w-32 font-bold text-black">Mobile Number:</span>
+                                <span>{payslipEditForm.mobileNumber || ''}</span>
+                              </div>
+                            </div>
+                          </div>
 
-                      {/* NETPAY Summary Table - Reconciled & Auditable */}
-                      <div className="border-2 border-black text-xs mb-3">
-                        <table className="w-full border-collapse text-left">
-                          <thead>
-                            <tr className="bg-[#d9d9d9] border-b-2 border-black font-extrabold uppercase text-[11px]">
-                              <th className="p-1.5 px-2 w-[70%]">NETPAY SUMMARY</th>
-                              <th className="p-1.5 px-2 text-right w-[30%]">AMOUNT</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-black/40 font-semibold text-xs">
-                            <tr>
-                              <td className="p-1.5 px-2">Gross Monthly Earnings</td>
-                              <td className="p-1.5 px-2 text-right font-bold">OMR {liveGrossEarnings.toFixed(3)}</td>
-                            </tr>
-                            <tr>
-                              <td className="p-1.5 px-2">Total Deductions (Leaves / Absences)</td>
-                              <td className="p-1.5 px-2 text-right font-bold text-red-600">
-                                {liveTotalDeductions > 0 ? `-OMR ${liveTotalDeductions.toFixed(3)}` : 'OMR 0.000'}
-                              </td>
-                            </tr>
-                            <tr>
-                              <td className="p-1.5 px-2">Overtime Pay</td>
-                              <td className="p-1.5 px-2 text-right font-bold text-emerald-700">
-                                {liveOvertimeAmount > 0 ? `+OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR 0.000'}
-                              </td>
-                            </tr>
-                            {liveTotalBalance !== 0 && (
-                              <tr className="bg-amber-50/70 border-t border-amber-200">
-                                <td className="p-1.5 px-2 text-amber-900 font-bold">
-                                  {liveTotalBalance > 0 ? 'Past Carryover / Prior Dues' : 'Past Balance Adjustment'}
-                                </td>
-                                <td className="p-1.5 px-2 text-right font-bold text-amber-900">
-                                  {liveTotalBalance > 0 ? `+OMR ${liveTotalBalance.toFixed(3)}` : `-OMR ${Math.abs(liveTotalBalance).toFixed(3)}`}
+                          {/* Right Box: Employee Net Pay */}
+                          <div className="col-span-5 flex flex-col justify-between">
+                            <div>
+                              <div className="bg-[#d9d9d9] font-black px-2.5 py-1 border-b-2 border-black text-xs text-center uppercase tracking-tight">
+                                Employee Net Pay
+                              </div>
+                              <div className="p-3.5 flex items-baseline justify-between">
+                                <span className="text-xs font-black text-black">OMR</span>
+                                <span className="text-2xl sm:text-3xl font-black text-black">
+                                  {liveFinalPayout.toFixed(3)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="border-t-2 border-black text-[10px] sm:text-[11px] font-bold p-1 text-center flex justify-around bg-white">
+                              <span>Paid Days: {payslipEditForm.paidDays ?? 30}</span>
+                              <span>| Leave Days: {payslipEditForm.leaveDays ? payslipEditForm.leaveDays : ''}</span>
+                              <span>| Hours: {payslipEditForm.hoursWorked || '00:000'}</span>
+                            </div>
+                          </div>
+
+                        </div>
+
+                        {/* Main 5-Column Earnings vs Deductions Table */}
+                        <div className="border-2 border-black text-xs mb-3 overflow-x-auto">
+                          <table className="w-full border-collapse text-left">
+                            <thead>
+                              <tr className="bg-[#d9d9d9] border-b-2 border-black font-extrabold uppercase text-[11px]">
+                                <th className="p-1.5 px-2 border-r-2 border-black w-[24%]">EARNINGS</th>
+                                <th className="p-1.5 px-2 border-r-2 border-black text-right w-[14%]">AMOUNT</th>
+                                <th className="p-1.5 px-2 border-r-2 border-black w-[34%]">DEDUCTIONS</th>
+                                <th className="p-1.5 px-2 border-r-2 border-black text-right w-[14%]">AMOUNT</th>
+                                <th className="p-1.5 px-2 text-right w-[14%] border-l-[2.5px] border-black bg-[#cfcfcf]">
+                                  Overtime Pay
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-black/40 font-semibold text-xs">
+                              <tr>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Basic salary</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">OMR {liveBasicSalary.toFixed(3)}</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Advance salary</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveAdvanceSalary > 0 ? liveAdvanceSalary.toFixed(3) : '-'}</td>
+                                <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black font-bold">
+                                  {liveOvertimeAmount > 0 ? `OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR -'}
                                 </td>
                               </tr>
-                            )}
-                            <tr className="border-t-2 border-black font-extrabold bg-[#f2f2f2]">
-                              <td className="p-1.5 px-2 font-black text-black uppercase">Total Net Payable (Take Home)</td>
-                              <td className="p-1.5 px-2 text-right font-black text-sm text-black">OMR {liveFinalPayout.toFixed(3)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
+                              <tr>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Other Allowance</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
+                                  {liveOtherAllowance > 0 ? `OMR ${liveOtherAllowance.toFixed(3)}` : 'OMR -'}
+                                </td>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Deduction not came & Sick leave</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveDeductionNotCame > 0 ? liveDeductionNotCame.toFixed(3) : '-'}</td>
+                                <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
+                              </tr>
+                              <tr>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Incentives / Allowance</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
+                                  {liveIncentiveAmount > 0 ? `OMR ${liveIncentiveAmount.toFixed(3)}` : 'OMR -'}
+                                </td>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Probation Period First Month</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveProbationFirstMonth > 0 ? liveProbationFirstMonth.toFixed(3) : '-'}</td>
+                                <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
+                              </tr>
+                              <tr>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Transportation</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
+                                  {liveTransportation > 0 ? `OMR ${liveTransportation.toFixed(3)}` : 'OMR -'}
+                                </td>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Deduction Annual leave</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveDeductionAnnualLeave > 0 ? liveDeductionAnnualLeave.toFixed(3) : '-'}</td>
+                                <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
+                              </tr>
+                              <tr className="border-t-2 border-black font-extrabold bg-[#f7f7f7]">
+                                <td className="p-1.5 px-2 border-r-2 border-black">Gross Earnings</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">OMR {liveGrossEarnings.toFixed(3)}</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black">Total Deductions</td>
+                                <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">
+                                  {liveTotalDeductions > 0 ? `OMR ${liveTotalDeductions.toFixed(3)}` : 'OMR -'}
+                                </td>
+                                <td className="p-1.5 px-2 text-right font-black border-l-[2.5px] border-black bg-slate-100">
+                                  {liveOvertimeAmount > 0 ? `OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR -'}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* NETPAY Summary Table - Reconciled & Auditable */}
+                        <div className="border-2 border-black text-xs mb-3">
+                          <table className="w-full border-collapse text-left">
+                            <thead>
+                              <tr className="bg-[#d9d9d9] border-b-2 border-black font-extrabold uppercase text-[11px]">
+                                <th className="p-1.5 px-2 w-[70%]">NETPAY SUMMARY</th>
+                                <th className="p-1.5 px-2 text-right w-[30%]">AMOUNT</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-black/40 font-semibold text-xs">
+                              <tr>
+                                <td className="p-1.5 px-2">Gross Monthly Earnings</td>
+                                <td className="p-1.5 px-2 text-right font-bold">OMR {liveGrossEarnings.toFixed(3)}</td>
+                              </tr>
+                              <tr>
+                                <td className="p-1.5 px-2">Total Deductions (Leaves / Absences)</td>
+                                <td className="p-1.5 px-2 text-right font-bold text-red-600">
+                                  {liveTotalDeductions > 0 ? `-OMR ${liveTotalDeductions.toFixed(3)}` : 'OMR 0.000'}
+                                </td>
+                              </tr>
+                              <tr>
+                                <td className="p-1.5 px-2">Overtime Pay</td>
+                                <td className="p-1.5 px-2 text-right font-bold text-emerald-700">
+                                  {liveOvertimeAmount > 0 ? `+OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR 0.000'}
+                                </td>
+                              </tr>
+                              {liveTotalBalance !== 0 && (
+                                <tr className="bg-amber-50/70 border-t border-amber-200">
+                                  <td className="p-1.5 px-2 text-amber-900 font-bold">
+                                    {liveTotalBalance > 0 ? 'Past Carryover / Prior Dues' : 'Past Balance Adjustment'}
+                                  </td>
+                                  <td className="p-1.5 px-2 text-right font-bold text-amber-900">
+                                    {liveTotalBalance > 0 ? `+OMR ${liveTotalBalance.toFixed(3)}` : `-OMR ${Math.abs(liveTotalBalance).toFixed(3)}`}
+                                  </td>
+                                </tr>
+                              )}
+                              <tr className="border-t-2 border-black font-extrabold bg-[#f2f2f2]">
+                                <td className="p-1.5 px-2 font-black text-black uppercase">Total Net Payable (Take Home)</td>
+                                <td className="p-1.5 px-2 text-right font-black text-sm text-black">OMR {liveFinalPayout.toFixed(3)}</td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Acknowledgment Note */}
+                        <div className="text-[11px] text-slate-800 my-2 flex items-center justify-between">
+                          <span className="font-bold">Note:</span>
+                          <span className="italic text-center flex-1">
+                            I acknowledge that the salary amount mentioned above is correct and received
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Acknowledgment Note */}
-                      <div className="text-[11px] text-slate-800 my-2 flex items-center justify-between">
-                        <span className="font-bold">Note:</span>
-                        <span className="italic text-center flex-1">
-                          I acknowledge that the salary amount mentioned above is correct and received
-                        </span>
+                      {/* Bottom Signature Blocks: 4 Columns with Clean Blank Space for Manual Signatures and Stamp */}
+                      <div className="border-t-2 border-black pt-4 mt-6">
+                        <div className="grid grid-cols-4 gap-3 text-center items-end">
+
+                          {/* 1. Approved by */}
+                          <div className="flex flex-col items-center">
+                            <div className="h-16 w-full flex items-center justify-center">
+                              {/* Blank space for manual signing */}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '06.10.2026'}</div>
+                            <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
+                              Approved by
+                            </div>
+                          </div>
+
+                          {/* 2. Prepared by */}
+                          <div className="flex flex-col items-center">
+                            <div className="h-16 w-full flex items-center justify-center">
+                              {/* Blank space for manual signing */}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '6.10.2026'}</div>
+                            <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
+                              Prepared by
+                            </div>
+                          </div>
+
+                          {/* 3. Authorized Signature */}
+                          <div className="flex flex-col items-center">
+                            <div className="h-16 w-full flex items-center justify-center">
+                              {/* Blank space for manual company stamp and signature */}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '6.10.2026'}</div>
+                            <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
+                              Authorized Signature
+                            </div>
+                          </div>
+
+                          {/* 4. Employee Signature */}
+                          <div className="flex flex-col items-center">
+                            <div className="h-16 w-full flex items-center justify-center">
+                              {/* Blank space for employee manual signature */}
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '06/10/2026'}</div>
+                            <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
+                              Employee Signature
+                            </div>
+                          </div>
+
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Bottom Signature Blocks: 4 Columns with Clean Blank Space for Manual Signatures and Stamp */}
-                    <div className="border-t-2 border-black pt-4 mt-6">
-                      <div className="grid grid-cols-4 gap-3 text-center items-end">
-                        
-                        {/* 1. Approved by */}
-                        <div className="flex flex-col items-center">
-                          <div className="h-16 w-full flex items-center justify-center">
-                            {/* Blank space for manual signing */}
-                          </div>
-                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '06.10.2026'}</div>
-                          <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
-                            Approved by
-                          </div>
-                        </div>
-
-                        {/* 2. Prepared by */}
-                        <div className="flex flex-col items-center">
-                          <div className="h-16 w-full flex items-center justify-center">
-                            {/* Blank space for manual signing */}
-                          </div>
-                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '6.10.2026'}</div>
-                          <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
-                            Prepared by
-                          </div>
-                        </div>
-
-                        {/* 3. Authorized Signature */}
-                        <div className="flex flex-col items-center">
-                          <div className="h-16 w-full flex items-center justify-center">
-                            {/* Blank space for manual company stamp and signature */}
-                          </div>
-                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '6.10.2026'}</div>
-                          <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
-                            Authorized Signature
-                          </div>
-                        </div>
-
-                        {/* 4. Employee Signature */}
-                        <div className="flex flex-col items-center">
-                          <div className="h-16 w-full flex items-center justify-center">
-                            {/* Blank space for employee manual signature */}
-                          </div>
-                          <div className="text-[10px] font-bold text-slate-700 mt-1">{payslipEditForm.payDate || '06/10/2026'}</div>
-                          <div className="border-t-2 border-black w-full pt-1 text-xs font-bold uppercase mt-1">
-                            Employee Signature
-                          </div>
-                        </div>
-
-                      </div>
                     </div>
 
                   </div>
