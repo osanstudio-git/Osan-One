@@ -14,6 +14,7 @@ export function HrLeaves() {
 
   // Holidays state
   const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
+  const [holidayViewMode, setHolidayViewMode] = useState<'table' | 'grid'>('table');
   const [isHolidayModalOpen, setIsHolidayModalOpen] = useState(false);
   const [holidayForm, setHolidayForm] = useState({
     name: '',
@@ -410,61 +411,148 @@ export function HrLeaves() {
           </div>
 
           <div className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-200 dark:border-white/10 flex justify-between items-center">
-              <h3 className="text-base font-bold text-slate-900 dark:text-white">Registered Holiday Calendar</h3>
-              <span className="text-xs font-semibold text-slate-500 dark:text-gray-400">{holidays.length} Holidays Configured</span>
+            <div className="p-4 sm:p-6 border-b border-slate-200 dark:border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">Registered Holiday Calendar</h3>
+                <span className="text-xs font-semibold text-slate-500 dark:text-gray-400">{holidays.length} Holidays Configured</span>
+              </div>
+
+              {/* View Switcher for Holidays */}
+              <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10 self-start sm:self-auto">
+                <button
+                  onClick={() => setHolidayViewMode('table')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    holidayViewMode === 'table'
+                      ? 'bg-white dark:bg-slate-800 text-primary shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                  title="Table View"
+                >
+                  <List className="w-3.5 h-3.5" />
+                  <span>Table</span>
+                </button>
+                <button
+                  onClick={() => setHolidayViewMode('grid')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    holidayViewMode === 'grid'
+                      ? 'bg-white dark:bg-slate-800 text-primary shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                  title="Cards View"
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span>Cards</span>
+                </button>
+              </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[600px]">
-                <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">
-                  <tr>
-                    <th className="p-4 pl-6">Holiday Title</th>
-                    <th className="p-4">Date</th>
-                    <th className="p-4">Duration</th>
-                    <th className="p-4">Classification</th>
-                    <th className="p-4">Notes</th>
-                    <th className="p-4 pr-6 text-right">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs font-medium">
-                  {holidays.map((h) => (
-                    <tr key={h.id} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors">
-                      <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white text-sm">
-                        {h.name}
-                      </td>
-                      <td className="p-4 font-mono font-bold text-primary">
-                        {h.date}
-                      </td>
-                      <td className="p-4 font-semibold text-slate-700 dark:text-gray-300">
-                        {h.daysCount} Day{h.daysCount > 1 ? 's' : ''} (Paid)
-                      </td>
-                      <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold ${
-                          h.type === 'National' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
-                          h.type === 'Religious' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' :
-                          'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                        }`}>
-                          {h.type} Holiday
-                        </span>
-                      </td>
-                      <td className="p-4 text-slate-500 dark:text-gray-400">
-                        {h.notes || '--'}
-                      </td>
-                      <td className="p-4 text-right pr-6">
-                        <button
-                          onClick={() => handleDeleteHoliday(h.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
-                          title="Remove Holiday"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {holidayViewMode === 'table' ? (
+              <div>
+                <div className="sm:hidden px-3.5 py-1.5 bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-[10px] text-slate-500 dark:text-gray-400 flex items-center justify-between">
+                  <span>← Swipe table or switch to Cards view →</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse whitespace-nowrap text-xs">
+                    <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-[11px] sm:text-xs font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                      <tr>
+                        <th className="py-3 px-3 sm:py-3.5 sm:px-4 pl-4 sm:pl-6">Holiday Title</th>
+                        <th className="py-3 px-3 sm:py-3.5 sm:px-4">Date</th>
+                        <th className="py-3 px-3 sm:py-3.5 sm:px-4">Duration</th>
+                        <th className="py-3 px-3 sm:py-3.5 sm:px-4">Classification</th>
+                        <th className="py-3 px-3 sm:py-3.5 sm:px-4">Notes</th>
+                        <th className="py-3 px-3 sm:py-3.5 sm:px-4 pr-4 sm:pr-6 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
+                      {holidays.map((h) => (
+                        <tr key={h.id} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors">
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4 pl-4 sm:pl-6 font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
+                            {h.name}
+                          </td>
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4 font-mono font-bold text-primary">
+                            {h.date}
+                          </td>
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4 font-semibold text-slate-700 dark:text-gray-300">
+                            {h.daysCount} Day{h.daysCount > 1 ? 's' : ''} (Paid)
+                          </td>
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4">
+                            <span className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-bold border shadow-xs ${
+                              h.type === 'National' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
+                              h.type === 'Religious' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' :
+                              'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            }`}>
+                              {h.type} Holiday
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4 text-slate-500 dark:text-gray-400 max-w-[240px] truncate">
+                            {h.notes || '--'}
+                          </td>
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4 text-right pr-4 sm:pr-6">
+                            <button
+                              onClick={() => handleDeleteHoliday(h.id)}
+                              className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                              title="Remove Holiday"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              /* Cards View for Mobile & Tablet */
+              <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4 bg-slate-50/50 dark:bg-transparent">
+                {holidays.map((h) => (
+                  <div
+                    key={h.id}
+                    className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200/80 dark:border-white/10 p-4 shadow-sm hover:shadow-md transition-all flex flex-col justify-between gap-3 group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-primary transition-colors">
+                          {h.name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1 text-xs">
+                          <span className="font-mono font-bold text-primary flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            {h.date}
+                          </span>
+                          <span className="text-slate-300 dark:text-gray-600">•</span>
+                          <span className="font-semibold text-slate-600 dark:text-gray-300">
+                            {h.daysCount} Day{h.daysCount > 1 ? 's' : ''} (Paid)
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleDeleteHoliday(h.id)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                        title="Remove Holiday"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/5 text-xs gap-2">
+                      <span className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                        h.type === 'National' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                        h.type === 'Religious' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' :
+                        'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                      }`}>
+                        {h.type} Holiday
+                      </span>
+
+                      <span className="text-slate-500 dark:text-gray-400 text-[11px] truncate max-w-[160px]">
+                        {h.notes || 'Official Public Holiday'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
