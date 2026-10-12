@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Save, FileText, Check, Calculator, Sparkles, Calendar } from 'lucide-react';
+import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Save, FileText, Check, Sparkles, Calendar } from 'lucide-react';
 import { MOCK_EXCEPTIONS } from '../../pages/hr/mockData';
 import { 
   getEmployees, 
@@ -32,7 +32,6 @@ export function PayrollLedger() {
 
   const [payslipOverrides, setPayslipOverrides] = useState<Record<string, any>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [autoCalcEnabled, setAutoCalcEnabled] = useState(true);
   const [overtimeMultiplier, setOvertimeMultiplier] = useState(1.25);
   const [payslipEditForm, setPayslipEditForm] = useState<any>({});
 
@@ -956,126 +955,11 @@ export function PayrollLedger() {
                   </div>
                 </div>
 
-                {/* SMART AUTO-CALCULATION & FORMULA ENGINE */}
-                <div className="bg-[#10192e] border border-blue-500/30 rounded-2xl p-4 space-y-3 shadow-md">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 rounded-lg bg-blue-500/20 text-blue-400">
-                        <Calculator className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <span className="font-bold text-white text-xs block">Auto-Calculation Engine</span>
-                        <span className="text-[10px] text-slate-400">Calculates leave deductions & overtime automatically</span>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAutoCalcEnabled(!autoCalcEnabled)}
-                      className={`px-3 py-1 rounded-full text-[10px] font-extrabold cursor-pointer transition-all border flex items-center gap-1.5 ${
-                        autoCalcEnabled
-                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/50 shadow-sm shadow-blue-500/20'
-                          : 'bg-slate-800 text-slate-400 border-slate-700'
-                      }`}
-                      title="Toggle auto-syncing values or manual custom entry"
-                    >
-                      <span className={`w-2 h-2 rounded-full ${autoCalcEnabled ? 'bg-blue-400 animate-pulse' : 'bg-slate-500'}`} />
-                      {autoCalcEnabled ? '● AUTO-SYNC ON' : '○ MANUAL MODE'}
-                    </button>
-                  </div>
-
-                  {/* Wage Rates */}
-                  <div className="grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="bg-[#162238] p-2 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Daily Wage (Base / 30d)</span>
-                      <span className="font-extrabold text-blue-300 text-xs">OMR {autoCalculations.dailyWage.toFixed(3)}</span>
-                    </div>
-                    <div className="bg-[#162238] p-2 rounded-xl border border-slate-800">
-                      <span className="text-slate-400 block text-[9px] uppercase font-bold">Hourly Wage (Base / 240h)</span>
-                      <span className="font-extrabold text-blue-300 text-xs">OMR {autoCalculations.hourlyWage.toFixed(3)}</span>
-                    </div>
-                  </div>
-
-                  {/* Overtime Rate Multiplier */}
-                  <div className="flex items-center justify-between text-[11px] bg-[#162238] p-2 rounded-xl border border-slate-800">
-                    <span className="text-slate-300 font-semibold">Overtime Rate:</span>
-                    <select
-                      value={overtimeMultiplier}
-                      onChange={e => {
-                        const newMult = parseFloat(e.target.value);
-                        setOvertimeMultiplier(newMult);
-                        if (autoCalcEnabled) {
-                          const ot = Number((autoCalculations.otHours * autoCalculations.hourlyWage * newMult).toFixed(3));
-                          setPayslipEditForm((prev: any) => ({ ...prev, overtimeAmount: ot }));
-                        }
-                      }}
-                      className="bg-[#0f172a] border border-slate-700 rounded-lg px-2.5 py-1 text-white font-bold outline-none cursor-pointer text-xs"
-                    >
-                      <option value={1.00}>1.00x (Standard Normal Rate)</option>
-                      <option value={1.25}>1.25x (Standard 125% Rate)</option>
-                      <option value={1.50}>1.50x (Weekend / Holiday 150%)</option>
-                    </select>
-                  </div>
-
-                  {/* Live Auto Breakdown Badges */}
-                  <div className="space-y-1.5 pt-1 text-[11px]">
-                    <div className="flex items-center justify-between bg-red-950/20 border border-red-500/20 px-2.5 py-1.5 rounded-lg">
-                      <span className="text-red-300 font-medium">
-                        Leave Deduct ({payslipEditForm.leaveDays ?? 0}d × OMR {autoCalculations.dailyWage.toFixed(3)}):
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-red-400 font-mono">OMR {autoCalculations.autoLeaveDeduction.toFixed(3)}</strong>
-                        <button
-                          type="button"
-                          onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, deductionNotCame: autoCalculations.autoLeaveDeduction }))}
-                          className="text-[9px] font-bold bg-red-500/20 hover:bg-red-500/30 text-red-300 px-1.5 py-0.5 rounded border border-red-500/30 cursor-pointer"
-                          title="Apply auto-calculated leave deduction"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between bg-emerald-950/20 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
-                      <span className="text-emerald-300 font-medium">
-                        Overtime ({autoCalculations.otHours.toFixed(1)}h × OMR {autoCalculations.hourlyWage.toFixed(3)} × {overtimeMultiplier}x):
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-emerald-400 font-mono">OMR {autoCalculations.autoOvertimeAmount.toFixed(3)}</strong>
-                        <button
-                          type="button"
-                          onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, overtimeAmount: autoCalculations.autoOvertimeAmount }))}
-                          className="text-[9px] font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30 cursor-pointer"
-                          title="Apply auto-calculated overtime amount"
-                        >
-                          Apply
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recalculate and apply all auto values */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPayslipEditForm((prev: any) => ({
-                        ...prev,
-                        paidDays: autoCalculations.autoPaidDays,
-                        deductionNotCame: autoCalculations.autoLeaveDeduction,
-                        overtimeAmount: autoCalculations.autoOvertimeAmount
-                      }));
-                    }}
-                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-blue-600/30"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Apply Auto-Calculated Amounts</span>
-                  </button>
-                </div>
-
                 {/* ATTENDANCE METRICS */}
                 <div className="space-y-3 pt-2 border-t border-slate-800">
                   <div className="flex items-center justify-between">
                     <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">Attendance Summary</div>
-                    <span className="text-[10px] text-slate-400">Custom Editable</span>
+                    <span className="text-[10px] text-slate-500">Auto-Calculates & Custom Editable</span>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
@@ -1102,18 +986,14 @@ export function PayrollLedger() {
                         value={payslipEditForm.leaveDays ?? 0}
                         onChange={e => {
                           const newLeave = parseInt(e.target.value) || 0;
-                          if (autoCalcEnabled) {
-                            const daily = liveBasicSalary > 0 ? liveBasicSalary / 30 : 0;
-                            const calcLeaveDeduct = Number((newLeave * daily).toFixed(3));
-                            setPayslipEditForm((prev: any) => ({
-                              ...prev,
-                              leaveDays: newLeave,
-                              paidDays: Math.max(0, 30 - newLeave),
-                              deductionNotCame: calcLeaveDeduct
-                            }));
-                          } else {
-                            setPayslipEditForm({ ...payslipEditForm, leaveDays: newLeave });
-                          }
+                          const daily = liveBasicSalary > 0 ? liveBasicSalary / 30 : 0;
+                          const calcLeaveDeduct = Number((newLeave * daily).toFixed(3));
+                          setPayslipEditForm((prev: any) => ({
+                            ...prev,
+                            leaveDays: newLeave,
+                            paidDays: Math.max(0, 30 - newLeave),
+                            deductionNotCame: calcLeaveDeduct
+                          }));
                         }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2.5 py-2 text-white font-bold outline-none focus:border-rose-500 text-center"
                       />
@@ -1125,6 +1005,25 @@ export function PayrollLedger() {
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="block text-[10px] font-bold uppercase text-slate-400">Hours (OT)</label>
+                        <select
+                          value={overtimeMultiplier}
+                          onChange={e => {
+                            const newMult = parseFloat(e.target.value);
+                            setOvertimeMultiplier(newMult);
+                            const hourly = liveBasicSalary > 0 ? liveBasicSalary / 240 : 0;
+                            const otH = autoCalculations.otHours;
+                            setPayslipEditForm((prev: any) => ({
+                              ...prev,
+                              overtimeAmount: Number((otH * hourly * newMult).toFixed(3))
+                            }));
+                          }}
+                          className="bg-[#18263f] border border-slate-700 rounded px-1.5 py-0.5 text-[9px] text-emerald-400 font-bold outline-none cursor-pointer"
+                          title="Overtime Rate Multiplier"
+                        >
+                          <option value={1.00}>1.0x Rate</option>
+                          <option value={1.25}>1.25x OT</option>
+                          <option value={1.50}>1.5x OT</option>
+                        </select>
                       </div>
                       <input
                         type="text"
@@ -1132,24 +1031,20 @@ export function PayrollLedger() {
                         placeholder="e.g. 10 or 10:00"
                         onChange={e => {
                           const newHours = e.target.value;
-                          if (autoCalcEnabled) {
-                            let otH = 0;
-                            if (newHours.includes(':')) {
-                              const parts = newHours.split(':');
-                              otH = (parseFloat(parts[0]) || 0) + ((parseFloat(parts[1]) || 0) / 60);
-                            } else {
-                              otH = parseFloat(newHours) || 0;
-                            }
-                            const hourly = liveBasicSalary > 0 ? liveBasicSalary / 240 : 0;
-                            const calcOT = Number((otH * hourly * overtimeMultiplier).toFixed(3));
-                            setPayslipEditForm((prev: any) => ({
-                              ...prev,
-                              hoursWorked: newHours,
-                              overtimeAmount: calcOT
-                            }));
+                          let otH = 0;
+                          if (newHours.includes(':')) {
+                            const parts = newHours.split(':');
+                            otH = (parseFloat(parts[0]) || 0) + ((parseFloat(parts[1]) || 0) / 60);
                           } else {
-                            setPayslipEditForm({ ...payslipEditForm, hoursWorked: newHours });
+                            otH = parseFloat(newHours) || 0;
                           }
+                          const hourly = liveBasicSalary > 0 ? liveBasicSalary / 240 : 0;
+                          const calcOT = Number((otH * hourly * overtimeMultiplier).toFixed(3));
+                          setPayslipEditForm((prev: any) => ({
+                            ...prev,
+                            hoursWorked: newHours,
+                            overtimeAmount: calcOT
+                          }));
                         }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-2 py-2 text-white font-bold outline-none focus:border-rose-500 text-center"
                       />
@@ -1176,20 +1071,16 @@ export function PayrollLedger() {
                         value={payslipEditForm.basicSalary ?? 0}
                         onChange={e => {
                           const newBasic = parseFloat(e.target.value) || 0;
-                          if (autoCalcEnabled) {
-                            const daily = newBasic > 0 ? newBasic / 30 : 0;
-                            const hourly = newBasic > 0 ? newBasic / 240 : 0;
-                            const leaveD = Number(((payslipEditForm.leaveDays || 0) * daily).toFixed(3));
-                            const otA = Number((autoCalculations.otHours * hourly * overtimeMultiplier).toFixed(3));
-                            setPayslipEditForm((prev: any) => ({
-                              ...prev,
-                              basicSalary: newBasic,
-                              deductionNotCame: leaveD,
-                              overtimeAmount: otA
-                            }));
-                          } else {
-                            setPayslipEditForm({ ...payslipEditForm, basicSalary: newBasic });
-                          }
+                          const daily = newBasic > 0 ? newBasic / 30 : 0;
+                          const hourly = newBasic > 0 ? newBasic / 240 : 0;
+                          const leaveD = Number(((payslipEditForm.leaveDays || 0) * daily).toFixed(3));
+                          const otA = Number((autoCalculations.otHours * hourly * overtimeMultiplier).toFixed(3));
+                          setPayslipEditForm((prev: any) => ({
+                            ...prev,
+                            basicSalary: newBasic,
+                            deductionNotCame: leaveD,
+                            overtimeAmount: otA
+                          }));
                         }}
                         className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-emerald-400 font-extrabold outline-none focus:border-rose-500"
                       />
