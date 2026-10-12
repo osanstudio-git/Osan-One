@@ -340,16 +340,16 @@ export function PayrollLedger() {
   const liveTransportation = Number(payslipEditForm.transportation) || 0;
   const liveOvertimeAmount = Number(payslipEditForm.overtimeAmount) || 0;
   const liveIncentiveAmount = Number(payslipEditForm.incentiveAmount) || 0;
-  const liveTotalIncentivesOT = liveOvertimeAmount + liveIncentiveAmount;
   const liveAdvanceSalary = Number(payslipEditForm.advanceSalary) || 0;
   const liveDeductionNotCame = Number(payslipEditForm.deductionNotCame) || 0;
   const liveProbationFirstMonth = Number(payslipEditForm.probationFirstMonth) || 0;
   const liveDeductionAnnualLeave = Number(payslipEditForm.deductionAnnualLeave) || 0;
   const liveTotalBalance = Number(payslipEditForm.totalBalance) || 0;
 
-  const liveGrossEarnings = liveBasicSalary + liveOtherAllowance + liveTransportation;
+  const liveGrossEarnings = liveBasicSalary + liveOtherAllowance + liveTransportation + liveIncentiveAmount;
   const liveTotalDeductions = liveAdvanceSalary + liveDeductionNotCame + liveProbationFirstMonth + liveDeductionAnnualLeave;
-  const liveNetPay = Math.max(0, liveGrossEarnings + liveTotalIncentivesOT - liveTotalDeductions);
+  const liveNetPay = Math.max(0, liveGrossEarnings + liveOvertimeAmount - liveTotalDeductions);
+  const liveFinalPayout = liveNetPay + liveTotalBalance;
 
   const handleSavePayslipRecord = async () => {
     if (!activePayslipDetails) return;
@@ -393,6 +393,7 @@ export function PayrollLedger() {
         other_allowance: liveOtherAllowance,
         transportation: liveTransportation,
         overtime_amount: liveOvertimeAmount,
+        incentive_amount: liveIncentiveAmount,
         advance_salary: liveAdvanceSalary,
         deduction_not_came: liveDeductionNotCame,
         probation_first_month: liveProbationFirstMonth,
@@ -1137,11 +1138,12 @@ export function PayrollLedger() {
                   </div>
 
                   {/* INCENTIVES & BONUS INPUT (NEW CUSTOM FIELD) */}
+                  {/* INCENTIVES & BONUS / SPECIAL ALLOWANCE INPUT */}
                   <div className="bg-[#142038] p-3 rounded-xl border border-emerald-500/20 space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <label className="block text-[10px] font-bold uppercase text-emerald-300">Incentives / Bonus (OMR)</label>
+                      <label className="block text-[10px] font-bold uppercase text-emerald-300">Incentives / Allowance (OMR)</label>
                       <span className="text-[9px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                        + Added to Slip
+                        Row 3 of Earnings
                       </span>
                     </div>
                     <input
@@ -1153,8 +1155,8 @@ export function PayrollLedger() {
                       className="w-full bg-[#192845] border border-emerald-500/30 rounded-xl px-3 py-2 text-emerald-300 font-extrabold outline-none focus:border-emerald-400"
                     />
                     <div className="flex items-center justify-between text-[10px] text-slate-300 pt-0.5">
-                      <span>Total (Overtime + Incentive):</span>
-                      <strong className="text-white font-mono">OMR {liveTotalIncentivesOT.toFixed(3)}</strong>
+                      <span>Added to Earnings (Row 3):</span>
+                      <strong className="text-white font-mono">OMR {liveIncentiveAmount.toFixed(3)}</strong>
                     </div>
                   </div>
                 </div>
@@ -1230,7 +1232,7 @@ export function PayrollLedger() {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-[10px] font-bold uppercase text-slate-400">Past Carryover / Prior Dues (Optional)</label>
-                      {Number(payslipEditForm.totalBalance) > 0 && (
+                      {Number(payslipEditForm.totalBalance) !== 0 && (
                         <button
                           type="button"
                           onClick={() => setPayslipEditForm((prev: any) => ({ ...prev, totalBalance: 0 }))}
@@ -1248,8 +1250,8 @@ export function PayrollLedger() {
                       onChange={e => setPayslipEditForm({ ...payslipEditForm, totalBalance: parseFloat(e.target.value) || 0 })}
                       className="w-full bg-[#162035] border border-slate-700 rounded-xl px-3 py-2 text-amber-400 font-bold outline-none focus:border-rose-500"
                     />
-                    <span className="block text-[9px] text-slate-500 mt-1">
-                      Keep 0 if employee has no prior month unpaid balance carried over.
+                    <span className="block text-[9px] text-slate-400 mt-1">
+                      Added directly to final take-home payout ({liveNetPay.toFixed(3)} + {liveTotalBalance.toFixed(3)} = {liveFinalPayout.toFixed(3)} OMR).
                     </span>
                   </div>
                 </div>
@@ -1360,7 +1362,7 @@ export function PayrollLedger() {
                             <div className="p-3.5 flex items-baseline justify-between">
                               <span className="text-xs font-black text-black">OMR</span>
                               <span className="text-2xl sm:text-3xl font-black text-black">
-                                {liveNetPay.toFixed(3)}
+                                {liveFinalPayout.toFixed(3)}
                               </span>
                             </div>
                           </div>
@@ -1374,16 +1376,18 @@ export function PayrollLedger() {
 
                       </div>
 
-                      {/* Main 5-Column Earnings vs Deductions Table (Exact column structure from Image 2) */}
+                      {/* Main 5-Column Earnings vs Deductions Table */}
                       <div className="border-2 border-black text-xs mb-3 overflow-x-auto">
                         <table className="w-full border-collapse text-left">
                           <thead>
                             <tr className="bg-[#d9d9d9] border-b-2 border-black font-extrabold uppercase text-[11px]">
-                              <th className="p-1.5 px-2 border-r-2 border-black w-[25%]">EARNINGS</th>
-                              <th className="p-1.5 px-2 border-r-2 border-black text-right w-[15%]">AMOUNT</th>
-                              <th className="p-1.5 px-2 border-r-2 border-black w-[35%]">DEDUCTIONS</th>
-                              <th className="p-1.5 px-2 border-r-2 border-black text-right w-[13%]">AMOUNT</th>
-                              <th className="p-1.5 px-2 text-right w-[12%]">Incentives /Over time</th>
+                              <th className="p-1.5 px-2 border-r-2 border-black w-[24%]">EARNINGS</th>
+                              <th className="p-1.5 px-2 border-r-2 border-black text-right w-[14%]">AMOUNT</th>
+                              <th className="p-1.5 px-2 border-r-2 border-black w-[34%]">DEDUCTIONS</th>
+                              <th className="p-1.5 px-2 border-r-2 border-black text-right w-[14%]">AMOUNT</th>
+                              <th className="p-1.5 px-2 text-right w-[14%] border-l-[2.5px] border-black bg-[#cfcfcf]">
+                                Overtime Pay
+                              </th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-black/40 font-semibold text-xs">
@@ -1392,35 +1396,47 @@ export function PayrollLedger() {
                               <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">OMR {liveBasicSalary.toFixed(3)}</td>
                               <td className="p-1.5 px-2 border-r-2 border-black">Advance salary</td>
                               <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveAdvanceSalary > 0 ? liveAdvanceSalary.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right">OMR {liveTotalIncentivesOT > 0 ? liveTotalIncentivesOT.toFixed(3) : '-'}</td>
+                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black font-bold">
+                                {liveOvertimeAmount > 0 ? `OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR -'}
+                              </td>
                             </tr>
                             <tr>
                               <td className="p-1.5 px-2 border-r-2 border-black">Other Allowance</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">OMR {liveOtherAllowance > 0 ? liveOtherAllowance.toFixed(1) : '-'}</td>
+                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
+                                {liveOtherAllowance > 0 ? `OMR ${liveOtherAllowance.toFixed(3)}` : 'OMR -'}
+                              </td>
                               <td className="p-1.5 px-2 border-r-2 border-black">Deduction not came & Sick leave</td>
                               <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveDeductionNotCame > 0 ? liveDeductionNotCame.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right">OMR -</td>
+                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
                             </tr>
                             <tr>
-                              <td className="p-1.5 px-2 border-r-2 border-black">Special Allowance</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">OMR -</td>
+                              <td className="p-1.5 px-2 border-r-2 border-black">Incentives / Allowance</td>
+                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
+                                {liveIncentiveAmount > 0 ? `OMR ${liveIncentiveAmount.toFixed(3)}` : 'OMR -'}
+                              </td>
                               <td className="p-1.5 px-2 border-r-2 border-black">Probation Period First Month</td>
                               <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveProbationFirstMonth > 0 ? liveProbationFirstMonth.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right">OMR -</td>
+                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
                             </tr>
                             <tr>
                               <td className="p-1.5 px-2 border-r-2 border-black">Transportation</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">OMR {liveTransportation > 0 ? liveTransportation.toFixed(3) : '-'}</td>
+                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-bold">
+                                {liveTransportation > 0 ? `OMR ${liveTransportation.toFixed(3)}` : 'OMR -'}
+                              </td>
                               <td className="p-1.5 px-2 border-r-2 border-black">Deduction Annual leave</td>
                               <td className="p-1.5 px-2 border-r-2 border-black text-right">OMR {liveDeductionAnnualLeave > 0 ? liveDeductionAnnualLeave.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right">OMR -</td>
+                              <td className="p-1.5 px-2 text-right border-l-[2.5px] border-black">OMR -</td>
                             </tr>
-                            <tr className="border-t-2 border-black font-extrabold">
+                            <tr className="border-t-2 border-black font-extrabold bg-[#f7f7f7]">
                               <td className="p-1.5 px-2 border-r-2 border-black">Gross Earnings</td>
                               <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">OMR {liveGrossEarnings.toFixed(3)}</td>
                               <td className="p-1.5 px-2 border-r-2 border-black">Total Deductions</td>
-                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">OMR {liveTotalDeductions > 0 ? liveTotalDeductions.toFixed(3) : '-'}</td>
-                              <td className="p-1.5 px-2 text-right font-black">OMR {liveTotalIncentivesOT > 0 ? liveTotalIncentivesOT.toFixed(3) : '-'}</td>
+                              <td className="p-1.5 px-2 border-r-2 border-black text-right font-black">
+                                {liveTotalDeductions > 0 ? `OMR ${liveTotalDeductions.toFixed(3)}` : 'OMR -'}
+                              </td>
+                              <td className="p-1.5 px-2 text-right font-black border-l-[2.5px] border-black bg-slate-100">
+                                {liveOvertimeAmount > 0 ? `OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR -'}
+                              </td>
                             </tr>
                           </tbody>
                         </table>
@@ -1447,20 +1463,24 @@ export function PayrollLedger() {
                               </td>
                             </tr>
                             <tr>
-                              <td className="p-1.5 px-2">Incentives & Overtime Pay</td>
+                              <td className="p-1.5 px-2">Overtime Pay</td>
                               <td className="p-1.5 px-2 text-right font-bold text-emerald-700">
-                                {liveTotalIncentivesOT > 0 ? `+OMR ${liveTotalIncentivesOT.toFixed(3)}` : 'OMR 0.000'}
+                                {liveOvertimeAmount > 0 ? `+OMR ${liveOvertimeAmount.toFixed(3)}` : 'OMR 0.000'}
                               </td>
                             </tr>
-                            {liveTotalBalance > 0 && liveTotalBalance !== liveNetPay && (
-                              <tr className="bg-amber-50/50">
-                                <td className="p-1.5 px-2 text-amber-900 font-bold">Unpaid Balance / Previous Carryover</td>
-                                <td className="p-1.5 px-2 text-right font-bold text-amber-900">OMR {liveTotalBalance.toFixed(3)}</td>
+                            {liveTotalBalance !== 0 && (
+                              <tr className="bg-amber-50/70 border-t border-amber-200">
+                                <td className="p-1.5 px-2 text-amber-900 font-bold">
+                                  {liveTotalBalance > 0 ? 'Past Carryover / Prior Dues' : 'Past Balance Adjustment'}
+                                </td>
+                                <td className="p-1.5 px-2 text-right font-bold text-amber-900">
+                                  {liveTotalBalance > 0 ? `+OMR ${liveTotalBalance.toFixed(3)}` : `-OMR ${Math.abs(liveTotalBalance).toFixed(3)}`}
+                                </td>
                               </tr>
                             )}
                             <tr className="border-t-2 border-black font-extrabold bg-[#f2f2f2]">
                               <td className="p-1.5 px-2 font-black text-black uppercase">Total Net Payable (Take Home)</td>
-                              <td className="p-1.5 px-2 text-right font-black text-sm text-black">OMR {liveNetPay.toFixed(3)}</td>
+                              <td className="p-1.5 px-2 text-right font-black text-sm text-black">OMR {liveFinalPayout.toFixed(3)}</td>
                             </tr>
                           </tbody>
                         </table>
