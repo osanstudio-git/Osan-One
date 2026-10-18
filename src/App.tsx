@@ -2,6 +2,7 @@ import { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { InstallPrompt } from './components/pwa/InstallPrompt';
 import { OfflineBanner } from './components/pwa/OfflineBanner';
@@ -45,9 +46,10 @@ const hrLinks = [
 function App() {
   return (
     <ThemeProvider>
-      <BrowserRouter>
-        <AuthProvider>
-          <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
+      <LanguageProvider>
+        <BrowserRouter>
+          <AuthProvider>
+            <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/login" element={<Login />} />
@@ -92,6 +94,7 @@ function App() {
           </div>
         </AuthProvider>
       </BrowserRouter>
+      </LanguageProvider>
     </ThemeProvider>
   );
 }

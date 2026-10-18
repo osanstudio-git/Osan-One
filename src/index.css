@@ -38,6 +38,10 @@
     transition: background-color 0.3s ease, color 0.3s ease;
     @apply antialiased selection:bg-primary/30;
   }
+
+  html[lang="ar"], html[dir="rtl"], html[dir="rtl"] body {
+    font-family: 'Cairo', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
 }
 
 @layer utilities {

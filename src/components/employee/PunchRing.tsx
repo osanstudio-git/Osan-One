@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { verifyLocation } from '../../utils/geofencing';
 import { getCompanySettings, type CompanySettings } from '../../lib/settings';
+import { useLanguage } from '../../contexts/LanguageContext';
 import { X, MapPin } from 'lucide-react';
 
 interface PunchRingProps {
@@ -96,6 +97,8 @@ export function PunchRing({
   const ringColor = isCheckedIn ? 'border-primary' : 'border-slate-300 dark:border-gray-700';
   const innerColor = isCheckedIn ? 'bg-primary/10 dark:bg-primary/20' : 'bg-white dark:bg-slate-900/90';
   
+  const { t } = useLanguage();
+
   return (
     <div className="flex flex-col items-center justify-center gap-6 select-none touch-none">
       <div className="relative w-64 h-64 flex items-center justify-center">
@@ -139,15 +142,17 @@ export function PunchRing({
           {verifying ? (
             <div className="flex flex-col items-center animate-pulse">
               <MapPin className="w-8 h-8 mb-2 text-primary" />
-              <span className="text-sm font-medium text-slate-800 dark:text-white">Verifying Location...</span>
+              <span className="text-sm font-medium text-slate-800 dark:text-white" translate="no">
+                {t('verifying')}
+              </span>
             </div>
           ) : (
             <>
-              <span className="text-2xl font-bold tracking-wider uppercase mb-1 text-slate-900 dark:text-white">
-                {isCheckedIn ? 'Check Out' : 'Check In'}
+              <span className="text-2xl font-bold tracking-wider uppercase mb-1 text-slate-900 dark:text-white" translate="no">
+                {isCheckedIn ? t('checkOut') : t('checkIn')}
               </span>
-              <span className="text-xs text-slate-500 dark:text-gray-400 group-hover:text-primary transition-colors font-medium">
-                Press & Hold (2s)
+              <span className="text-xs text-slate-500 dark:text-gray-400 group-hover:text-primary transition-colors font-medium" translate="no">
+                {t('pressAndHold')}
               </span>
             </>
           )}
