@@ -7,6 +7,7 @@ export interface CompanySettings {
   office_longitude: number | null;
   office_ip: string | null;
   updated_at: string;
+  isCustom?: boolean;
 }
 
 export async function getCompanySettings(companyId: string): Promise<CompanySettings | null> {
@@ -78,13 +79,14 @@ export async function getCompanySettings(companyId: string): Promise<CompanySett
         office_longitude: data.office_longitude !== null ? Number(data.office_longitude) : null,
         office_ip: data.office_ip || null,
         updated_at: data.updated_at || new Date().toISOString(),
+        isCustom: true,
       };
       localStorage.setItem(`osan_office_setting_${trimmedId}`, JSON.stringify(dbSettings));
       return dbSettings;
     }
 
     if (localData) {
-      return localData;
+      return { ...localData, isCustom: localData.isCustom ?? true };
     }
 
     // 3. Fallback to default Headquarters office coordinates from environment variables
@@ -98,7 +100,8 @@ export async function getCompanySettings(companyId: string): Promise<CompanySett
         office_latitude: fallbackLat || null,
         office_longitude: fallbackLng || null,
         office_ip: fallbackIp,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        isCustom: false
       };
     }
 
@@ -123,7 +126,8 @@ export async function updateCompanySettings(
     office_latitude: latitude,
     office_longitude: longitude,
     office_ip: ip,
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
+    isCustom: true
   };
 
   // 1. Always save to LocalStorage for immediate offline/online reliability
