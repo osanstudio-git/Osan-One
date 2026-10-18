@@ -1,15 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { verifyLocation } from '../../utils/geofencing';
+import { getCompanySettings, type CompanySettings } from '../../lib/settings';
 import { X, MapPin } from 'lucide-react';
 
 interface PunchRingProps {
   isCheckedIn: boolean;
   onPunch: (ip?: string) => Promise<void>;
   disabledMessage?: string | null;
+  companySettings?: CompanySettings | null;
+  companyName?: string | null;
+  companyId?: string | null;
 }
 
-export function PunchRing({ isCheckedIn, onPunch, disabledMessage }: PunchRingProps) {
+export function PunchRing({
+  isCheckedIn,
+  onPunch,
+  disabledMessage,
+  companySettings,
+  companyName,
+  companyId
+}: PunchRingProps) {
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -53,15 +64,26 @@ export function PunchRing({ isCheckedIn, onPunch, disabledMessage }: PunchRingPr
     setVerifying(true);
     
     try {
-      const locationRes = await verifyLocation();
+      let activeSettings = companySettings;
+      if (!activeSettings && companyId) {
+        activeSettings = await getCompanySettings(companyId);
+      }
+
+      const locationRes = await verifyLocation({
+        latitude: activeSettings?.office_latitude,
+        longitude: activeSettings?.office_longitude,
+        ip: activeSettings?.office_ip,
+        officeName: companyName,
+      });
+
       if (!locationRes.success) {
         setError(locationRes.error || "Location verification failed");
         return;
       }
       
       await onPunch(locationRes.ip);
-    } catch (err) {
-      setError("An unexpected error occurred during verification");
+    } catch (err: any) {
+      setError(err?.message || "An unexpected error occurred during verification");
     } finally {
       setVerifying(false);
     }

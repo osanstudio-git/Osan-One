@@ -5,8 +5,8 @@ import { LeaveModal } from '../components/employee/LeaveModal';
 import { PipWindow } from '../components/pwa/PipWindow';
 import { CompactWidget } from '../components/employee/CompactWidget';
 import { ThemeToggle } from '../components/common/ThemeToggle';
-import { Calendar, Clock, LogOut, CheckCircle2, History, Coffee, Play, AlertTriangle } from 'lucide-react';
-import { getCompanySettings, calculateDistance, type CompanySettings } from '../lib/settings';
+import { Calendar, Clock, LogOut, CheckCircle2, History, Coffee, Play, AlertTriangle, Building2, MapPin } from 'lucide-react';
+import { getCompanySettings, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
@@ -100,15 +100,25 @@ export function EmployeeDashboard() {
   }, [profile?.id]);
 
   useEffect(() => {
-    if (profile?.company_id) {
-      getCompanySettings(profile.company_id).then(setSettings);
+    const compKey = profile?.company_id || profile?.company;
+    if (compKey) {
+      getCompanySettings(compKey).then(setSettings);
 
-      supabase.from('companies').select('name').eq('id', profile.company_id).single()
-        .then(({ data }) => {
-          if (data) setCompanyName(data.name);
-        });
+      const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(compKey);
+      if (isUuid) {
+        supabase.from('companies').select('name').eq('id', compKey).single()
+          .then(({ data }) => {
+            if (data?.name) {
+              setCompanyName(data.name);
+            } else if (profile?.company) {
+              setCompanyName(profile.company);
+            }
+          });
+      } else {
+        setCompanyName(compKey);
+      }
     }
-  }, [profile?.company_id]);
+  }, [profile?.company_id, profile?.company]);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
@@ -197,60 +207,8 @@ export function EmployeeDashboard() {
 
 
 
-  const handlePunch = async () => {
-    if (!isCheckedIn && settings) {
-      try {
-        let isAuthorized = false;
-
-        if (settings.office_ip) {
-          try {
-            const ipResponse = await fetch('https://api.ipify.org?format=json');
-            const ipData = await ipResponse.json();
-            if (ipData.ip === settings.office_ip) {
-              isAuthorized = true;
-            }
-          } catch (e) {
-            console.warn("IP Check failed, falling back to GPS", e);
-          }
-        }
-
-        if (!isAuthorized && settings.office_latitude && settings.office_longitude) {
-          if ('geolocation' in navigator) {
-            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-              navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
-            });
-
-            const distance = calculateDistance(
-              position.coords.latitude,
-              position.coords.longitude,
-              settings.office_latitude,
-              settings.office_longitude
-            );
-
-            if (distance <= 50) {
-              isAuthorized = true;
-            } else {
-              alert(`Punch Denied: You are ${Math.round(distance)}m away from the office. You must be within 50m to check in.`);
-              return;
-            }
-          } else {
-            alert("Geolocation is not supported by your browser. Please use the Office Wi-Fi.");
-            return;
-          }
-        }
-
-        if (!isAuthorized && (!settings.office_latitude || !settings.office_longitude)) {
-          alert("Warning: Office location is not fully configured by HR. Proceeding anyway.");
-        }
-
-      } catch (error) {
-        console.error("Geofencing Error:", error);
-        alert("Failed to verify location. Please allow location access.");
-        return;
-      }
-    }
-
-    await new Promise(r => setTimeout(r, 1000));
+  const handlePunch = async (_verifiedIp?: string) => {
+    await new Promise(r => setTimeout(r, 600));
 
     const nowTime = new Date();
 
@@ -402,6 +360,17 @@ export function EmployeeDashboard() {
             <Calendar className="w-4 h-4 text-primary shrink-0" />
             <span className="truncate">{formattedDate}</span>
           </div>
+
+          {/* Active Branch Office Indicator */}
+          <div className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-xs font-semibold text-slate-700 dark:text-gray-300 shadow-2xs">
+            <Building2 className="w-3.5 h-3.5 text-primary shrink-0" />
+            <span>Branch: <strong className="text-slate-900 dark:text-white font-extrabold">{companyName || profile?.company || 'Office'}</strong></span>
+            {settings?.office_latitude && settings?.office_longitude ? (
+              <span className="ml-1 text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-extrabold flex items-center gap-0.5">
+                <MapPin className="w-2.5 h-2.5" /> Geo Active
+              </span>
+            ) : null}
+          </div>
         </div>
 
         {/* CUMULATIVE WORKED HOURS TODAY KPI BADGE */}
@@ -419,6 +388,9 @@ export function EmployeeDashboard() {
           isCheckedIn={isCheckedIn}
           onPunch={handlePunch}
           disabledMessage={disabledMessage}
+          companySettings={settings}
+          companyName={companyName || profile?.company}
+          companyId={profile?.company_id || profile?.company}
         />
 
         {/* BREAK ACTION BUTTON & WARNING INDICATOR */}

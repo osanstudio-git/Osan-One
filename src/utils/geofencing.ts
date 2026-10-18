@@ -16,23 +16,47 @@ function deg2rad(deg: number) {
   return deg * (Math.PI / 180);
 }
 
-export async function verifyLocation(): Promise<{ success: boolean; error?: string; ip?: string }> {
-  // 1. IP Validation
-  try {
-    const res = await fetch('https://api.ipify.org?format=json');
-    const data = await res.json();
-    const currentIp = data.ip;
-    
-    const whitelistedIp = import.meta.env.VITE_OFFICE_WHITELISTED_IP;
-    
-    if (whitelistedIp && currentIp === whitelistedIp) {
-      return { success: true, ip: currentIp };
+export interface GeofenceTarget {
+  latitude?: number | null;
+  longitude?: number | null;
+  ip?: string | null;
+  radiusMeters?: number;
+  officeName?: string | null;
+}
+
+export async function verifyLocation(target?: GeofenceTarget | null): Promise<{ success: boolean; error?: string; ip?: string; distance?: number }> {
+  const targetIp = target?.ip?.trim() || import.meta.env.VITE_OFFICE_WHITELISTED_IP?.trim();
+
+  // 1. IP Validation Check (if target office has a whitelisted Wi-Fi/IP)
+  if (targetIp) {
+    try {
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      const currentIp = data.ip;
+      
+      if (currentIp === targetIp) {
+        return { success: true, ip: currentIp };
+      }
+    } catch (error) {
+      console.warn("Office Wi-Fi / IP check skipped, falling back to GPS:", error);
     }
-  } catch (error) {
-    console.warn("IP Check failed, falling back to Geolocation", error);
   }
 
-  // 2. HTML5 Geolocation Check (Fallback if IP fails or doesn't match)
+  // 2. Resolve Target Office Coordinates (Custom Company Branch settings take top priority)
+  const targetLat = (target?.latitude !== null && target?.latitude !== undefined && target?.latitude !== 0)
+    ? Number(target.latitude)
+    : parseFloat(import.meta.env.VITE_OFFICE_LATITUDE || '0');
+
+  const targetLon = (target?.longitude !== null && target?.longitude !== undefined && target?.longitude !== 0)
+    ? Number(target.longitude)
+    : parseFloat(import.meta.env.VITE_OFFICE_LONGITUDE || '0');
+
+  // If no office location has been configured by HR anywhere, allow check-in with a soft warning
+  if (!targetLat || !targetLon) {
+    return { success: true, error: 'Office coordinates not configured yet by HR.' };
+  }
+
+  // 3. HTML5 Geolocation Check
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
       resolve({ success: false, error: 'Geolocation is not supported by your browser.' });
@@ -41,14 +65,6 @@ export async function verifyLocation(): Promise<{ success: boolean; error?: stri
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        const targetLat = parseFloat(import.meta.env.VITE_OFFICE_LATITUDE || '0');
-        const targetLon = parseFloat(import.meta.env.VITE_OFFICE_LONGITUDE || '0');
-        
-        if (!targetLat || !targetLon) {
-          resolve({ success: false, error: 'Office coordinates not configured.' });
-          return;
-        }
-
         const distance = getDistanceFromLatLonInMeters(
           position.coords.latitude,
           position.coords.longitude,
@@ -56,17 +72,32 @@ export async function verifyLocation(): Promise<{ success: boolean; error?: stri
           targetLon
         );
 
-        // 50-meter radius
-        if (distance <= 50) {
-          resolve({ success: true });
+        // 60-meter radius threshold allows for indoor GPS drift and mobile antenna tolerance
+        const allowedRadius = target?.radiusMeters || 60;
+
+        if (distance <= allowedRadius) {
+          resolve({ success: true, distance: Math.round(distance) });
         } else {
-          resolve({ success: false, error: `You are ${Math.round(distance)}m away from the office. Must be within 50m.` });
+          const officeLabel = target?.officeName ? `the ${target.officeName} office` : 'the office';
+          resolve({ 
+            success: false, 
+            distance: Math.round(distance),
+            error: `You are ${Math.round(distance)}m away from ${officeLabel}. Must be within ${allowedRadius}m.` 
+          });
         }
       },
       (error) => {
-        resolve({ success: false, error: `Geolocation error: ${error.message}` });
+        let msg = error.message;
+        if (error.code === error.PERMISSION_DENIED) {
+          msg = 'Location access denied. Please allow location permissions in your browser settings.';
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          msg = 'GPS signal unavailable. Please ensure GPS/Location is enabled on your device.';
+        } else if (error.code === error.TIMEOUT) {
+          msg = 'Location request timed out. Please try again.';
+        }
+        resolve({ success: false, error: msg });
       },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   });
 }
