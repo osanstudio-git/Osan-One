@@ -77,7 +77,7 @@ export function EmployeeDashboard() {
           setIsCheckedIn(true);
           setCurrentSessionStart(inDate);
           localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: true, checkInTime: log.clock_in_time }));
-          
+
           if (log.break_start_time && !log.break_end_time) {
             const bDate = new Date(log.break_start_time);
             setIsOnBreak(true);
@@ -199,7 +199,7 @@ export function EmployeeDashboard() {
     const hrs = Math.floor(diffSecs / 3600);
     const mins = Math.floor((diffSecs % 3600) / 60);
     const secs = diffSecs % 60;
-    
+
     if (language === 'ar') {
       let result = '';
       if (hrs > 0) result += `${hrs} ساعة و `;
@@ -337,7 +337,7 @@ export function EmployeeDashboard() {
             const parsed = JSON.parse(saved);
             parsed.leave_balances = updated;
             localStorage.setItem('osan_demo_profile', JSON.stringify(parsed));
-          } catch (e) {}
+          } catch (e) { }
         }
       }
     } catch (err) {
@@ -533,7 +533,7 @@ export function EmployeeDashboard() {
         />
 
         {/* BREAK ACTION BUTTON & WARNING INDICATOR */}
-        {isCheckedIn && (
+        {/* {isCheckedIn && (
           <div className="mt-5 flex flex-col items-center gap-2">
             <button
               onClick={handleToggleBreak}
@@ -567,7 +567,7 @@ export function EmployeeDashboard() {
               </div>
             )}
           </div>
-        )}
+        )} */}
 
         {/* Small text check-in time display */}
         {isCheckedIn && currentSessionStart && (
@@ -686,11 +686,10 @@ export function EmployeeDashboard() {
             return (
               <div
                 key={doc.id || idx}
-                className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
-                  isExpired
-                    ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/50 text-red-900 dark:text-red-200'
-                    : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200'
-                }`}
+                className={`p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 shadow-sm animate-in fade-in slide-in-from-top-2 duration-300 ${isExpired
+                  ? 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900/50 text-red-900 dark:text-red-200'
+                  : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900/50 text-amber-900 dark:text-amber-200'
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-xl shrink-0 ${isExpired ? 'bg-red-500/20 text-red-600 dark:text-red-400' : 'bg-amber-500/20 text-amber-600 dark:text-amber-400'}`}>
@@ -883,11 +882,10 @@ export function EmployeeDashboard() {
                               {l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : '-'}
                             </td>
                             <td className="p-3 font-bold text-slate-900 dark:text-white">
-                              <span className={`px-2 py-0.5 rounded-lg text-[11px] font-extrabold ${
-                                l.leaveType === 'Sick'
-                                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                  : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400'
-                              }`}>
+                              <span className={`px-2 py-0.5 rounded-lg text-[11px] font-extrabold ${l.leaveType === 'Sick'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400'
+                                }`}>
                                 {l.leaveType} Leave
                               </span>
                             </td>
@@ -896,13 +894,12 @@ export function EmployeeDashboard() {
                               <span className="ml-1.5 font-bold text-slate-900 dark:text-white">({l.durationDays}d)</span>
                             </td>
                             <td className="p-3">
-                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold inline-flex items-center gap-1 ${
-                                l.status === 'Approved'
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                  : l.status === 'Rejected'
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold inline-flex items-center gap-1 ${l.status === 'Approved'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                : l.status === 'Rejected'
                                   ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
                                   : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                              }`}>
+                                }`}>
                                 {l.status === 'Approved' ? <CheckCircle2 className="w-3 h-3" /> : l.status === 'Rejected' ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                                 <span>{l.status === 'Approved' ? t('approved') : l.status === 'Rejected' ? t('rejected') : t('pending')}</span>
                               </span>
