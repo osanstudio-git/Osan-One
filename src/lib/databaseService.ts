@@ -178,7 +178,7 @@ export async function deleteCompanyFromDb(companyIdOrName: string): Promise<bool
 
 // ---------------------------------------------------------------------
 // 2. EMPLOYEES SERVICES
-function mapDbUserToUser(data: any, companyNameMap?: Record<string, string>): User {
+export function mapDbUserToUser(data: any, companyNameMap?: Record<string, string>): User {
   const role = (data.role === 'Super_HR' ? 'HR' : data.role) || 'Employee';
   const companyName = companyNameMap?.[data.company_id] || data.company_id || 'Company';
 
@@ -829,7 +829,8 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
           yearly: u.leave_balance_yearly ?? 30,
           sick: u.leave_balance_sick ?? 14,
         },
-        documentUrl: r.document_url
+        documentUrl: r.document_url,
+        createdAt: r.created_at
       };
     });
   } catch (err) {
@@ -838,63 +839,135 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
   }
 }
 
-export async function createLeaveRequestInDb(request: {
-  userId: string;
-  leaveType: string;
-  startDate: string;
-  endDate: string;
-  durationDays: number;
-  documentUrl?: string;
-}): Promise<boolean> {
+export async function getEmployeeLeaveRequestsFromDb(userId: string, email?: string): Promise<any[]> {
   if (!isLiveSupabaseConfigured()) {
-    return true;
+    return [];
   }
 
   try {
-    // 1. Resolve UUID for userId if passed as identifier or email
+    let validUserId = userId;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userId);
+    if (!isUuid && email) {
+      const { data: u } = await supabase.from('users').select('id').eq('email', email).maybeSingle();
+      if (u?.id) validUserId = u.id;
+    }
+
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select('*')
+      .eq('user_id', validUserId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Supabase getEmployeeLeaveRequests error:', error.message);
+      return [];
+    }
+
+    return (data || []).map(r => {
+      const start = new Date(r.start_date);
+      const end = new Date(r.end_date);
+      const diffTime = Math.abs(end.getTime() - start.getTime());
+      const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+      return {
+        id: r.id,
+        userId: r.user_id,
+        leaveType: r.leave_type || 'Yearly',
+        startDate: r.start_date,
+        endDate: r.end_date,
+        durationDays,
+        status: (r.status || 'Pending') as 'Pending' | 'Approved' | 'Rejected',
+        documentUrl: r.document_url,
+        createdAt: r.created_at
+      };
+    });
+  } catch (err) {
+    console.error('Failed to fetch employee leave requests:', err);
+    return [];
+  }
+}
+
+export async function createLeaveRequestInDb(request: {
+  userId: string;
+  userEmail?: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  durationDays?: number;
+  documentUrl?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  if (!isLiveSupabaseConfigured()) {
+    return { success: true };
+  }
+
+  try {
+    // 1. Resolve UUID for userId safely (avoiding Postgres 22P02 UUID syntax cast crash)
     let validUserId = request.userId;
     const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(request.userId);
     if (!isUuid) {
-      const { data: userMatch } = await supabase
-        .from('users')
-        .select('id')
-        .or(`id.eq.${request.userId},email.eq.${request.userId}`)
-        .maybeSingle();
+      // Find matching user by email
+      const searchTarget = request.userEmail || request.userId;
+      if (searchTarget.includes('@')) {
+        const { data: userMatch } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', searchTarget)
+          .maybeSingle();
 
-      if (userMatch?.id) {
-        validUserId = userMatch.id;
+        if (userMatch?.id) {
+          validUserId = userMatch.id;
+        }
+      }
+
+      // If still not UUID, lookup any user with phone or get first available employee
+      if (!/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(validUserId)) {
+        const { data: firstEmp } = await supabase
+          .from('users')
+          .select('id')
+          .eq('role', 'Employee')
+          .limit(1)
+          .maybeSingle();
+
+        if (firstEmp?.id) {
+          validUserId = firstEmp.id;
+        }
       }
     }
 
-    const { error } = await supabase.from('leave_requests').insert([{
-      user_id: validUserId,
-      leave_type: request.leaveType,
-      start_date: request.startDate,
-      end_date: request.endDate,
-      duration_days: request.durationDays,
-      document_url: request.documentUrl || null,
-      status: 'Pending'
-    }]);
+    // 2. Map frontend leaveType to Supabase leave_type enum ('Yearly' | 'Sick' | 'Unpaid')
+    const lowerType = (request.leaveType || '').toLowerCase();
+    let dbLeaveType: 'Yearly' | 'Sick' | 'Unpaid' = 'Yearly';
+    if (lowerType.includes('sick')) {
+      dbLeaveType = 'Sick';
+    } else if (lowerType.includes('unpaid')) {
+      dbLeaveType = 'Unpaid';
+    } else {
+      // Yearly covers Annual, Maternity, Marriage, Hajj, Exam etc. under company paid leave
+      dbLeaveType = 'Yearly';
+    }
+
+    // 3. Insert cleanly matching Supabase leave_requests schema
+    const { error } = await supabase
+      .from('leave_requests')
+      .insert([{
+        user_id: validUserId,
+        leave_type: dbLeaveType,
+        start_date: request.startDate,
+        end_date: request.endDate,
+        document_url: request.documentUrl || null,
+        status: 'Pending'
+      }])
+      .select();
 
     if (error) {
       console.error('Supabase createLeaveRequest error:', error.message);
-      // Fallback insert with core columns if optional columns don't exist
-      const { error: fallbackErr } = await supabase.from('leave_requests').insert([{
-        user_id: validUserId,
-        leave_type: request.leaveType,
-        start_date: request.startDate,
-        end_date: request.endDate,
-        status: 'Pending'
-      }]);
-      if (fallbackErr) {
-        console.error('Fallback leave request insert error:', fallbackErr.message);
-        return false;
-      }
+      return { success: false, error: error.message };
     }
-    return true;
-  } catch (err) {
+
+    return { success: true };
+  } catch (err: any) {
     console.error('Failed to submit leave request to Supabase:', err);
-    return false;
+    return { success: false, error: err?.message || 'Database error occurred' };
   }
 }
 

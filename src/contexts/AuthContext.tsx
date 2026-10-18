@@ -118,8 +118,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error fetching user profile:', error);
-      } else {
-        setProfile(data as Profile);
+      } else if (data) {
+        // Map database columns (including leave_balance_yearly, etc.) to user profile
+        const mapped: Profile = {
+          ...(data as any),
+          role: (data.role === 'Super_HR' ? 'HR' : data.role) || 'Employee',
+          leave_balances: {
+            yearly: data.leave_balance_yearly ?? 30,
+            sick: data.leave_balance_sick ?? 14,
+            pregnancy: data.leave_balance_maternity ?? 98,
+          }
+        };
+        setProfile(mapped);
       }
     } catch (error) {
       console.error('Error in fetchProfile:', error);
