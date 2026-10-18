@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, UploadCloud, ChevronDown, ShieldAlert } from 'lucide-react';
+import { X, Calendar, UploadCloud, ChevronDown, ShieldAlert, FileText, CheckCircle2, Trash2 } from 'lucide-react';
 import type { LeaveType } from '../../types';
 
 interface LeaveModalProps {
@@ -294,20 +294,45 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
               {/* File Attachment */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">Required Documentation (Optional)</label>
-                <div className="relative border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl p-5 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer group">
-                  <input
-                    type="file"
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    onChange={(e) => setFile(e.target.files?.[0] || null)}
-                    accept="image/*,.pdf"
-                  />
-                  <div className="flex flex-col items-center justify-center gap-2">
-                    <UploadCloud className="w-7 h-7 text-slate-400 dark:text-gray-400 group-hover:text-primary transition-colors" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
-                      {file ? file.name : 'Attach Medical Report, Certificate, or Marriage License'}
-                    </span>
+                {file ? (
+                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div className="overflow-hidden">
+                        <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{file.name}</p>
+                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
+                          <CheckCircle2 className="w-3 h-3" /> Ready to upload ({(Math.round(file.size / 1024))} KB)
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFile(null)}
+                      className="p-2 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
+                      title="Remove file"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="relative border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl p-5 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer group">
+                    <input
+                      type="file"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                      accept="image/*,.pdf"
+                    />
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <UploadCloud className="w-7 h-7 text-slate-400 dark:text-gray-400 group-hover:text-primary transition-colors" />
+                      <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
+                        Attach Medical Report, Certificate, or Official Document
+                      </span>
+                      <span className="text-[10px] text-slate-400 dark:text-gray-500">Supports PDF, JPG, PNG (Max 10MB)</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Submit Button */}

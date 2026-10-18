@@ -27,8 +27,6 @@ export function EmployeeDashboard() {
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
 
-  const balances = profile?.leave_balances || { yearly: 30, sick: 14, pregnancy: 0 };
-
   // Multi-session punch tracking
   const [sessions, setSessions] = useState<WorkSession[]>([]);
   const [firstCheckInTime, setFirstCheckInTime] = useState<Date | null>(null);
@@ -300,14 +298,50 @@ export function EmployeeDashboard() {
   const [isLeavesModalOpen, setIsLeavesModalOpen] = useState(false);
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
 
+  // Live employee balances directly synchronized with database
+  const [liveBalances, setLiveBalances] = useState<{ yearly: number; sick: number; pregnancy: number }>({
+    yearly: profile?.leave_balances?.yearly ?? 30,
+    sick: profile?.leave_balances?.sick ?? 14,
+    pregnancy: profile?.leave_balances?.pregnancy ?? 98,
+  });
+
   const loadEmployeeLeaves = async () => {
     if (!profile?.id) return;
     setLoadingLeaves(true);
     try {
       const leaves = await getEmployeeLeaveRequestsFromDb(profile.id, profile.email);
       setMyLeaves(leaves);
+
+      // Query live balances directly from users table to guarantee 100% realtime accuracy
+      const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(profile.id);
+      let query = supabase.from('users').select('id, leave_balance_yearly, leave_balance_sick, leave_balance_maternity');
+      if (isUuid) {
+        query = query.eq('id', profile.id);
+      } else if (profile.email) {
+        query = query.eq('email', profile.email);
+      }
+
+      const { data: userData } = await query.maybeSingle();
+      if (userData) {
+        const updated = {
+          yearly: userData.leave_balance_yearly ?? 30,
+          sick: userData.leave_balance_sick ?? 14,
+          pregnancy: userData.leave_balance_maternity ?? 98,
+        };
+        setLiveBalances(updated);
+
+        // Also sync local demo profile so any other components read the latest balances
+        const saved = localStorage.getItem('osan_demo_profile');
+        if (saved) {
+          try {
+            const parsed = JSON.parse(saved);
+            parsed.leave_balances = updated;
+            localStorage.setItem('osan_demo_profile', JSON.stringify(parsed));
+          } catch (e) {}
+        }
+      }
     } catch (err) {
-      console.error('Failed to load employee leaves:', err);
+      console.error('Failed to load employee leaves and balances:', err);
     } finally {
       setLoadingLeaves(false);
     }
@@ -316,15 +350,25 @@ export function EmployeeDashboard() {
   useEffect(() => {
     loadEmployeeLeaves();
 
-    const channel = supabase
+    // 1. Subscribe to leave request status changes (Pending -> Approved/Rejected)
+    const leaveChannel = supabase
       .channel(`emp-leaves-${profile?.id || 'live'}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
         loadEmployeeLeaves();
       })
       .subscribe();
 
+    // 2. Subscribe to user balance updates in realtime
+    const userChannel = supabase
+      .channel(`emp-user-bal-${profile?.id || 'live'}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, () => {
+        loadEmployeeLeaves();
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(leaveChannel);
+      supabase.removeChannel(userChannel);
     };
   }, [profile?.id]);
 
@@ -389,8 +433,10 @@ export function EmployeeDashboard() {
     return myLeaves.filter(l => l.status === 'Pending').length;
   }, [myLeaves]);
 
-  const yearlyRemaining = profile?.leave_balances?.yearly ?? Math.max(0, 30 - approvedYearlyDays);
-  const sickRemaining = profile?.leave_balances?.sick ?? Math.max(0, 14 - approvedSickDays);
+  const yearlyRemaining = liveBalances.yearly;
+  const sickRemaining = liveBalances.sick;
+  const yearlyTotal = Math.max(30, yearlyRemaining + approvedYearlyDays);
+  const sickTotal = Math.max(14, sickRemaining + approvedSickDays);
 
   const [isPipActive, setIsPipActive] = useState(false);
 
@@ -748,7 +794,7 @@ export function EmployeeDashboard() {
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-gray-400 font-medium flex items-center justify-between border-t border-blue-200/40 dark:border-blue-900/30 pt-2 mt-1">
                     <span>{t('used')}: <strong>{approvedYearlyDays}d</strong></span>
-                    <span>{t('total')}: <strong>30d</strong></span>
+                    <span>{t('total')}: <strong>{yearlyTotal}d</strong></span>
                   </div>
                 </div>
 
@@ -767,7 +813,7 @@ export function EmployeeDashboard() {
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-gray-400 font-medium flex items-center justify-between border-t border-amber-200/40 dark:border-amber-900/30 pt-2 mt-1">
                     <span>{t('used')}: <strong>{approvedSickDays}d</strong></span>
-                    <span>{t('total')}: <strong>14d</strong></span>
+                    <span>{t('total')}: <strong>{sickTotal}d</strong></span>
                   </div>
                 </div>
 
@@ -928,7 +974,7 @@ export function EmployeeDashboard() {
         isOpen={isLeaveModalOpen}
         onClose={() => setIsLeaveModalOpen(false)}
         onSubmit={handleLeaveSubmit}
-        balances={balances}
+        balances={liveBalances}
         userProfile={profile}
       />
 
