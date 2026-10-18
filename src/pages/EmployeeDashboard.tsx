@@ -7,7 +7,7 @@ import { CompactWidget } from '../components/employee/CompactWidget';
 import { ThemeToggle } from '../components/common/ThemeToggle';
 import { LanguageToggle } from '../components/common/LanguageToggle';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Calendar, Clock, LogOut, CheckCircle2, History, Coffee, Play, AlertTriangle, Building2, MapPin, FileText, XCircle, X } from 'lucide-react';
+import { Calendar, Clock, LogOut, CheckCircle2, History, AlertTriangle, Building2, MapPin, FileText, XCircle, X } from 'lucide-react';
 import { getCompanySettings, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
@@ -32,11 +32,6 @@ export function EmployeeDashboard() {
   const [firstCheckInTime, setFirstCheckInTime] = useState<Date | null>(null);
   const [currentSessionStart, setCurrentSessionStart] = useState<Date | null>(null);
 
-  // Break state
-  const [isOnBreak, setIsOnBreak] = useState(false);
-  const [breakStartTime, setBreakStartTime] = useState<Date | null>(null);
-  const [breakDurationMinutes, setBreakDurationMinutes] = useState(0);
-
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const [now, setNow] = useState(new Date());
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -58,10 +53,6 @@ export function EmployeeDashboard() {
             setIsCheckedIn(true);
             setCurrentSessionStart(inDate);
             setFirstCheckInTime(inDate);
-            if (parsed.isOnBreak && parsed.breakStartTime) {
-              setIsOnBreak(true);
-              setBreakStartTime(new Date(parsed.breakStartTime));
-            }
           }
         }
       } catch (e) {
@@ -78,15 +69,9 @@ export function EmployeeDashboard() {
           setCurrentSessionStart(inDate);
           localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: true, checkInTime: log.clock_in_time }));
 
-          if (log.break_start_time && !log.break_end_time) {
-            const bDate = new Date(log.break_start_time);
-            setIsOnBreak(true);
-            setBreakStartTime(bDate);
-          }
         } else {
           const outDate = new Date(log.clock_out_time);
           setIsCheckedIn(false);
-          setIsOnBreak(false);
           setCurrentSessionStart(null);
           setSessions([{
             id: 'today-log',
@@ -126,20 +111,7 @@ export function EmployeeDashboard() {
     return () => clearInterval(timer);
   }, []);
 
-  // Update break duration live timer
-  useEffect(() => {
-    if (!isOnBreak || !breakStartTime) {
-      setBreakDurationMinutes(0);
-      return;
-    }
-    const updateBreak = () => {
-      const diffMs = new Date().getTime() - breakStartTime.getTime();
-      setBreakDurationMinutes(Math.floor(diffMs / 60000));
-    };
-    updateBreak();
-    const interval = setInterval(updateBreak, 10000);
-    return () => clearInterval(interval);
-  }, [isOnBreak, breakStartTime]);
+
 
   // Update current active session elapsed time
   useEffect(() => {
@@ -255,8 +227,6 @@ export function EmployeeDashboard() {
       }
       setCurrentSessionStart(null);
       setIsCheckedIn(false);
-      setIsOnBreak(false);
-      setBreakStartTime(null);
       if (profile?.id) {
         localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: false }));
         recordPunchInDb(profile.id, 'clock_out', nowTime, profile.company_id).catch(console.error);
@@ -264,33 +234,7 @@ export function EmployeeDashboard() {
     }
   };
 
-  const handleToggleBreak = async () => {
-    if (!profile?.id || !isCheckedIn) return;
 
-    const nowTime = new Date();
-    if (!isOnBreak) {
-      // Start break
-      setIsOnBreak(true);
-      setBreakStartTime(nowTime);
-      localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({
-        isCheckedIn: true,
-        checkInTime: currentSessionStart?.toISOString(),
-        isOnBreak: true,
-        breakStartTime: nowTime.toISOString()
-      }));
-      await recordPunchInDb(profile.id, 'break_start', nowTime, profile.company_id);
-    } else {
-      // End break
-      setIsOnBreak(false);
-      setBreakStartTime(null);
-      localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({
-        isCheckedIn: true,
-        checkInTime: currentSessionStart?.toISOString(),
-        isOnBreak: false
-      }));
-      await recordPunchInDb(profile.id, 'break_end', nowTime, profile.company_id);
-    }
-  };
 
   // Leave requests & balance tracking
   const [myLeaves, setMyLeaves] = useState<any[]>([]);
@@ -531,43 +475,6 @@ export function EmployeeDashboard() {
           companyName={companyName || profile?.company}
           companyId={profile?.company_id || profile?.company}
         />
-
-        {/* BREAK ACTION BUTTON & WARNING INDICATOR */}
-        {/* {isCheckedIn && (
-          <div className="mt-5 flex flex-col items-center gap-2">
-            <button
-              onClick={handleToggleBreak}
-              className={`px-5 py-2.5 rounded-2xl font-bold text-xs flex items-center gap-2 transition-all shadow-md cursor-pointer ${
-                isOnBreak
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/25 animate-pulse'
-                  : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:border-amber-500 text-slate-800 dark:text-white hover:text-amber-500'
-              }`}
-            >
-              {isOnBreak ? (
-                <>
-                  <Play className="w-4 h-4 fill-white rtl:rotate-180" />
-                  <span translate="no">{t('resumeWork')} ({t('breakTime')}: {breakDurationMinutes} {t('minutes')})</span>
-                </>
-              ) : (
-                <>
-                  <Coffee className="w-4 h-4 text-amber-500" />
-                  <span translate="no">{t('takeBreak')}</span>
-                </>
-              )}
-            </button>
-
-            {isOnBreak && (
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>
-                  {breakDurationMinutes > 75 
-                    ? '⚠️ Over-Break Warning (>75m Grace Period Exceeded)!'
-                    : `Active Break: ${breakDurationMinutes} mins used (Standard: 60m)`}
-                </span>
-              </div>
-            )}
-          </div>
-        )} */}
 
         {/* Small text check-in time display */}
         {isCheckedIn && currentSessionStart && (
