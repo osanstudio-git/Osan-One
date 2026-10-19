@@ -30,12 +30,16 @@ export async function verifyLocation(target?: GeofenceTarget | null): Promise<{ 
   // 1. IP Validation Check (if target office has a whitelisted Wi-Fi/IP)
   if (targetIp) {
     try {
-      const res = await fetch('https://api.ipify.org?format=json');
-      const data = await res.json();
-      const currentIp = data.ip;
-      
-      if (currentIp === targetIp) {
-        return { success: true, ip: currentIp };
+      const [resV4, resV6] = await Promise.allSettled([
+        fetch('https://api.ipify.org?format=json').then(r => r.json()),
+        fetch('https://api64.ipify.org?format=json').then(r => r.json())
+      ]);
+
+      const ipV4 = resV4.status === 'fulfilled' ? resV4.value?.ip : null;
+      const ipV6 = resV6.status === 'fulfilled' ? resV6.value?.ip : null;
+
+      if ((ipV4 && ipV4 === targetIp) || (ipV6 && ipV6 === targetIp)) {
+        return { success: true, ip: ipV4 || ipV6 };
       }
     } catch (error) {
       console.warn("Office Wi-Fi / IP check skipped, falling back to GPS:", error);
@@ -78,7 +82,8 @@ export async function verifyLocation(target?: GeofenceTarget | null): Promise<{ 
         if (distance <= allowedRadius) {
           resolve({ success: true, distance: Math.round(distance) });
         } else {
-          const officeLabel = target?.officeName ? `the ${target.officeName} office` : 'the office';
+          const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(target?.officeName || '');
+          const officeLabel = (!target?.officeName || isUuid) ? 'the ASAS office' : `the ${target.officeName} office`;
           resolve({ 
             success: false, 
             distance: Math.round(distance),
