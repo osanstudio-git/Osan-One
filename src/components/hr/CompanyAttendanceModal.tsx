@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   X, Users, CheckCircle2, Clock, Calendar, Search, 
   MessageSquare, ExternalLink, Activity, 
-  AlertCircle, UserX, CalendarCheck 
+  AlertCircle, UserX, CalendarCheck, LayoutGrid, List
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { CompanyData } from '../../pages/hr/mockData';
@@ -38,8 +38,14 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
   const [selectedFilter, setSelectedFilter] = useState<AttendanceCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768 ? 'grid' : 'table';
+    }
+    return 'table';
+  });
 
-  // Update live clock every minute
+  // Update live clock every 30 seconds
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(timer);
@@ -56,14 +62,14 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       // 1. Fetch all employees
       const allEmps = await getEmployees();
       
-      // Filter employees belonging to this company
-      const compId = company.id || '';
+      // Filter employees belonging to this company (matching by company_id UUID or company name)
+      const compId = (company.id || '').trim().toLowerCase();
       const compName = (company.name || '').trim().toLowerCase();
       
       const compEmps = allEmps.filter(e => {
         const empCompId = (e.company_id || '').trim().toLowerCase();
         const empCompName = (e.company || '').trim().toLowerCase();
-        return (compId && empCompId === compId.toLowerCase()) || 
+        return (compId && empCompId === compId) || 
                empCompName === compName || 
                empCompId === compName;
       });
@@ -73,12 +79,13 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       const empIds = compEmps.map(e => e.id);
 
       if (empIds.length > 0) {
-        // 2. Query today's attendance logs from Supabase
+        // 2. Query today's attendance logs from Supabase ordered by time
         const { data: logsData } = await supabase
           .from('attendance_logs')
           .select('*')
           .in('user_id', empIds)
-          .eq('date', todayStr);
+          .eq('date', todayStr)
+          .order('clock_in_time', { ascending: true });
 
         setAttendanceLogs(logsData || []);
 
@@ -126,9 +133,14 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
 
   // Compute live status items for every employee
   const employeeStatusList: EmployeeStatusItem[] = useMemo(() => {
-    const logsMap = new Map<string, any>();
+    // Group all logs by employee id to accurately calculate cumulative worked minutes
+    const logsByUser = new Map<string, any[]>();
     attendanceLogs.forEach(l => {
-      if (l.user_id) logsMap.set(l.user_id, l);
+      if (l.user_id) {
+        const arr = logsByUser.get(l.user_id) || [];
+        arr.push(l);
+        logsByUser.set(l.user_id, arr);
+      }
     });
 
     const leavesMap = new Map<string, any>();
@@ -137,35 +149,61 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
     });
 
     return employees.map(emp => {
-      const log = logsMap.get(emp.id);
+      const userLogs = logsByUser.get(emp.id) || [];
       const leave = leavesMap.get(emp.id);
 
-      if (log) {
-        const inTime = log.clock_in_time ? new Date(log.clock_in_time) : null;
-        const outTime = log.clock_out_time ? new Date(log.clock_out_time) : null;
-        
-        const workedMs = inTime ? (outTime ? outTime.getTime() - inTime.getTime() : Date.now() - inTime.getTime()) : 0;
-        const workedMins = Math.max(0, Math.floor(workedMs / 60000));
+      if (userLogs.length > 0) {
+        let cumulativeWorkedMs = 0;
+        let isCurrentlyActive = false;
+        let earliestClockIn: Date | null = null;
+        let latestClockOut: Date | null = null;
+        let lastIp: string | null = null;
 
-        if (outTime) {
+        for (const log of userLogs) {
+          const inTime = log.clock_in_time ? new Date(log.clock_in_time) : null;
+          const outTime = log.clock_out_time ? new Date(log.clock_out_time) : null;
+
+          if (inTime) {
+            if (!earliestClockIn || inTime.getTime() < earliestClockIn.getTime()) {
+              earliestClockIn = inTime;
+            }
+            if (log.ip_address) lastIp = log.ip_address;
+
+            if (outTime) {
+              if (!latestClockOut || outTime.getTime() > latestClockOut.getTime()) {
+                latestClockOut = outTime;
+              }
+              cumulativeWorkedMs += Math.max(0, outTime.getTime() - inTime.getTime());
+            } else {
+              isCurrentlyActive = true;
+              cumulativeWorkedMs += Math.max(0, Date.now() - inTime.getTime());
+            }
+          }
+        }
+
+        const workedMins = Math.max(0, Math.floor(cumulativeWorkedMs / 60000));
+        const inFormatted = earliestClockIn ? (earliestClockIn as Date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+        const outFormatted = latestClockOut ? (latestClockOut as Date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
+
+        if (isCurrentlyActive) {
+          return {
+            employee: emp,
+            status: 'active',
+            clockInTime: inFormatted,
+            clockOutTime: null,
+            workedMinutes: workedMins,
+            ipAddress: lastIp
+          };
+        } else if (latestClockOut) {
           return {
             employee: emp,
             status: 'clocked_out',
-            clockInTime: inTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || null,
-            clockOutTime: outTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || null,
+            clockInTime: inFormatted,
+            clockOutTime: outFormatted,
             workedMinutes: workedMins,
-            ipAddress: log.ip_address
+            ipAddress: lastIp
           };
         }
-
-        return {
-          employee: emp,
-          status: 'active',
-          clockInTime: inTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || null,
-          clockOutTime: null,
-          workedMinutes: workedMins,
-          ipAddress: log.ip_address
-        };
       }
 
       if (leave) {
@@ -208,9 +246,12 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
   // Filtered employees
   const filteredList = useMemo(() => {
     return employeeStatusList.filter(item => {
-      const matchesSearch = item.employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.employee.role || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.employee.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || 
+        item.employee.name.toLowerCase().includes(q) ||
+        (item.employee.job_title || '').toLowerCase().includes(q) ||
+        (item.employee.department || '').toLowerCase().includes(q) ||
+        (item.employee.email || '').toLowerCase().includes(q);
 
       if (!matchesSearch) return false;
 
@@ -232,6 +273,10 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
     return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
+  const hasValidCustomLogo = (url?: string) => {
+    return Boolean(url && url.trim().length > 0 && !url.startsWith('blob:') && !url.includes('placeholder'));
+  };
+
   const todayFormatted = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'short',
@@ -239,16 +284,35 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
     year: 'numeric'
   }).format(new Date());
 
+  const getJobTitle = (emp: User) => {
+    if (emp.job_title && emp.job_title !== 'Officer') return emp.job_title;
+    if (emp.role && emp.role !== 'Employee') return emp.role;
+    return emp.job_title || 'Staff Member';
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         
-        {/* Header Bar */}
+        {/* Header Bar with Real Company Logo */}
         <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/70 dark:bg-white/5">
           <div className="flex items-center gap-3.5">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-lg font-black shrink-0 shadow-xs">
-              🏢
+            {/* Real Company Logo or Initials Container */}
+            <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-white/10 flex items-center justify-center overflow-hidden shrink-0 shadow-md p-1.5">
+              {hasValidCustomLogo(company.logoUrl) ? (
+                <img
+                  src={company.logoUrl}
+                  alt={company.name}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    (e.currentTarget.parentElement as HTMLElement).innerHTML = `<span class="text-primary font-black text-base">${getInitials(company.name)}</span>`;
+                  }}
+                />
+              ) : (
+                <span className="text-primary font-black text-base">{getInitials(company.name)}</span>
+              )}
             </div>
+
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
@@ -278,12 +342,12 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
         </div>
 
         {/* Quick Stat Summary Cards */}
-        <div className="p-5 sm:p-6 pb-2 border-b border-slate-100 dark:border-white/5 grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="p-4 sm:p-6 pb-2 border-b border-slate-100 dark:border-white/5 grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3">
           <button
             onClick={() => setSelectedFilter('all')}
             className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
               selectedFilter === 'all'
-                ? 'bg-primary/10 border-primary text-primary shadow-xs'
+                ? 'bg-primary/10 border-primary text-primary shadow-xs ring-1 ring-primary'
                 : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/5 hover:border-slate-300'
             }`}
           >
@@ -355,8 +419,8 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
           </button>
         </div>
 
-        {/* Filter Tabs and Search Bar */}
-        <div className="px-5 sm:px-6 py-3 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Toolbar: Search & View Mode Switcher (List vs Grid) */}
+        <div className="px-5 sm:px-6 py-3 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900">
           <div className="relative flex-1 max-w-sm">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -368,33 +432,227 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
             />
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold text-slate-500 dark:text-gray-400">
-            <span className="text-[11px] font-semibold text-slate-400 shrink-0">Showing:</span>
-            <span className="px-2.5 py-1 bg-slate-100 dark:bg-white/10 rounded-lg text-slate-700 dark:text-white shrink-0">
-              {filteredList.length} of {employees.length} employees
+          <div className="flex items-center justify-between sm:justify-end gap-3">
+            {/* View Mode Toggle: Table (List) vs Cards (Grid) */}
+            <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-white dark:bg-slate-800 text-primary shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                }`}
+                title="Table List View"
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>List View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === 'grid'
+                    ? 'bg-white dark:bg-slate-800 text-primary shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                }`}
+                title="Cards Grid View"
+              >
+                <LayoutGrid className="w-3.5 h-3.5" />
+                <span>Cards View</span>
+              </button>
+            </div>
+
+            <span className="text-xs font-bold text-slate-600 dark:text-gray-400 bg-slate-100 dark:bg-white/5 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shrink-0">
+              {filteredList.length} of {employees.length} Staff
             </span>
           </div>
         </div>
 
-        {/* Employee List Area */}
-        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-3">
+        {/* Employee Content Area */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {isLoading ? (
-            <div className="py-16 text-center text-slate-400 space-y-2">
+            <div className="py-20 text-center text-slate-400 space-y-2">
               <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
               <p className="text-xs font-bold">Loading live attendance...</p>
             </div>
           ) : filteredList.length === 0 ? (
-            <div className="py-16 text-center text-slate-400 space-y-2">
+            <div className="py-20 text-center text-slate-400 space-y-2">
               <Users className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
               <p className="text-sm font-bold text-slate-600 dark:text-gray-300">No employees found</p>
               <p className="text-xs text-slate-400">
                 {searchQuery ? `No matches for "${searchQuery}"` : `No employees match the "${selectedFilter}" filter today.`}
               </p>
             </div>
+          ) : viewMode === 'table' ? (
+            /* TABLE / LIST VIEW */
+            <div className="bg-white dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 shadow-xs overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs whitespace-nowrap min-w-[700px]">
+                  <thead>
+                    <tr className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider text-[11px]">
+                      <th className="py-3 px-4 pl-5">Employee</th>
+                      <th className="py-3 px-4">Role & Dept</th>
+                      <th className="py-3 px-4">Today's Status</th>
+                      <th className="py-3 px-4">Punch In / Out</th>
+                      <th className="py-3 px-4">Worked Time</th>
+                      <th className="py-3 px-4 pr-5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
+                    {filteredList.map(item => {
+                      const emp = item.employee;
+                      const jobTitle = getJobTitle(emp);
+
+                      return (
+                        <tr 
+                          key={emp.id} 
+                          className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors group"
+                        >
+                          {/* Employee Info */}
+                          <td className="py-3 px-4 pl-5">
+                            <div className="flex items-center gap-3">
+                              <div className="relative shrink-0">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-xs border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-2xs">
+                                  {(emp as any).avatar_url ? (
+                                    <img src={(emp as any).avatar_url} alt={emp.name} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span>{getInitials(emp.name)}</span>
+                                  )}
+                                </div>
+                                {item.status === 'active' && (
+                                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white dark:border-slate-900 shadow-2xs animate-pulse" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-extrabold text-slate-900 dark:text-white group-hover:text-primary transition-colors flex items-center gap-1.5">
+                                  <span>{emp.name}</span>
+                                  {emp.nationality && (
+                                    <span className="text-[10px] text-slate-400 font-semibold">({emp.nationality})</span>
+                                  )}
+                                </div>
+                                <div className="text-[11px] text-slate-500 dark:text-gray-400 truncate">
+                                  {emp.email || emp.phone || 'No contact'}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Role & Dept */}
+                          <td className="py-3 px-4">
+                            <div className="font-bold text-slate-800 dark:text-gray-200 text-xs">
+                              {jobTitle}
+                            </div>
+                            <div className="text-[11px] text-slate-500 dark:text-gray-400">
+                              {emp.department || 'Operations'}
+                            </div>
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="py-3 px-4">
+                            {item.status === 'active' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                Active Now
+                              </span>
+                            )}
+                            {item.status === 'clocked_out' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                                Clocked Out
+                              </span>
+                            )}
+                            {item.status === 'on_leave' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                                On Leave
+                              </span>
+                            )}
+                            {item.status === 'absent' && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                                Absent
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Punch In / Out */}
+                          <td className="py-3 px-4 font-mono text-xs">
+                            {item.status === 'active' && (
+                              <div className="text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                                <span>In: {item.clockInTime}</span>
+                              </div>
+                            )}
+                            {item.status === 'clocked_out' && (
+                              <div className="text-slate-600 dark:text-gray-400 text-[11px]">
+                                <span>{item.clockInTime} – {item.clockOutTime}</span>
+                              </div>
+                            )}
+                            {item.status === 'on_leave' && (
+                              <div className="text-amber-700 dark:text-amber-300 text-[11px] font-bold">
+                                <span>{item.leaveType} (to {item.leaveEnd})</span>
+                              </div>
+                            )}
+                            {item.status === 'absent' && (
+                              <span className="text-slate-400 text-[11px]">No punch today</span>
+                            )}
+                          </td>
+
+                          {/* Worked Time */}
+                          <td className="py-3 px-4">
+                            {item.status === 'active' ? (
+                              <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                                ⏱ {formatDuration(item.workedMinutes)}
+                              </span>
+                            ) : item.status === 'clocked_out' ? (
+                              <span className="font-mono font-bold text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/10 px-2 py-0.5 rounded-md">
+                                {formatDuration(item.workedMinutes)}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">—</span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-4 pr-5 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {emp.phone && (
+                                <a
+                                  href={`https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold transition-colors"
+                                  title={`WhatsApp ${emp.name}`}
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </a>
+                              )}
+                              <button
+                                onClick={() => {
+                                  onClose();
+                                  navigate(`/hr/employees/${emp.id}`);
+                                }}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <span>Profile</span>
+                                <ExternalLink className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           ) : (
+            /* CARDS (GRID) VIEW */
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
               {filteredList.map(item => {
                 const emp = item.employee;
+                const jobTitle = getJobTitle(emp);
 
                 return (
                   <div
@@ -405,7 +663,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                       <div className="flex items-center gap-3 min-w-0">
                         {/* Avatar with live pulse ring */}
                         <div className="relative shrink-0">
-                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-sm border border-slate-200/80 dark:border-white/10 overflow-hidden">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-sm border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-2xs">
                             {(emp as any).avatar_url ? (
                               <img src={(emp as any).avatar_url} alt={emp.name} className="w-full h-full object-cover" />
                             ) : (
@@ -420,11 +678,14 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                         </div>
 
                         <div className="min-w-0">
-                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate group-hover:text-primary transition-colors">
-                            {emp.name}
+                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate group-hover:text-primary transition-colors flex items-center gap-1.5">
+                            <span>{emp.name}</span>
+                            {emp.nationality && (
+                              <span className="text-[10px] text-slate-400 font-semibold shrink-0">({emp.nationality})</span>
+                            )}
                           </h4>
                           <p className="text-[11px] text-slate-500 dark:text-gray-400 truncate">
-                            {emp.role || 'Staff Member'} {emp.department ? `• ${emp.department}` : ''}
+                            {jobTitle} {emp.department ? `• ${emp.department}` : ''}
                           </p>
                         </div>
                       </div>
