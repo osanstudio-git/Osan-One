@@ -340,12 +340,18 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       };
     }
 
-    const clean = emp.phone.replace(/[^0-9]/g, '');
-    const phone = clean.length === 8 ? `968${clean}` : clean;
+    const phoneRaw = emp.phone || '';
+    const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
+    let formattedPhone = digitsOnly.replace(/^0+/, ''); // strip leading 0s or 00
+    if (formattedPhone.length === 8) {
+      formattedPhone = `968${formattedPhone}`;
+    }
 
     const shiftStart = emp.nationality === 'Expat'
       ? (company?.expatShiftStart || '08:30 AM')
       : (company?.omaniShiftStart || '08:30 AM');
+
+    const companyHeader = company?.name ? `${company.name} (Osan Group)` : 'Osan Group';
 
     let text = '';
     let colorClass = 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
@@ -357,24 +363,29 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       colorClass = 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30';
       title = `Send Absence Notice / Warning to ${emp.name}`;
       buttonLabel = 'Send Absence Notice';
-      text = `*Official HR Notice — Absence Inquiry*\n\nDear *${emp.name}*,\n\nYou have been marked as *ABSENT* today (*${todayFormatted}*) as no check-in was recorded on the Osan HR Attendance system.\n\nPlease reply immediately with your justification or submit an official leave request to avoid unauthorized absence deduction.\n\n— *${company?.name || 'HR Management'}*`;
+      text = `*${companyHeader} — Absence Notice*\n\nDear *${emp.name}*,\n\nYou have been marked as *ABSENT* today (*${todayFormatted}*) as no check-in was recorded on the Osan HR Attendance system.\n\nPlease reply immediately with your justification or submit an official leave request to avoid unauthorized absence deduction.\n\n— *${company?.name || 'HR Management'}*`;
     } else if (item.isLate) {
       // Yellow/Amber styling for Late
       colorClass = 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30';
       title = `Send Delay Warning to ${emp.name} (${item.lateMinutes} mins late)`;
       buttonLabel = `${item.lateMinutes}m Late Notice`;
-      text = `*Official HR Notice — Attendance Delay Warning*\n\nDear *${emp.name}*,\n\nPlease note that you arrived *${item.lateMinutes} minutes late* today (*${todayFormatted}*).\n• Recorded Check-in: *${item.clockInTime}*\n• Scheduled Shift Start: *${shiftStart}*\n\nThis delay has been documented in the attendance system. Please ensure punctuality in accordance with company policy.\n\n— *${company?.name || 'HR Management'}*`;
+      text = `*${companyHeader} — Attendance Delay Warning*\n\nDear *${emp.name}*,\n\nPlease note that you arrived *${item.lateMinutes} minutes late* today (*${todayFormatted}*).\n• Recorded Check-in: *${item.clockInTime}*\n• Scheduled Shift Start: *${shiftStart}*\n\nThis delay has been documented in the attendance system. Please ensure punctuality in accordance with company policy.\n\n— *${company?.name || 'HR Management'}*`;
     } else if (item.status === 'on_leave') {
       colorClass = 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20';
       title = `Send Leave Confirmation to ${emp.name}`;
       buttonLabel = 'Leave Notice';
-      text = `*Official HR Notice — Leave Status*\n\nDear *${emp.name}*,\nThis is a confirmation that your *${item.leaveType}* is active until *${item.leaveEnd}*.\n\n— *${company?.name || 'HR Management'}*`;
+      text = `*${companyHeader} — Leave Status*\n\nDear *${emp.name}*,\n\nThis is a confirmation that your *${item.leaveType}* is active until *${item.leaveEnd}*.\n\n— *${company?.name || 'HR Management'}*`;
     } else {
-      text = `Hello *${emp.name}*,\nOfficial message from *${company?.name || 'HR Management'}*.`;
+      text = `*${companyHeader} HR*\n\nHello *${emp.name}*,\nOfficial message from *${company?.name || 'HR Management'}*.`;
     }
 
+    const encodedText = encodeURIComponent(text);
+    const url = formattedPhone 
+      ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+      : `https://api.whatsapp.com/send?text=${encodedText}`;
+
     return {
-      url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
+      url,
       colorClass,
       title,
       buttonLabel
