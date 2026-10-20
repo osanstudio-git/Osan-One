@@ -1,0 +1,559 @@
+import { useState, useEffect, useMemo } from 'react';
+import { 
+  X, Users, CheckCircle2, Clock, Calendar, Search, 
+  MessageSquare, ExternalLink, Activity, 
+  AlertCircle, UserX, CalendarCheck 
+} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import type { CompanyData } from '../../pages/hr/mockData';
+import type { User } from '../../types';
+import { getEmployees } from '../../lib/databaseService';
+import { supabase } from '../../lib/supabase';
+
+interface CompanyAttendanceModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  company: CompanyData | null;
+}
+
+export type AttendanceCategory = 'all' | 'active' | 'absent' | 'on_leave' | 'clocked_out';
+
+interface EmployeeStatusItem {
+  employee: User;
+  status: 'active' | 'absent' | 'on_leave' | 'clocked_out';
+  clockInTime: string | null;
+  clockOutTime: string | null;
+  workedMinutes: number;
+  leaveType?: string | null;
+  leaveEnd?: string | null;
+  ipAddress?: string | null;
+}
+
+export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAttendanceModalProps) {
+  const navigate = useNavigate();
+  const [employees, setEmployees] = useState<User[]>([]);
+  const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedFilter, setSelectedFilter] = useState<AttendanceCategory>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update live clock every minute
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const loadAttendanceData = async () => {
+    if (!company) return;
+    setIsLoading(true);
+
+    try {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+      // 1. Fetch all employees
+      const allEmps = await getEmployees();
+      
+      // Filter employees belonging to this company
+      const compId = company.id || '';
+      const compName = (company.name || '').trim().toLowerCase();
+      
+      const compEmps = allEmps.filter(e => {
+        const empCompId = (e.company_id || '').trim().toLowerCase();
+        const empCompName = (e.company || '').trim().toLowerCase();
+        return (compId && empCompId === compId.toLowerCase()) || 
+               empCompName === compName || 
+               empCompId === compName;
+      });
+
+      setEmployees(compEmps);
+
+      const empIds = compEmps.map(e => e.id);
+
+      if (empIds.length > 0) {
+        // 2. Query today's attendance logs from Supabase
+        const { data: logsData } = await supabase
+          .from('attendance_logs')
+          .select('*')
+          .in('user_id', empIds)
+          .eq('date', todayStr);
+
+        setAttendanceLogs(logsData || []);
+
+        // 3. Query active approved leaves covering today
+        const { data: leavesData } = await supabase
+          .from('leave_requests')
+          .select('*')
+          .in('user_id', empIds)
+          .eq('status', 'Approved')
+          .lte('start_date', todayStr)
+          .gte('end_date', todayStr);
+
+        setLeaveRequests(leavesData || []);
+      } else {
+        setAttendanceLogs([]);
+        setLeaveRequests([]);
+      }
+    } catch (err) {
+      console.error('Failed to load company attendance:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && company) {
+      loadAttendanceData();
+
+      // Subscribe to real-time changes
+      const channel = supabase
+        .channel(`company-attendance-${company.id || company.name}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
+          loadAttendanceData();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
+          loadAttendanceData();
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isOpen, company]);
+
+  // Compute live status items for every employee
+  const employeeStatusList: EmployeeStatusItem[] = useMemo(() => {
+    const logsMap = new Map<string, any>();
+    attendanceLogs.forEach(l => {
+      if (l.user_id) logsMap.set(l.user_id, l);
+    });
+
+    const leavesMap = new Map<string, any>();
+    leaveRequests.forEach(lr => {
+      if (lr.user_id) leavesMap.set(lr.user_id, lr);
+    });
+
+    return employees.map(emp => {
+      const log = logsMap.get(emp.id);
+      const leave = leavesMap.get(emp.id);
+
+      if (log) {
+        const inTime = log.clock_in_time ? new Date(log.clock_in_time) : null;
+        const outTime = log.clock_out_time ? new Date(log.clock_out_time) : null;
+        
+        const workedMs = inTime ? (outTime ? outTime.getTime() - inTime.getTime() : Date.now() - inTime.getTime()) : 0;
+        const workedMins = Math.max(0, Math.floor(workedMs / 60000));
+
+        if (outTime) {
+          return {
+            employee: emp,
+            status: 'clocked_out',
+            clockInTime: inTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || null,
+            clockOutTime: outTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || null,
+            workedMinutes: workedMins,
+            ipAddress: log.ip_address
+          };
+        }
+
+        return {
+          employee: emp,
+          status: 'active',
+          clockInTime: inTime?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) || null,
+          clockOutTime: null,
+          workedMinutes: workedMins,
+          ipAddress: log.ip_address
+        };
+      }
+
+      if (leave) {
+        return {
+          employee: emp,
+          status: 'on_leave',
+          clockInTime: null,
+          clockOutTime: null,
+          workedMinutes: 0,
+          leaveType: leave.leave_type || 'Approved Leave',
+          leaveEnd: leave.end_date
+        };
+      }
+
+      return {
+        employee: emp,
+        status: 'absent',
+        clockInTime: null,
+        clockOutTime: null,
+        workedMinutes: 0
+      };
+    });
+  }, [employees, attendanceLogs, leaveRequests, currentTime]);
+
+  // Status counts
+  const counts = useMemo(() => {
+    const active = employeeStatusList.filter(i => i.status === 'active').length;
+    const clockedOut = employeeStatusList.filter(i => i.status === 'clocked_out').length;
+    const onLeave = employeeStatusList.filter(i => i.status === 'on_leave').length;
+    const absent = employeeStatusList.filter(i => i.status === 'absent').length;
+    return {
+      total: employeeStatusList.length,
+      active,
+      clockedOut,
+      onLeave,
+      absent
+    };
+  }, [employeeStatusList]);
+
+  // Filtered employees
+  const filteredList = useMemo(() => {
+    return employeeStatusList.filter(item => {
+      const matchesSearch = item.employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.employee.role || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (item.employee.email || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+      if (!matchesSearch) return false;
+
+      if (selectedFilter === 'all') return true;
+      return item.status === selectedFilter;
+    });
+  }, [employeeStatusList, selectedFilter, searchQuery]);
+
+  if (!isOpen || !company) return null;
+
+  const formatDuration = (mins: number) => {
+    const hours = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (hours === 0) return `${m}m`;
+    return `${hours}h ${m}m`;
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+  };
+
+  const todayFormatted = new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(new Date());
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl max-w-4xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        
+        {/* Header Bar */}
+        <div className="p-5 sm:p-6 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/70 dark:bg-white/5">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-lg font-black shrink-0 shadow-xs">
+              🏢
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                  {company.name}
+                </h3>
+                <span className="text-[11px] bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold border border-primary/20 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Today
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5 flex items-center gap-2">
+                <span>📍 {company.location || 'Headquarters'}</span>
+                <span>•</span>
+                <span>📅 {todayFormatted}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-end sm:self-auto">
+            <button
+              onClick={onClose}
+              className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl hover:bg-slate-200/60 dark:hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Stat Summary Cards */}
+        <div className="p-5 sm:p-6 pb-2 border-b border-slate-100 dark:border-white/5 grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <button
+            onClick={() => setSelectedFilter('all')}
+            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+              selectedFilter === 'all'
+                ? 'bg-primary/10 border-primary text-primary shadow-xs'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/5 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Total Staff</span>
+              <Users className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="text-xl font-black text-slate-900 dark:text-white">{counts.total}</div>
+          </button>
+
+          <button
+            onClick={() => setSelectedFilter('active')}
+            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+              selectedFilter === 'active'
+                ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-xs ring-1 ring-emerald-500'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/5 hover:border-emerald-500/30'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Active Now</span>
+              <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
+            </div>
+            <div className="text-xl font-black text-emerald-600 dark:text-emerald-400">{counts.active}</div>
+          </button>
+
+          <button
+            onClick={() => setSelectedFilter('absent')}
+            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+              selectedFilter === 'absent'
+                ? 'bg-rose-500/15 border-rose-500 text-rose-700 dark:text-rose-300 shadow-xs ring-1 ring-rose-500'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/5 hover:border-rose-500/30'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400">Absent</span>
+              <UserX className="w-4 h-4 text-rose-500" />
+            </div>
+            <div className="text-xl font-black text-rose-600 dark:text-rose-400">{counts.absent}</div>
+          </button>
+
+          <button
+            onClick={() => setSelectedFilter('on_leave')}
+            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
+              selectedFilter === 'on_leave'
+                ? 'bg-amber-500/15 border-amber-500 text-amber-700 dark:text-amber-300 shadow-xs ring-1 ring-amber-500'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/5 hover:border-amber-500/30'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">On Leave</span>
+              <CalendarCheck className="w-4 h-4 text-amber-500" />
+            </div>
+            <div className="text-xl font-black text-amber-600 dark:text-amber-400">{counts.onLeave}</div>
+          </button>
+
+          <button
+            onClick={() => setSelectedFilter('clocked_out')}
+            className={`p-3 rounded-2xl border text-left transition-all cursor-pointer col-span-2 sm:col-span-1 ${
+              selectedFilter === 'clocked_out'
+                ? 'bg-slate-200/80 dark:bg-white/20 border-slate-400 text-slate-800 dark:text-white shadow-xs'
+                : 'bg-slate-50 dark:bg-white/5 border-slate-200/80 dark:border-white/5 hover:border-slate-300'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400">Clocked Out</span>
+              <Clock className="w-4 h-4 text-slate-400" />
+            </div>
+            <div className="text-xl font-black text-slate-700 dark:text-gray-300">{counts.clockedOut}</div>
+          </button>
+        </div>
+
+        {/* Filter Tabs and Search Bar */}
+        <div className="px-5 sm:px-6 py-3 border-b border-slate-100 dark:border-white/5 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search employee name or role..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:border-primary"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 overflow-x-auto text-xs font-bold text-slate-500 dark:text-gray-400">
+            <span className="text-[11px] font-semibold text-slate-400 shrink-0">Showing:</span>
+            <span className="px-2.5 py-1 bg-slate-100 dark:bg-white/10 rounded-lg text-slate-700 dark:text-white shrink-0">
+              {filteredList.length} of {employees.length} employees
+            </span>
+          </div>
+        </div>
+
+        {/* Employee List Area */}
+        <div className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-3">
+          {isLoading ? (
+            <div className="py-16 text-center text-slate-400 space-y-2">
+              <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="text-xs font-bold">Loading live attendance...</p>
+            </div>
+          ) : filteredList.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 space-y-2">
+              <Users className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-600" />
+              <p className="text-sm font-bold text-slate-600 dark:text-gray-300">No employees found</p>
+              <p className="text-xs text-slate-400">
+                {searchQuery ? `No matches for "${searchQuery}"` : `No employees match the "${selectedFilter}" filter today.`}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              {filteredList.map(item => {
+                const emp = item.employee;
+
+                return (
+                  <div
+                    key={emp.id}
+                    className="p-4 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white dark:bg-white/5 hover:border-slate-300 dark:hover:border-white/20 transition-all shadow-xs flex flex-col justify-between gap-3 group"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Avatar with live pulse ring */}
+                        <div className="relative shrink-0">
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-sm border border-slate-200/80 dark:border-white/10 overflow-hidden">
+                            {(emp as any).avatar_url ? (
+                              <img src={(emp as any).avatar_url} alt={emp.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <span>{getInitials(emp.name)}</span>
+                            )}
+                          </div>
+
+                          {/* Live indicator dot */}
+                          {item.status === 'active' && (
+                            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900 shadow-xs animate-pulse" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate group-hover:text-primary transition-colors">
+                            {emp.name}
+                          </h4>
+                          <p className="text-[11px] text-slate-500 dark:text-gray-400 truncate">
+                            {emp.role || 'Staff Member'} {emp.department ? `• ${emp.department}` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status Badges */}
+                      <div className="shrink-0">
+                        {item.status === 'active' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                            Active Now
+                          </span>
+                        )}
+
+                        {item.status === 'clocked_out' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                            Clocked Out
+                          </span>
+                        )}
+
+                        {item.status === 'on_leave' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                            <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                            On Leave
+                          </span>
+                        )}
+
+                        {item.status === 'absent' && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                            <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                            Absent
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Attendance Details Strip */}
+                    <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 text-xs flex items-center justify-between">
+                      {item.status === 'active' && (
+                        <>
+                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-gray-300">
+                            <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>In: <strong>{item.clockInTime}</strong></span>
+                          </div>
+                          <span className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px]">
+                            ⏱ Working: {formatDuration(item.workedMinutes)}
+                          </span>
+                        </>
+                      )}
+
+                      {item.status === 'clocked_out' && (
+                        <>
+                          <div className="flex items-center gap-1.5 text-slate-600 dark:text-gray-300 text-[11px]">
+                            <Clock className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{item.clockInTime} – {item.clockOutTime}</span>
+                          </div>
+                          <span className="font-bold text-slate-700 dark:text-gray-300 text-[11px]">
+                            Total: {formatDuration(item.workedMinutes)}
+                          </span>
+                        </>
+                      )}
+
+                      {item.status === 'on_leave' && (
+                        <>
+                          <span className="text-amber-700 dark:text-amber-400 font-bold text-[11px]">
+                            🌴 {item.leaveType}
+                          </span>
+                          <span className="text-slate-500 dark:text-gray-400 text-[11px]">
+                            Until {item.leaveEnd}
+                          </span>
+                        </>
+                      )}
+
+                      {item.status === 'absent' && (
+                        <div className="w-full flex items-center justify-between text-rose-600 dark:text-rose-400 text-[11px]">
+                          <span>⚠️ No check-in recorded for today</span>
+                          <span className="font-semibold text-slate-400">Not present</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Quick Action Links */}
+                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-white/5">
+                      {emp.phone && (
+                        <a
+                          href={`https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-1"
+                          title="Message on WhatsApp"
+                        >
+                          <MessageSquare className="w-3 h-3" />
+                          <span>WhatsApp</span>
+                        </a>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          onClose();
+                          navigate(`/hr/employees/${emp.id}`);
+                        }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>Profile</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer Area */}
+        <div className="p-4 px-6 border-t border-slate-100 dark:border-white/5 bg-slate-50/50 dark:bg-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <div className="text-slate-500 dark:text-gray-400 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Attendance data updates automatically via real-time database sync</span>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full sm:w-auto px-5 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white rounded-xl font-bold transition-colors cursor-pointer"
+          >
+            Close Roster
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
