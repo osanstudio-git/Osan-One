@@ -21,6 +21,8 @@ export type AttendanceCategory = 'all' | 'active' | 'absent' | 'on_leave' | 'clo
 interface EmployeeStatusItem {
   employee: User;
   status: 'active' | 'absent' | 'on_leave' | 'clocked_out';
+  isLate?: boolean;
+  lateMinutes?: number;
   clockInTime: string | null;
   clockOutTime: string | null;
   workedMinutes: number;
@@ -185,10 +187,37 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
         const inFormatted = earliestClockIn ? (earliestClockIn as Date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
         const outFormatted = latestClockOut ? (latestClockOut as Date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null;
 
+        // Check if employee is late compared to scheduled shift start
+        let isLate = false;
+        let lateMinutes = 0;
+
+        if (earliestClockIn) {
+          const shiftStartStr = emp.nationality === 'Expat'
+            ? (company?.expatShiftStart || '08:30')
+            : (company?.omaniShiftStart || '08:30');
+          const [sH, sM] = shiftStartStr.split(':').map(Number);
+          const shiftStartMins = (sH || 8) * 60 + (sM || 30);
+
+          const clockInH = (earliestClockIn as Date).getHours();
+          const clockInM = (earliestClockIn as Date).getMinutes();
+          const clockInMins = clockInH * 60 + clockInM;
+          
+          if (clockInMins > shiftStartMins) {
+            isLate = true;
+            lateMinutes = clockInMins - shiftStartMins;
+          }
+        }
+
+        if (userLogs.some(l => l.status === 'Late')) {
+          isLate = true;
+        }
+
         if (isCurrentlyActive) {
           return {
             employee: emp,
             status: 'active',
+            isLate,
+            lateMinutes,
             clockInTime: inFormatted,
             clockOutTime: null,
             workedMinutes: workedMins,
@@ -198,6 +227,8 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
           return {
             employee: emp,
             status: 'clocked_out',
+            isLate,
+            lateMinutes,
             clockInTime: inFormatted,
             clockOutTime: outFormatted,
             workedMinutes: workedMins,
@@ -210,6 +241,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
         return {
           employee: emp,
           status: 'on_leave',
+          isLate: false,
           clockInTime: null,
           clockOutTime: null,
           workedMinutes: 0,
@@ -221,12 +253,13 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       return {
         employee: emp,
         status: 'absent',
+        isLate: false,
         clockInTime: null,
         clockOutTime: null,
         workedMinutes: 0
       };
     });
-  }, [employees, attendanceLogs, leaveRequests, currentTime]);
+  }, [employees, attendanceLogs, leaveRequests, currentTime, company]);
 
   // Status counts
   const counts = useMemo(() => {
@@ -288,6 +321,64 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
     if (emp.job_title && emp.job_title !== 'Officer') return emp.job_title;
     if (emp.role && emp.role !== 'Employee') return emp.role;
     return emp.job_title || 'Staff Member';
+  };
+
+  const handleNavigateToProfile = (empId: string) => {
+    onClose();
+    navigate(`/hr/employee/${empId}`);
+  };
+
+  // WhatsApp Message Helper with Contextual Warning Text & Color
+  const getWhatsAppDetails = (item: EmployeeStatusItem) => {
+    const emp = item.employee;
+    if (!emp.phone) {
+      return { 
+        url: null, 
+        colorClass: 'bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-gray-600 border border-slate-200/60 dark:border-white/5 cursor-not-allowed opacity-50', 
+        title: `No phone number on record for ${emp.name}`,
+        buttonLabel: 'No Phone'
+      };
+    }
+
+    const clean = emp.phone.replace(/[^0-9]/g, '');
+    const phone = clean.length === 8 ? `968${clean}` : clean;
+
+    const shiftStart = emp.nationality === 'Expat'
+      ? (company?.expatShiftStart || '08:30 AM')
+      : (company?.omaniShiftStart || '08:30 AM');
+
+    let text = '';
+    let colorClass = 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
+    let title = `Message ${emp.name} on WhatsApp`;
+    let buttonLabel = 'WhatsApp';
+
+    if (item.status === 'absent') {
+      // Red styling for Absent
+      colorClass = 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30';
+      title = `Send Absence Notice / Warning to ${emp.name}`;
+      buttonLabel = 'Send Absence Notice';
+      text = `*Official HR Notice — Absence Inquiry*\n\nDear *${emp.name}*,\n\nYou have been marked as *ABSENT* today (*${todayFormatted}*) as no check-in was recorded on the Osan HR Attendance system.\n\nPlease reply immediately with your justification or submit an official leave request to avoid unauthorized absence deduction.\n\n— *${company?.name || 'HR Management'}*`;
+    } else if (item.isLate) {
+      // Yellow/Amber styling for Late
+      colorClass = 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30';
+      title = `Send Delay Warning to ${emp.name} (${item.lateMinutes} mins late)`;
+      buttonLabel = `${item.lateMinutes}m Late Notice`;
+      text = `*Official HR Notice — Attendance Delay Warning*\n\nDear *${emp.name}*,\n\nPlease note that you arrived *${item.lateMinutes} minutes late* today (*${todayFormatted}*).\n• Recorded Check-in: *${item.clockInTime}*\n• Scheduled Shift Start: *${shiftStart}*\n\nThis delay has been documented in the attendance system. Please ensure punctuality in accordance with company policy.\n\n— *${company?.name || 'HR Management'}*`;
+    } else if (item.status === 'on_leave') {
+      colorClass = 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20';
+      title = `Send Leave Confirmation to ${emp.name}`;
+      buttonLabel = 'Leave Notice';
+      text = `*Official HR Notice — Leave Status*\n\nDear *${emp.name}*,\nThis is a confirmation that your *${item.leaveType}* is active until *${item.leaveEnd}*.\n\n— *${company?.name || 'HR Management'}*`;
+    } else {
+      text = `Hello *${emp.name}*,\nOfficial message from *${company?.name || 'HR Management'}*.`;
+    }
+
+    return {
+      url: `https://wa.me/${phone}?text=${encodeURIComponent(text)}`,
+      colorClass,
+      title,
+      buttonLabel
+    };
   };
 
   return (
@@ -503,6 +594,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                     {filteredList.map(item => {
                       const emp = item.employee;
                       const jobTitle = getJobTitle(emp);
+                      const whatsappInfo = getWhatsAppDetails(item);
 
                       return (
                         <tr 
@@ -512,8 +604,12 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                           {/* Employee Info */}
                           <td className="py-3 px-4 pl-5">
                             <div className="flex items-center gap-3">
-                              <div className="relative shrink-0">
-                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-xs border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-2xs">
+                              <div 
+                                onClick={() => handleNavigateToProfile(emp.id)}
+                                className="relative shrink-0 cursor-pointer"
+                                title={`View ${emp.name}'s Profile`}
+                              >
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-xs border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-2xs group-hover:border-primary transition-colors">
                                   {(emp as any).avatar_url ? (
                                     <img src={(emp as any).avatar_url} alt={emp.name} className="w-full h-full object-cover" />
                                   ) : (
@@ -524,12 +620,14 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                                   <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white dark:border-slate-900 shadow-2xs animate-pulse" />
                                 )}
                               </div>
+
                               <div className="min-w-0">
-                                <div className="font-extrabold text-slate-900 dark:text-white group-hover:text-primary transition-colors flex items-center gap-1.5">
-                                  <span>{emp.name}</span>
-                                  {emp.nationality && (
-                                    <span className="text-[10px] text-slate-400 font-semibold">({emp.nationality})</span>
-                                  )}
+                                <div 
+                                  onClick={() => handleNavigateToProfile(emp.id)}
+                                  className="font-extrabold text-slate-900 dark:text-white group-hover:text-primary transition-colors cursor-pointer hover:underline"
+                                  title={`View ${emp.name}'s Profile`}
+                                >
+                                  {emp.name}
                                 </div>
                                 <div className="text-[11px] text-slate-500 dark:text-gray-400 truncate">
                                   {emp.email || emp.phone || 'No contact'}
@@ -551,16 +649,30 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                           {/* Status Badge */}
                           <td className="py-3 px-4">
                             {item.status === 'active' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                                Active Now
-                              </span>
+                              <div className="flex flex-col items-start gap-1">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
+                                  Active Now
+                                </span>
+                                {item.isLate && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    ⚠️ {item.lateMinutes}m Late
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {item.status === 'clocked_out' && (
-                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10">
-                                <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
-                                Clocked Out
-                              </span>
+                              <div className="flex flex-col items-start gap-1">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                                  Clocked Out
+                                </span>
+                                {item.isLate && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    ⚠️ {item.lateMinutes}m Late
+                                  </span>
+                                )}
+                              </div>
                             )}
                             {item.status === 'on_leave' && (
                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
@@ -579,9 +691,16 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                           {/* Punch In / Out */}
                           <td className="py-3 px-4 font-mono text-xs">
                             {item.status === 'active' && (
-                              <div className="text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
-                                <Clock className="w-3.5 h-3.5 text-emerald-500" />
-                                <span>In: {item.clockInTime}</span>
+                              <div className="space-y-0.5">
+                                <div className="text-emerald-700 dark:text-emerald-300 font-bold flex items-center gap-1">
+                                  <Clock className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>In: {item.clockInTime}</span>
+                                </div>
+                                {item.isLate && (
+                                  <div className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                                    ({item.lateMinutes}m late arrival)
+                                  </div>
+                                )}
                               </div>
                             )}
                             {item.status === 'clocked_out' && (
@@ -617,23 +736,33 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                           {/* Actions */}
                           <td className="py-3 px-4 pr-5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {emp.phone && (
+                              {/* WhatsApp Button with context color & warning notice */}
+                              {whatsappInfo.url ? (
                                 <a
-                                  href={`https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}`}
+                                  href={whatsappInfo.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg text-xs font-bold transition-colors"
-                                  title={`WhatsApp ${emp.name}`}
+                                  className={`p-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-center cursor-pointer ${whatsappInfo.colorClass}`}
+                                  title={whatsappInfo.title}
                                 >
                                   <MessageSquare className="w-3.5 h-3.5" />
                                 </a>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="p-1.5 rounded-lg text-xs font-bold bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-gray-600 border border-slate-200/50 dark:border-white/5 cursor-not-allowed opacity-50"
+                                  title={whatsappInfo.title}
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" />
+                                </button>
                               )}
+
+                              {/* Profile Redirect Button */}
                               <button
-                                onClick={() => {
-                                  onClose();
-                                  navigate(`/hr/employees/${emp.id}`);
-                                }}
+                                onClick={() => handleNavigateToProfile(emp.id)}
                                 className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                                title={`Open ${emp.name}'s Profile`}
                               >
                                 <span>Profile</span>
                                 <ExternalLink className="w-3 h-3" />
@@ -653,6 +782,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
               {filteredList.map(item => {
                 const emp = item.employee;
                 const jobTitle = getJobTitle(emp);
+                const whatsappInfo = getWhatsAppDetails(item);
 
                 return (
                   <div
@@ -662,8 +792,12 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         {/* Avatar with live pulse ring */}
-                        <div className="relative shrink-0">
-                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-sm border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-2xs">
+                        <div 
+                          onClick={() => handleNavigateToProfile(emp.id)}
+                          className="relative shrink-0 cursor-pointer"
+                          title={`View ${emp.name}'s Profile`}
+                        >
+                          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-white/10 dark:to-white/5 text-slate-800 dark:text-white flex items-center justify-center font-black text-sm border border-slate-200/80 dark:border-white/10 overflow-hidden shadow-2xs group-hover:border-primary transition-colors">
                             {(emp as any).avatar_url ? (
                               <img src={(emp as any).avatar_url} alt={emp.name} className="w-full h-full object-cover" />
                             ) : (
@@ -678,11 +812,12 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                         </div>
 
                         <div className="min-w-0">
-                          <h4 className="font-extrabold text-sm text-slate-900 dark:text-white truncate group-hover:text-primary transition-colors flex items-center gap-1.5">
-                            <span>{emp.name}</span>
-                            {emp.nationality && (
-                              <span className="text-[10px] text-slate-400 font-semibold shrink-0">({emp.nationality})</span>
-                            )}
+                          <h4 
+                            onClick={() => handleNavigateToProfile(emp.id)}
+                            className="font-extrabold text-sm text-slate-900 dark:text-white truncate group-hover:text-primary transition-colors cursor-pointer hover:underline"
+                            title={`View ${emp.name}'s Profile`}
+                          >
+                            {emp.name}
                           </h4>
                           <p className="text-[11px] text-slate-500 dark:text-gray-400 truncate">
                             {jobTitle} {emp.department ? `• ${emp.department}` : ''}
@@ -691,12 +826,19 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                       </div>
 
                       {/* Status Badges */}
-                      <div className="shrink-0">
+                      <div className="shrink-0 flex flex-col items-end gap-1">
                         {item.status === 'active' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                            Active Now
-                          </span>
+                          <>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                              Active Now
+                            </span>
+                            {item.isLate && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                ⚠️ {item.lateMinutes}m Late
+                              </span>
+                            )}
+                          </>
                         )}
 
                         {item.status === 'clocked_out' && (
@@ -729,6 +871,11 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                           <div className="flex items-center gap-1.5 text-slate-600 dark:text-gray-300">
                             <Clock className="w-3.5 h-3.5 text-emerald-500" />
                             <span>In: <strong>{item.clockInTime}</strong></span>
+                            {item.isLate && (
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold ml-1">
+                                ({item.lateMinutes}m late)
+                              </span>
+                            )}
                           </div>
                           <span className="font-bold text-emerald-600 dark:text-emerald-400 text-[11px]">
                             ⏱ Working: {formatDuration(item.workedMinutes)}
@@ -769,25 +916,25 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
 
                     {/* Quick Action Links */}
                     <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-white/5">
-                      {emp.phone && (
+                      {/* WhatsApp Notice Button */}
+                      {whatsappInfo.url && (
                         <a
-                          href={`https://wa.me/${emp.phone.replace(/[^0-9]/g, '')}`}
+                          href={whatsappInfo.url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="px-2.5 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-1"
-                          title="Message on WhatsApp"
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${whatsappInfo.colorClass}`}
+                          title={whatsappInfo.title}
                         >
                           <MessageSquare className="w-3 h-3" />
-                          <span>WhatsApp</span>
+                          <span>{whatsappInfo.buttonLabel}</span>
                         </a>
                       )}
 
+                      {/* Profile Redirect Button */}
                       <button
-                        onClick={() => {
-                          onClose();
-                          navigate(`/hr/employees/${emp.id}`);
-                        }}
+                        onClick={() => handleNavigateToProfile(emp.id)}
                         className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 rounded-lg text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                        title={`Open ${emp.name}'s Profile`}
                       >
                         <span>Profile</span>
                         <ExternalLink className="w-3 h-3" />
