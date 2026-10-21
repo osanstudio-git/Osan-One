@@ -4,6 +4,7 @@ import { CompanyFormModal } from '../../components/hr/CompanyFormModal';
 import { CompanyAttendanceModal } from '../../components/hr/CompanyAttendanceModal';
 import type { CompanyData } from './mockData';
 import { getCompanies, getEmployees, createCompany, deleteCompanyFromDb } from '../../lib/databaseService';
+import { supabase } from '../../lib/supabase';
 import type { User, Company } from '../../types';
 
 interface ThemeConfig {
@@ -33,19 +34,41 @@ export function HrCompanies() {
         getEmployees()
       ]);
 
-      // Calculate staff counts per company (matching by company_id UUID or company name)
+      // Map company name from ID to resolve foreign key linkages
+      const compIdToName: Record<string, string> = {};
+      companiesData.forEach((c: Company) => {
+        if (c.id && c.name) {
+          compIdToName[c.id.trim()] = c.name.trim().toLowerCase();
+        }
+      });
+
+      // Calculate real-time staff counts per company with resilient matching (by UUID or name)
       const countMap: Record<string, number> = {};
       employeesData.forEach((emp: User) => {
-        const compIdentifier = emp.company_id || emp.company;
-        if (compIdentifier) {
-          countMap[compIdentifier] = (countMap[compIdentifier] || 0) + 1;
-        }
+        const empCompId = (emp.company_id || '').trim();
+        const empCompName = (emp.company || '').trim().toLowerCase();
+        const mappedNameFromId = compIdToName[empCompId] || '';
+
+        companiesData.forEach((c: Company) => {
+          const cId = (c.id || '').trim();
+          const cNameLower = (c.name || '').trim().toLowerCase();
+
+          const isMatch =
+            (cId && empCompId === cId) ||
+            (cNameLower && empCompName === cNameLower) ||
+            (cNameLower && mappedNameFromId === cNameLower) ||
+            (cNameLower && empCompId.toLowerCase() === cNameLower);
+
+          if (isMatch) {
+            countMap[c.id] = (countMap[c.id] || 0) + 1;
+          }
+        });
       });
 
       const mapped: CompanyData[] = companiesData.map((c: Company) => ({
         id: c.id,
         name: c.name,
-        count: countMap[c.id] || countMap[c.name] || 0,
+        count: countMap[c.id] || 0,
         authPolicy: c.auth_policy,
         omaniShiftStart: c.omani_shift_start,
         omaniShiftEnd: c.omani_shift_end,
@@ -63,6 +86,21 @@ export function HrCompanies() {
 
   useEffect(() => {
     loadCompanies();
+
+    // Subscribe to live database changes on both users and companies tables
+    const channel = supabase
+      .channel('hr-companies-live-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        loadCompanies();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, () => {
+        loadCompanies();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleSaveCompany = async (companyData: Omit<CompanyData, 'count'>) => {
@@ -254,7 +292,7 @@ export function HrCompanies() {
                       type="button"
                       onClick={() => setSelectedAttendanceCompany(company)}
                       className="flex items-center gap-2 bg-slate-50 hover:bg-emerald-500/10 dark:bg-white/5 dark:hover:bg-emerald-500/15 px-3 py-1.5 rounded-xl border border-slate-200/80 hover:border-emerald-500/30 dark:border-transparent transition-all cursor-pointer group/staff text-left"
-                      title="View today's live attendance roster"
+                      title="View today's live attendance"
                     >
                       <Users className={`w-4 h-4 ${theme.textColor} group-hover/staff:text-emerald-600 transition-colors`} />
                       <div>
@@ -332,8 +370,12 @@ export function HrCompanies() {
                               <span className={theme.textColor}>{getInitials(company.name)}</span>
                             )}
                           </div>
-                          <div>
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <div 
+                            onClick={() => setSelectedAttendanceCompany(company)}
+                            className="cursor-pointer group/name"
+                            title="Click to view today's attendance"
+                          >
+                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2 group-hover/name:text-primary transition-colors">
                               <span>{company.name}</span>
                             </div>
                           </div>
@@ -363,15 +405,6 @@ export function HrCompanies() {
                       </td>
                       <td className="p-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedAttendanceCompany(company)}
-                            className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
-                            title="View who is active & absent today"
-                          >
-                            <Activity className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-                            <span>Roster</span>
-                          </button>
                           <button
                             onClick={() => openEditModal(company)}
                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
