@@ -13,6 +13,8 @@ import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
 import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb } from '../lib/databaseService';
+import { EmployeeProfileModal } from '../components/employee/EmployeeProfileModal';
+import { EmployeeAttendanceTimesheet } from '../components/employee/EmployeeAttendanceTimesheet';
 
 interface WorkSession {
   id: string;
@@ -24,6 +26,8 @@ interface WorkSession {
 export function EmployeeDashboard() {
   const { profile, signOut } = useAuth();
   const { t, language } = useLanguage();
+  const [activeTab, setActiveTab] = useState<'punch' | 'timesheet'>('punch');
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
 
@@ -388,12 +392,13 @@ export function EmployeeDashboard() {
 
 
 
+  const isOmani = profile?.nationality === 'Omani';
+  const activeCompany = MOCK_COMPANIES.find(c => c.name === companyName) || MOCK_COMPANIES[0];
+  const shiftStart = isOmani ? (activeCompany.omaniShiftStart || '08:30') : (activeCompany.expatShiftStart || '08:30');
+  const shiftEnd = isOmani ? (activeCompany.omaniShiftEnd || '17:00') : (activeCompany.expatShiftEnd || '18:00');
+
   const renderJourneyBar = () => {
     if (!profile) return null;
-    const isOmani = profile.nationality === 'Omani';
-    const activeCompany = MOCK_COMPANIES.find(c => c.name === companyName) || MOCK_COMPANIES[0];
-    const shiftStart = isOmani ? activeCompany.omaniShiftStart : activeCompany.expatShiftStart;
-    const shiftEnd = isOmani ? activeCompany.omaniShiftEnd : activeCompany.expatShiftEnd;
 
     const [startHr, startMin] = (shiftStart || "08:30").split(':').map(Number);
     const [endHr, endMin] = (shiftEnd || "17:00").split(':').map(Number);
@@ -533,34 +538,64 @@ export function EmployeeDashboard() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col items-center pt-12 px-4 pb-24 relative transition-colors duration-300">
-      <div className="w-full max-w-4xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 sm:mb-12">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold mb-1 text-slate-900 dark:text-white">
-            <span>{t('hello')}, </span>
-            <span translate="no">{profile?.name || 'Employee'}</span>
-          </h1>
-          <p className="text-primary text-xs sm:text-sm font-bold tracking-wider uppercase" translate="no">
-            {companyName || 'OSAN GROUP'}
-          </p>
-
-          {/* Quick Leave Balances Indicator Button */}
+      <div className="w-full max-w-5xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+        {/* Interactive Profile Badge Trigger */}
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setIsLeavesModalOpen(true)}
-            className="mt-2 px-3 py-1.5 rounded-xl bg-blue-500/10 dark:bg-white/5 border border-blue-500/20 dark:border-white/10 hover:border-blue-500/40 text-xs font-semibold text-slate-800 dark:text-gray-200 inline-flex items-center gap-2 cursor-pointer transition-all shadow-2xs"
+            type="button"
+            onClick={() => setIsProfileModalOpen(true)}
+            className="group flex items-center gap-3 text-left p-1.5 pr-3.5 rounded-2xl hover:bg-white dark:hover:bg-white/5 border border-transparent hover:border-slate-200 dark:border-white/10 transition-all cursor-pointer shadow-2xs"
+            title="Click to view your employment profile"
           >
-            <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span>{t('myLeaves')}:</span>
-            <span className="font-extrabold text-[#1D70B8] dark:text-blue-400">
-              {yearlyRemaining} {t('days')} {t('remaining')}
-            </span>
-            {pendingRequestsCount > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
-                {pendingRequestsCount} {t('pending')}
-              </span>
-            )}
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0">
+              {profile?.name ? profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'EM'}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">
+                  {profile?.name || 'Employee'}
+                </h1>
+                <span className="text-[10px] bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
+                  Profile ↗
+                </span>
+              </div>
+              <p className="text-primary text-xs font-bold tracking-wider uppercase">
+                {companyName || profile?.company || 'OSAN GROUP'} • {profile?.job_title || profile?.role || 'Staff Member'}
+              </p>
+            </div>
           </button>
         </div>
-        <div className="flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto justify-between sm:justify-end">
+
+        {/* View Switcher Tabs & Controls */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+          {/* Segmented Switcher Tab */}
+          <div className="flex items-center p-1 bg-slate-200/70 dark:bg-white/10 rounded-2xl shadow-inner border border-slate-300/40 dark:border-white/5">
+            <button
+              type="button"
+              onClick={() => setActiveTab('punch')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'punch'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Clock className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Live Punch</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('timesheet')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'timesheet'
+                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md'
+                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5 text-primary" />
+              <span>My Timesheet</span>
+            </button>
+          </div>
+
           <LanguageToggle />
           <ThemeToggle />
 
@@ -577,17 +612,17 @@ export function EmployeeDashboard() {
 
           <button
             onClick={signOut}
-            className="p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white shadow-xs cursor-pointer"
+            className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 rounded-xl transition-colors text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white shadow-xs cursor-pointer"
             title={t('signOut')}
           >
-            <LogOut className="w-5 h-5 rtl:rotate-180" />
+            <LogOut className="w-4 h-4 rtl:rotate-180" />
           </button>
         </div>
       </div>
 
       {/* DOCUMENT EXPIRATION ALERT BANNER */}
       {expiringDocuments.length > 0 && (
-        <div className="w-full max-w-4xl mb-6 space-y-2">
+        <div className="w-full max-w-5xl mb-6 space-y-2">
           {expiringDocuments.map((doc, idx) => {
             const isExpired = doc.daysRemaining < 0;
             return (
@@ -623,13 +658,26 @@ export function EmployeeDashboard() {
       )}
 
       <div className="flex-1 flex flex-col items-center justify-center w-full">
-        {isPipActive ? (
-          <div className="text-center p-12 border border-dashed border-slate-300 dark:border-gray-700 rounded-3xl bg-white dark:bg-slate-900/60 opacity-60">
-            <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Widget is Active</h2>
-            <p className="text-slate-500 dark:text-gray-400 text-sm font-medium">Your check-in ring is hovering on your screen.</p>
-          </div>
+        {activeTab === 'punch' ? (
+          isPipActive ? (
+            <div className="text-center p-12 border border-dashed border-slate-300 dark:border-gray-700 rounded-3xl bg-white dark:bg-slate-900/60 opacity-60">
+              <h2 className="text-xl font-bold mb-2 text-slate-900 dark:text-white">Widget is Active</h2>
+              <p className="text-slate-500 dark:text-gray-400 text-sm font-medium">Your check-in ring is hovering on your screen.</p>
+            </div>
+          ) : (
+            renderPunchUI()
+          )
         ) : (
-          renderPunchUI()
+          profile && (
+            <EmployeeAttendanceTimesheet
+              userId={profile.id}
+              userName={profile.name}
+              nationality={profile.nationality}
+              joinDate={profile.join_date}
+              scheduledShiftStart={shiftStart}
+              scheduledShiftEnd={shiftEnd}
+            />
+          )
         )}
       </div>
 
@@ -891,6 +939,18 @@ export function EmployeeDashboard() {
           />
         </PipWindow>
       )}
+
+      {/* EMPLOYEE PROFILE MODAL */}
+      <EmployeeProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        profile={profile}
+        companyName={companyName}
+        shiftSchedule={{
+          start: shiftStart,
+          end: shiftEnd,
+        }}
+      />
     </div>
   );
 }

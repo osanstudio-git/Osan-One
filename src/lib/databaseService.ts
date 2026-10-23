@@ -196,6 +196,7 @@ export function mapDbUserToUser(data: any, companyNameMap?: Record<string, strin
     religion: data.religion || 'Muslim',
     status: data.status || 'Active',
     join_date: data.join_date || new Date().toISOString().split('T')[0],
+    date_of_birth: data.date_of_birth || undefined,
     job_title: data.job_title || 'Officer',
     department: data.department || 'Operations',
     supervisor_name: data.supervisor_name || '',

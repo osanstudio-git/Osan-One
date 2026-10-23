@@ -57,6 +57,7 @@ export interface User {
   pin?: string;
   job_title?: string;
   department?: string;
+  date_of_birth?: string; // YYYY-MM-DD
   join_date: string; // YYYY-MM-DD
   supervisor_name?: string;
   base_salary: number;
