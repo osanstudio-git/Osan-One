@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo } from 'react';
 import { 
   ChevronLeft, ChevronRight, Calendar, Clock, 
   CheckCircle2, AlertTriangle, AlertCircle, 
-  Palmtree, Sparkles, FilterX
+  Palmtree, Sparkles, FilterX, Download
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { isDatePublicHoliday } from '../../lib/holidayService';
+import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
 
 interface EmployeeAttendanceTimesheetProps {
   userId: string;
@@ -362,6 +363,32 @@ export function EmployeeAttendanceTimesheet({
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              generateMonthlyAttendanceReport({
+                employee: {
+                  id: userId,
+                  name: userName || 'Employee',
+                  nationality,
+                  join_date: joinDate,
+                },
+                companyName: 'OSAN GROUP',
+                monthIndex: selectedMonth,
+                year: selectedYear,
+                shiftStart: scheduledShiftStart,
+                shiftEnd: scheduledShiftEnd,
+                dailyLogs: monthlyHeatmapData,
+              });
+            }}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            title={`Download / Print ${MONTH_NAMES[selectedMonth]} ${selectedYear} Attendance Sheet`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Download Sheet</span>
+            <span className="sm:hidden">PDF</span>
+          </button>
         </div>
       </div>
 

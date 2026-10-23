@@ -20,6 +20,7 @@ import {
 } from '../../lib/databaseService';
 import { isDatePublicHoliday } from '../../lib/holidayService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
+import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
 import type { User as UserType, Nationality } from '../../types';
 
 type EmployeeTabType =
@@ -900,6 +901,35 @@ export function HrEmployeeProfile() {
               Export PDF Profile
             </button>
             <button
+              onClick={() => {
+                if (!employee) return;
+                generateMonthlyAttendanceReport({
+                  employee: {
+                    id: employee.id,
+                    name: employee.name,
+                    email: employee.email,
+                    phone: employee.phone,
+                    job_title: employee.job_title || employee.role,
+                    department: employee.department,
+                    company: employee.company,
+                    nationality: employee.nationality,
+                    join_date: employee.join_date,
+                  },
+                  companyName: employee.company || 'OSAN GROUP',
+                  monthIndex: selectedMonth,
+                  year: selectedYear,
+                  shiftStart: employee.nationality === 'Omani' ? '08:30 AM' : '08:30 AM',
+                  shiftEnd: employee.nationality === 'Omani' ? '05:00 PM' : '06:00 PM',
+                  dailyLogs: monthlyHeatmapData,
+                });
+              }}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-xs font-bold transition-colors text-emerald-700 dark:text-emerald-300 shadow-xs cursor-pointer active:scale-95"
+              title="Download official monthly attendance report sheet"
+            >
+              <FileText className="w-4 h-4" />
+              Attendance Sheet
+            </button>
+            <button
               onClick={() => setIsManageModalOpen(true)}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 border border-primary/30 rounded-xl text-xs font-bold transition-all text-primary cursor-pointer"
             >
@@ -1651,6 +1681,38 @@ export function HrEmployeeProfile() {
                   title="Next Month"
                 >
                   <ChevronRight className="w-4 h-4" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!employee) return;
+                    generateMonthlyAttendanceReport({
+                      employee: {
+                        id: employee.id,
+                        name: employee.name,
+                        email: employee.email,
+                        phone: employee.phone,
+                        job_title: employee.job_title || employee.role,
+                        department: employee.department,
+                        company: employee.company,
+                        nationality: employee.nationality,
+                        join_date: employee.join_date,
+                      },
+                      companyName: employee.company || 'OSAN GROUP',
+                      monthIndex: selectedMonth,
+                      year: selectedYear,
+                      shiftStart: employee.nationality === 'Omani' ? '08:30 AM' : '08:30 AM',
+                      shiftEnd: employee.nationality === 'Omani' ? '05:00 PM' : '06:00 PM',
+                      dailyLogs: monthlyHeatmapData,
+                    });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ml-1 sm:ml-2"
+                  title={`Download Official ${MONTH_NAMES[selectedMonth]} ${selectedYear} Attendance Sheet`}
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Download Attendance Sheet</span>
+                  <span className="sm:hidden">Report</span>
                 </button>
               </div>
             </div>
