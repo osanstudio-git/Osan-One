@@ -16,6 +16,7 @@ export interface AttendanceReportOptions {
     company?: string;
     nationality?: string;
     join_date?: string;
+    avatar_url?: string;
   };
   companyName: string;
   companyLogoUrl?: string;
@@ -460,7 +461,12 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
     <!-- Employee & Placement Dossier -->
     <table class="card-table">
       <tr>
-        <td style="width: 25%;">
+        ${employee.avatar_url ? `
+        <td style="width: 52px; text-align: center; vertical-align: middle; padding: 6px 10px;">
+          <img src="${employee.avatar_url}" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; border: 1px solid #cbd5e1;" />
+        </td>
+        ` : ''}
+        <td style="${employee.avatar_url ? 'width: 25%;' : 'width: 25%;'}">
           <div class="lbl">Employee Full Name</div>
           <div class="val">${employee.name}</div>
         </td>

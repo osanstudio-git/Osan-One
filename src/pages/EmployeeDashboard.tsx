@@ -24,7 +24,7 @@ interface WorkSession {
 }
 
 export function EmployeeDashboard() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, updateCurrentUserProfile } = useAuth();
   const { t, language } = useLanguage();
   const [activeTab, setActiveTab] = useState<'punch' | 'timesheet'>('punch');
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -544,23 +544,24 @@ export function EmployeeDashboard() {
           <button
             type="button"
             onClick={() => setIsProfileModalOpen(true)}
-            className="group flex items-center gap-3 text-left p-1.5 pr-3.5 rounded-2xl hover:bg-white dark:hover:bg-white/5 border border-transparent hover:border-slate-200 dark:border-white/10 transition-all cursor-pointer shadow-2xs"
+            className="group flex items-center gap-3.5 text-left p-1.5 pr-4 rounded-2xl hover:bg-white dark:hover:bg-white/5 border border-transparent hover:border-slate-200 dark:border-white/10 transition-all cursor-pointer shadow-2xs"
             title="Click to view your employment profile"
           >
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0">
-              {profile?.name ? profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase() : 'EM'}
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0 overflow-hidden">
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
+              ) : profile?.name ? (
+                profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
+              ) : (
+                'EM'
+              )}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">
-                  {profile?.name || 'Employee'}
-                </h1>
-                <span className="text-[10px] bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-gray-300 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
-                  Profile ↗
-                </span>
-              </div>
-              <p className="text-primary text-xs font-bold tracking-wider uppercase">
-                {companyName || profile?.company || 'OSAN GROUP'} • {profile?.job_title || profile?.role || 'Staff Member'}
+              <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">
+                {profile?.name || 'Employee'}
+              </h1>
+              <p className="text-primary text-xs font-extrabold tracking-wider uppercase mt-0.5">
+                {companyName || profile?.company || 'OSAN GROUP'}
               </p>
             </div>
           </button>
@@ -676,6 +677,8 @@ export function EmployeeDashboard() {
               joinDate={profile.join_date}
               scheduledShiftStart={shiftStart}
               scheduledShiftEnd={shiftEnd}
+              avatarUrl={profile.avatar_url}
+              companyName={companyName || profile.company}
             />
           )
         )}
@@ -950,6 +953,7 @@ export function EmployeeDashboard() {
           start: shiftStart,
           end: shiftEnd,
         }}
+        onAvatarChange={(newUrl) => updateCurrentUserProfile({ avatar_url: newUrl })}
       />
     </div>
   );

@@ -4,7 +4,7 @@ import {
   ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X, Eye,
   User, ShieldAlert, Award, AlertCircle, Settings, Trash2, UserCheck, UserX,
   Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw, CreditCard, Edit3, Landmark, CheckCircle2,
-  ChevronLeft, ChevronRight, Plus, MessageSquare
+  ChevronLeft, ChevronRight, Plus, MessageSquare, Camera, Loader2
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
@@ -21,6 +21,7 @@ import {
 import { isDatePublicHoliday } from '../../lib/holidayService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
+import { compressAndResizeAvatar } from '../../lib/imageUtils';
 import type { User as UserType, Nationality } from '../../types';
 
 type EmployeeTabType =
@@ -88,6 +89,41 @@ export function HrEmployeeProfile() {
       MOCK_EMPLOYEES[idx] = updated as any;
     }
     setEmployee(updated as any);
+  };
+
+  // Photo upload state & handlers
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !employee) return;
+    try {
+      setIsUploadingPhoto(true);
+      const dataUrl = await compressAndResizeAvatar(file, 400, 0.85);
+      const updated = { ...employee, avatar_url: dataUrl };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, { avatar_url: dataUrl });
+    } catch (err) {
+      console.error('Failed to update employee photo:', err);
+      alert('Could not process image file. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!employee || !window.confirm("Remove profile photo for this employee?")) return;
+    try {
+      setIsUploadingPhoto(true);
+      const updated = { ...employee, avatar_url: undefined };
+      setEmployee(updated);
+      await updateEmployeeInDb(employee.id, { avatar_url: '' });
+    } catch (err) {
+      console.error('Failed to remove avatar:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   };
 
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
@@ -737,8 +773,40 @@ export function HrEmployeeProfile() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none animate-pulse" />
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 relative z-10">
-          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/30 flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary shadow-lg shrink-0">
-            {getInitials(employee.name)}
+          {/* Avatar Container with Camera Hover Overlay */}
+          <div className="relative group/avatar shrink-0">
+            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/30 flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary shadow-lg overflow-hidden">
+              {employee.avatar_url ? (
+                <img src={employee.avatar_url} alt={employee.name} className="w-full h-full object-cover" />
+              ) : (
+                getInitials(employee.name)
+              )}
+            </div>
+
+            {/* Hover Camera Overlay for HR to upload/change photo */}
+            <label
+              htmlFor="hr-employee-avatar-upload"
+              className="absolute inset-0 bg-black/60 opacity-0 group-hover/avatar:opacity-100 rounded-2xl flex flex-col items-center justify-center text-[10px] font-bold text-white transition-opacity cursor-pointer backdrop-blur-xs"
+              title="Click to Upload / Change Employee Photo"
+            >
+              {isUploadingPhoto ? (
+                <Loader2 className="w-5 h-5 animate-spin text-white" />
+              ) : (
+                <>
+                  <Camera className="w-5 h-5 mb-1 text-white" />
+                  <span>Change Photo</span>
+                </>
+              )}
+            </label>
+
+            <input
+              id="hr-employee-avatar-upload"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              disabled={isUploadingPhoto}
+              onChange={handleAvatarUpload}
+            />
           </div>
 
           <div className="flex-1 min-w-0">
@@ -749,7 +817,7 @@ export function HrEmployeeProfile() {
               </span>
             </div>
 
-            <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 text-xs sm:text-sm text-slate-600 dark:text-gray-400 mb-2 sm:mb-4 font-medium">
+            <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 text-xs sm:text-sm text-slate-600 dark:text-gray-400 mb-2 font-medium">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <Briefcase className="w-4 h-4 text-primary shrink-0" />
                 <span className="truncate">{employee.role.replace('_', ' ')}</span>
@@ -762,6 +830,29 @@ export function HrEmployeeProfile() {
                 <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                 <span className="truncate">{employee.email}</span>
               </div>
+            </div>
+
+            {/* Quick Photo Actions */}
+            <div className="flex items-center gap-2 mt-1">
+              <label
+                htmlFor="hr-employee-avatar-upload"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-gray-300 rounded-lg text-xs font-bold cursor-pointer transition-colors"
+              >
+                <Camera className="w-3.5 h-3.5 text-primary" />
+                <span>{employee.avatar_url ? 'Change Photo' : 'Upload Photo'}</span>
+              </label>
+              {employee.avatar_url && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  disabled={isUploadingPhoto}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 text-red-500 hover:bg-red-500/10 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                  title="Remove custom photo and reset to initials"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  <span>Remove</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -820,9 +911,14 @@ export function HrEmployeeProfile() {
                   </head>
                   <body>
                     <div class="header">
-                      <div>
-                        <h1 class="title">${employee.name}</h1>
-                        <div class="subtitle">${employee.job_title || employee.role} &bull; ${employee.company || 'OSAN GROUP'}</div>
+                      <div style="display: flex; align-items: center; gap: 16px;">
+                        ${employee.avatar_url ? `
+                          <img src="${employee.avatar_url}" style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; border: 2px solid #10b981;" />
+                        ` : ''}
+                        <div>
+                          <h1 class="title">${employee.name}</h1>
+                          <div class="subtitle">${employee.job_title || employee.role} &bull; ${employee.company || 'OSAN GROUP'}</div>
+                        </div>
                       </div>
                       <div style="text-align: right;">
                         <div style="font-size: 18px; font-weight: 900; color: #10b981;">OSAN GROUP</div>
@@ -914,6 +1010,7 @@ export function HrEmployeeProfile() {
                     company: employee.company,
                     nationality: employee.nationality,
                     join_date: employee.join_date,
+                    avatar_url: employee.avatar_url,
                   },
                   companyName: employee.company || 'OSAN GROUP',
                   monthIndex: selectedMonth,
@@ -1698,6 +1795,7 @@ export function HrEmployeeProfile() {
                         company: employee.company,
                         nationality: employee.nationality,
                         join_date: employee.join_date,
+                        avatar_url: employee.avatar_url,
                       },
                       companyName: employee.company || 'OSAN GROUP',
                       monthIndex: selectedMonth,

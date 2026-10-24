@@ -1,5 +1,8 @@
-import { X, User as UserIcon, Calendar, ShieldCheck, Clock, MapPin, Mail, Phone, Heart, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { X, User as UserIcon, Calendar, ShieldCheck, Clock, MapPin, Mail, Phone, Heart, FileText, Camera, Loader2, Trash2 } from 'lucide-react';
 import type { User } from '../../types';
+import { compressAndResizeAvatar } from '../../lib/imageUtils';
+import { updateEmployeeInDb } from '../../lib/databaseService';
 
 interface EmployeeProfileModalProps {
   isOpen: boolean;
@@ -10,6 +13,7 @@ interface EmployeeProfileModalProps {
     start: string;
     end: string;
   };
+  onAvatarChange?: (url: string) => void;
 }
 
 export function EmployeeProfileModal({
@@ -17,8 +21,16 @@ export function EmployeeProfileModal({
   onClose,
   profile,
   companyName,
-  shiftSchedule
+  shiftSchedule,
+  onAvatarChange
 }: EmployeeProfileModalProps) {
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [currentAvatar, setCurrentAvatar] = useState<string | undefined>(profile?.avatar_url);
+
+  // Sync avatar when profile changes
+  if (profile?.avatar_url !== currentAvatar && !isUploadingPhoto) {
+    setCurrentAvatar(profile?.avatar_url);
+  }
   if (!isOpen || !profile) return null;
 
   const getInitials = (name: string) => {
@@ -46,6 +58,38 @@ export function EmployeeProfileModal({
 
   const age = calculateAge(profile.date_of_birth);
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      setIsUploadingPhoto(true);
+      const dataUrl = await compressAndResizeAvatar(file, 400, 0.85);
+      setCurrentAvatar(dataUrl);
+      await updateEmployeeInDb(profile.id, { avatar_url: dataUrl });
+      if (onAvatarChange) onAvatarChange(dataUrl);
+    } catch (err) {
+      console.error('Failed to upload avatar:', err);
+      alert('Could not process image. Please try another image.');
+    } finally {
+      setIsUploadingPhoto(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!window.confirm('Are you sure you want to remove your profile photo?')) return;
+    try {
+      setIsUploadingPhoto(true);
+      setCurrentAvatar(undefined);
+      await updateEmployeeInDb(profile.id, { avatar_url: '' });
+      if (onAvatarChange) onAvatarChange('');
+    } catch (err) {
+      console.error('Failed to remove avatar:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
@@ -61,23 +105,82 @@ export function EmployeeProfileModal({
           </button>
 
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-md border-2 border-white/30 text-white font-black text-2xl flex items-center justify-center shadow-lg shrink-0">
-              {getInitials(profile.name)}
+            {/* Interactive Avatar Container */}
+            <div className="relative group/avatar shrink-0">
+              <div className="w-20 h-20 rounded-2xl bg-white/15 backdrop-blur-md border-2 border-white/30 text-white font-black text-2xl flex items-center justify-center shadow-lg overflow-hidden">
+                {currentAvatar ? (
+                  <img src={currentAvatar} alt={profile.name} className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(profile.name)
+                )}
+              </div>
+
+              {/* Hover Camera Overlay */}
+              <label
+                htmlFor="employee-modal-avatar-upload"
+                className="absolute inset-0 bg-black/55 opacity-0 group-hover/avatar:opacity-100 rounded-2xl flex flex-col items-center justify-center text-[10px] font-bold text-white transition-opacity cursor-pointer backdrop-blur-[2px]"
+                title="Change Profile Photo"
+              >
+                {isUploadingPhoto ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-white" />
+                ) : (
+                  <>
+                    <Camera className="w-5 h-5 mb-0.5 text-white" />
+                    <span>Change</span>
+                  </>
+                )}
+              </label>
+
+              <input
+                id="employee-modal-avatar-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={isUploadingPhoto}
+                onChange={handleAvatarUpload}
+              />
             </div>
-            <div>
+
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h2 className="text-xl sm:text-2xl font-black">{profile.name}</h2>
-                <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-white/20 border border-white/20 uppercase">
+                <h2 className="text-xl sm:text-2xl font-black truncate">{profile.name}</h2>
+                <span className="text-[11px] font-extrabold px-2.5 py-0.5 rounded-full bg-white/20 border border-white/20 uppercase shrink-0">
                   {profile.status || 'Active'}
                 </span>
               </div>
-              <p className="text-emerald-100 text-xs sm:text-sm font-semibold mt-0.5">
+              <p className="text-emerald-100 text-xs sm:text-sm font-semibold mt-0.5 truncate">
                 {profile.job_title || profile.role || 'Officer'} • {profile.department || 'Operations'}
               </p>
-              <p className="text-white/80 text-xs mt-1 flex items-center gap-1.5 font-bold">
-                <MapPin className="w-3.5 h-3.5" />
-                <span>{companyName || profile.company || 'OSAN GROUP'}</span>
-              </p>
+              
+              <div className="flex items-center gap-3 mt-2 flex-wrap">
+                <p className="text-white/80 text-xs flex items-center gap-1.5 font-bold">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  <span>{companyName || profile.company || 'OSAN GROUP'}</span>
+                </p>
+
+                {/* Direct Action Chips for Profile Photo */}
+                <div className="flex items-center gap-1.5">
+                  <label
+                    htmlFor="employee-modal-avatar-upload"
+                    className="px-2.5 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-[10px] font-extrabold cursor-pointer transition-colors flex items-center gap-1 text-white shadow-xs"
+                  >
+                    <Camera className="w-3 h-3" />
+                    <span>{currentAvatar ? 'Change Photo' : 'Upload Photo'}</span>
+                  </label>
+                  {currentAvatar && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveAvatar}
+                      disabled={isUploadingPhoto}
+                      className="px-2 py-1 bg-red-500/30 hover:bg-red-500/50 rounded-lg text-[10px] font-extrabold text-white cursor-pointer transition-colors flex items-center gap-1 shadow-xs"
+                      title="Remove custom photo and use initials"
+                    >
+                      <Trash2 className="w-2.5 h-2.5" />
+                      <span>Remove</span>
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   setDemoProfile: (profile: Profile | null) => void;
+  updateCurrentUserProfile: (updates: Partial<Profile>) => void;
   signOut: () => Promise<void>;
 }
 
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   setDemoProfile: () => {},
+  updateCurrentUserProfile: () => {},
   signOut: async () => {},
 });
 
@@ -60,6 +62,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(null);
       setUser(null);
     }
+  };
+
+  const updateCurrentUserProfile = (updates: Partial<Profile>) => {
+    setProfile(prev => {
+      if (!prev) return null;
+      const next = { ...prev, ...updates };
+      const saved = localStorage.getItem('osan_demo_profile');
+      if (saved) {
+        localStorage.setItem('osan_demo_profile', JSON.stringify(next));
+      }
+      return next;
+    });
   };
 
   useEffect(() => {
@@ -147,7 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, setDemoProfile, signOut }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, setDemoProfile, updateCurrentUserProfile, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -198,8 +198,12 @@ export function HrDirectory() {
                   <tr key={emp.id} className="hover:bg-slate-50/80 dark:hover:bg-white/5 transition-colors group">
                     <td className="py-3 px-3 sm:py-3.5 sm:px-5">
                       <div className="flex items-center gap-2.5 sm:gap-3">
-                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center text-[11px] sm:text-xs font-bold text-blue-600 dark:text-blue-400 shrink-0">
-                          {getInitials(emp.name)}
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center text-[11px] sm:text-xs font-bold text-blue-600 dark:text-blue-400 shrink-0 overflow-hidden">
+                          {emp.avatar_url ? (
+                            <img src={emp.avatar_url} alt={emp.name} className="w-full h-full object-cover" />
+                          ) : (
+                            getInitials(emp.name)
+                          )}
                         </div>
                         <div>
                           <div className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">{emp.name}</div>
@@ -289,8 +293,12 @@ export function HrDirectory() {
             >
               <div className="flex items-start justify-between gap-2.5">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-400 shrink-0">
-                    {getInitials(emp.name)}
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-400 shrink-0 overflow-hidden">
+                    {emp.avatar_url ? (
+                      <img src={emp.avatar_url} alt={emp.name} className="w-full h-full object-cover" />
+                    ) : (
+                      getInitials(emp.name)
+                    )}
                   </div>
                   <div className="min-w-0">
                     <h3 className="font-bold text-slate-900 dark:text-white text-sm truncate group-hover:text-primary transition-colors">

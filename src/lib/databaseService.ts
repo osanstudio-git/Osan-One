@@ -177,6 +177,33 @@ export async function deleteCompanyFromDb(companyIdOrName: string): Promise<bool
 }
 
 // ---------------------------------------------------------------------
+// Local avatar persistence helper
+export function getSavedLocalAvatar(id: string): string | undefined {
+  try {
+    const raw = localStorage.getItem('osan_employee_avatars');
+    if (!raw) return undefined;
+    const map = JSON.parse(raw);
+    return map[id] || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveLocalAvatar(id: string, avatarUrl?: string) {
+  try {
+    const raw = localStorage.getItem('osan_employee_avatars');
+    const map = raw ? JSON.parse(raw) : {};
+    if (avatarUrl) {
+      map[id] = avatarUrl;
+    } else {
+      delete map[id];
+    }
+    localStorage.setItem('osan_employee_avatars', JSON.stringify(map));
+  } catch (e) {
+    console.warn('Failed to save avatar to localStorage:', e);
+  }
+}
+
 // 2. EMPLOYEES SERVICES
 export function mapDbUserToUser(data: any, companyNameMap?: Record<string, string>): User {
   const role = (data.role === 'Super_HR' ? 'HR' : data.role) || 'Employee';
@@ -187,6 +214,7 @@ export function mapDbUserToUser(data: any, companyNameMap?: Record<string, strin
     name: data.name,
     email: data.email || '',
     phone: data.phone || '',
+    avatar_url: data.avatar_url || getSavedLocalAvatar(data.id) || undefined,
     pin: data.pin || '123456',
     role: role as Role,
     company_id: data.company_id || 'Company',
@@ -498,6 +526,10 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     MOCK_EMPLOYEES[idx] = { ...MOCK_EMPLOYEES[idx], ...updates } as any;
   }
 
+  if (updates.avatar_url !== undefined) {
+    saveLocalAvatar(employeeId, updates.avatar_url);
+  }
+
   if (!isLiveSupabaseConfigured()) {
     return true;
   }
@@ -507,6 +539,7 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.email !== undefined) payload.email = updates.email;
     if (updates.phone !== undefined) payload.phone = updates.phone;
+    if (updates.avatar_url !== undefined) payload.avatar_url = updates.avatar_url;
     if (updates.nationality !== undefined) {
       payload.nationality = updates.nationality;
     }
@@ -530,6 +563,13 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     if (error && (error.message?.includes('user_nationality') || error.message?.includes('enum'))) {
       console.warn('Supabase nationality enum constraint detected. Retrying with simplified category...');
       payload.nationality = (updates.nationality || 'Omani').startsWith('Expat') ? 'Expat' : 'Omani';
+      const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
+      error = retryRes.error;
+    }
+
+    if (error && error.message?.includes('avatar_url')) {
+      console.warn('Supabase users table does not have avatar_url column yet. Saving to local storage only.');
+      delete payload.avatar_url;
       const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
       error = retryRes.error;
     }

@@ -45,6 +45,7 @@ export interface User {
   name: string;
   email: string;
   phone?: string;
+  avatar_url?: string;
   role: Role;
   company_id: string;
   company?: string;
