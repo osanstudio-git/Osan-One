@@ -33,7 +33,7 @@ export interface AttendanceReportOptions {
     shiftDurationText: string;
     totalMinutesWorked: number;
     lateMinutes?: number;
-    status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday';
+    status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday' | 'upcoming';
     holidayName?: string;
   }>;
   stats?: {
@@ -56,17 +56,19 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
     companyName,
     monthIndex,
     year,
-    shiftStart = '08:30 AM',
-    shiftEnd = '05:00 PM',
     dailyLogs
   } = options;
 
   const monthName = MONTH_NAMES[monthIndex];
   const refCode = `OSAN-ATT-${year}${String(monthIndex + 1).padStart(2, '0')}-${employee.id.substring(0, 6).toUpperCase()}`;
 
+  // Clean company / entity display (avoid repeating Osan studio • OSAN STUDIO)
+  const deptStr = (employee.department || '').trim();
+  const compStr = (companyName || employee.company || 'OSAN GROUP').trim();
+  const isSameComp = deptStr.toLowerCase() === compStr.toLowerCase();
+  const cleanCompanyEntity = (deptStr && !isSameComp) ? `${deptStr} &bull; ${compStr}` : compStr;
+
   // Calculate detailed summary statistics
-  const totalDaysInMonth = dailyLogs.length;
-  const weekendDays = dailyLogs.filter(d => d.status === 'weekend' && d.totalMinutesWorked === 0).length;
   const publicHolidayDays = dailyLogs.filter(d => d.status === 'holiday').length;
   const approvedLeaveDays = dailyLogs.filter(d => d.status === 'leave').length;
   const onTimeDays = dailyLogs.filter(d => d.status === 'present').length;
@@ -74,8 +76,13 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
   const absentDays = dailyLogs.filter(d => d.status === 'absent').length;
   const attendedDays = onTimeDays + lateDays;
 
-  // Expected working days = Total Days - Weekends - Public Holidays
-  const scheduledWorkDays = Math.max(1, totalDaysInMonth - weekendDays - publicHolidayDays);
+  // Expected working days in full month: Total weekdays excluding Friday (and Saturday for 5-day week) and public holidays
+  const isExpatShift = (employee.nationality || '').toLowerCase() === 'expat';
+  const scheduledWorkDays = dailyLogs.filter(d => {
+    const dayOfWeek = d.date.getDay();
+    const isWeekendDay = isExpatShift ? (dayOfWeek === 5) : (dayOfWeek === 5 || dayOfWeek === 6);
+    return !isWeekendDay && d.status !== 'holiday';
+  }).length;
 
   const totalMinutes = dailyLogs.reduce((sum, d) => sum + (d.totalMinutesWorked || 0), 0);
   const totalHoursWorked = Math.floor(totalMinutes / 60);
@@ -84,7 +91,6 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
 
   // Standard target hours (assuming 8h standard shift per scheduled work day)
   const scheduledStandardHours = scheduledWorkDays * 8;
-  const complianceRate = Math.min(100, Math.round((attendedDays / scheduledWorkDays) * 100));
 
   const totalLateDelayMinutes = dailyLogs
     .filter(d => d.status === 'late')
@@ -98,7 +104,7 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
       case 'late':
         return `<span class="status-badge badge-late">Late (${log.lateMinutes || 1}m delay)</span>`;
       case 'absent':
-        return '<span class="status-badge badge-absent">Unexcused Absent</span>';
+        return '<span class="status-badge badge-absent">Absent</span>';
       case 'leave':
         return '<span class="status-badge badge-leave">Approved Leave</span>';
       case 'holiday':
@@ -108,6 +114,8 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
           return '<span class="status-badge badge-present">Weekend Overtime</span>';
         }
         return '<span class="status-badge badge-weekend">Weekend Off</span>';
+      case 'upcoming':
+        return '<span class="status-badge" style="background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1;">Scheduled</span>';
       default:
         return '<span class="status-badge badge-weekend">Off</span>';
     }
@@ -466,7 +474,7 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
           <img src="${employee.avatar_url}" style="width: 44px; height: 44px; border-radius: 6px; object-fit: cover; border: 1px solid #cbd5e1;" />
         </td>
         ` : ''}
-        <td style="${employee.avatar_url ? 'width: 25%;' : 'width: 25%;'}">
+        <td style="width: 25%;">
           <div class="lbl">Employee Full Name</div>
           <div class="val">${employee.name}</div>
         </td>
@@ -475,30 +483,12 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
           <div class="val">${employee.job_title || employee.role || 'Staff Member'}</div>
         </td>
         <td style="width: 25%;">
-          <div class="lbl">Department & Entity</div>
-          <div class="val">${employee.department || 'Operations'} &bull; ${companyName || 'OSAN GROUP'}</div>
+          <div class="lbl">Company / Entity</div>
+          <div class="val">${cleanCompanyEntity}</div>
         </td>
         <td style="width: 25%;">
-          <div class="lbl">Nationality / Status</div>
-          <div class="val">${employee.nationality || 'Omani'} &bull; ${employee.join_date ? `Joined ${new Date(employee.join_date).toLocaleDateString('en-GB')}` : 'Active'}</div>
-        </td>
-      </tr>
-      <tr>
-        <td>
-          <div class="lbl">Scheduled Shift Start</div>
-          <div class="val font-mono">${shiftStart}</div>
-        </td>
-        <td>
-          <div class="lbl">Scheduled Shift End</div>
-          <div class="val font-mono">${shiftEnd}</div>
-        </td>
-        <td>
           <div class="lbl">Contact Phone / Email</div>
-          <div class="val">${employee.phone || 'N/A'} &bull; ${employee.email || 'N/A'}</div>
-        </td>
-        <td>
-          <div class="lbl">Attendance Compliance</div>
-          <div class="val val-highlight font-mono">${complianceRate}% Attended</div>
+          <div class="val">${[employee.phone, employee.email].filter(Boolean).join(' &bull; ') || 'N/A'}</div>
         </td>
       </tr>
     </table>

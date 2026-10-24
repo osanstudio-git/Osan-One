@@ -601,7 +601,7 @@ export function HrEmployeeProfile() {
       return false;
     });
 
-    let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday' = 'weekend';
+    let status: 'present' | 'late' | 'absent' | 'weekend' | 'leave' | 'holiday' | 'upcoming' = 'weekend';
     let clockInText = '--:--';
     let clockOutText = '--:--';
     let shiftDurationText = '0m';
@@ -667,16 +667,21 @@ export function HrEmployeeProfile() {
         clockInText = 'No Punch Record';
         clockOutText = 'No Punch Record';
         shiftDurationText = '0m';
-      } else {
-        status = 'weekend';
+      } else if (dateStr === todayStr) {
+        status = 'upcoming';
         clockInText = 'Not Checked In Yet';
+        clockOutText = '--:--';
+        shiftDurationText = '--:--';
+      } else {
+        status = 'upcoming';
+        clockInText = '--:--';
         clockOutText = '--:--';
         shiftDurationText = '--:--';
       }
     } else {
-      status = 'weekend';
-      clockInText = '--:--';
-      clockOutText = '--:--';
+      status = 'upcoming';
+      clockInText = 'Scheduled Shift';
+      clockOutText = 'Scheduled Shift';
       shiftDurationText = '--:--';
     }
 
@@ -708,6 +713,7 @@ export function HrEmployeeProfile() {
       case 'absent': return 'bg-red-500/80 hover:bg-red-400 text-white';
       case 'holiday': return 'bg-purple-600/90 hover:bg-purple-500 text-white font-bold shadow-xs';
       case 'weekend': return 'bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10';
+      case 'upcoming': return 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-gray-500 border border-dashed border-slate-300/80 dark:border-white/10';
       default: return 'bg-slate-200 dark:bg-white/5';
     }
   };
