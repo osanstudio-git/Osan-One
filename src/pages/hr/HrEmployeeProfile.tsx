@@ -4,7 +4,7 @@ import {
   ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X, Eye,
   User, ShieldAlert, Award, AlertCircle, Settings, Trash2, UserCheck, UserX,
   Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw, CreditCard, Edit3, Landmark, CheckCircle2,
-  ChevronLeft, ChevronRight, Plus, MessageSquare, Camera, Loader2
+  ChevronLeft, ChevronRight, Plus, MessageSquare, Camera
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
@@ -773,8 +773,8 @@ export function HrEmployeeProfile() {
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none animate-pulse" />
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 relative z-10">
-          {/* Avatar Container with Camera Hover Overlay */}
-          <div className="relative group/avatar shrink-0">
+          {/* Avatar Container */}
+          <div className="shrink-0">
             <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/30 flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary shadow-lg overflow-hidden">
               {employee.avatar_url ? (
                 <img src={employee.avatar_url} alt={employee.name} className="w-full h-full object-cover" />
@@ -782,22 +782,6 @@ export function HrEmployeeProfile() {
                 getInitials(employee.name)
               )}
             </div>
-
-            {/* Hover Camera Overlay for HR to upload/change photo */}
-            <label
-              htmlFor="hr-employee-avatar-upload"
-              className="absolute inset-0 bg-black/60 opacity-0 group-hover/avatar:opacity-100 rounded-2xl flex flex-col items-center justify-center text-[10px] font-bold text-white transition-opacity cursor-pointer backdrop-blur-xs"
-              title="Click to Upload / Change Employee Photo"
-            >
-              {isUploadingPhoto ? (
-                <Loader2 className="w-5 h-5 animate-spin text-white" />
-              ) : (
-                <>
-                  <Camera className="w-5 h-5 mb-1 text-white" />
-                  <span>Change Photo</span>
-                </>
-              )}
-            </label>
 
             <input
               id="hr-employee-avatar-upload"

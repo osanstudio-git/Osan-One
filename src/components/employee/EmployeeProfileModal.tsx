@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, User as UserIcon, Calendar, ShieldCheck, Clock, MapPin, Mail, Phone, Heart, FileText, Camera, Loader2, Trash2 } from 'lucide-react';
+import { X, User as UserIcon, Calendar, ShieldCheck, Clock, MapPin, Mail, Phone, Heart, FileText, Camera, Trash2 } from 'lucide-react';
 import type { User } from '../../types';
 import { compressAndResizeAvatar } from '../../lib/imageUtils';
 import { updateEmployeeInDb, getSavedLocalAvatar } from '../../lib/databaseService';
@@ -109,8 +109,8 @@ export function EmployeeProfileModal({
           </button>
 
           <div className="flex items-center gap-4">
-            {/* Interactive Avatar Container */}
-            <div className="relative group/avatar shrink-0">
+            {/* Avatar Container */}
+            <div className="shrink-0">
               <div className="w-20 h-20 rounded-2xl bg-white/15 backdrop-blur-md border-2 border-white/30 text-white font-black text-2xl flex items-center justify-center shadow-lg overflow-hidden">
                 {currentAvatar ? (
                   <img src={currentAvatar} alt={profile.name} className="w-full h-full object-cover" />
@@ -118,22 +118,6 @@ export function EmployeeProfileModal({
                   getInitials(profile.name)
                 )}
               </div>
-
-              {/* Hover Camera Overlay */}
-              <label
-                htmlFor="employee-modal-avatar-upload"
-                className="absolute inset-0 bg-black/55 opacity-0 group-hover/avatar:opacity-100 rounded-2xl flex flex-col items-center justify-center text-[10px] font-bold text-white transition-opacity cursor-pointer backdrop-blur-[2px]"
-                title="Change Profile Photo"
-              >
-                {isUploadingPhoto ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-white" />
-                ) : (
-                  <>
-                    <Camera className="w-5 h-5 mb-0.5 text-white" />
-                    <span>Change</span>
-                  </>
-                )}
-              </label>
 
               <input
                 id="employee-modal-avatar-upload"
