@@ -199,6 +199,22 @@ export function saveLocalAvatar(id: string, avatarUrl?: string) {
       delete map[id];
     }
     localStorage.setItem('osan_employee_avatars', JSON.stringify(map));
+
+    // Also update osan_demo_profile if this employee is the one currently active
+    const savedDemo = localStorage.getItem('osan_demo_profile');
+    if (savedDemo) {
+      const parsed = JSON.parse(savedDemo);
+      if (parsed && (parsed.id === id || parsed.email === id)) {
+        parsed.avatar_url = avatarUrl;
+        localStorage.setItem('osan_demo_profile', JSON.stringify(parsed));
+      }
+    }
+
+    // Broadcast update across windows, tabs, and listeners
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('osan_avatar_updated', { detail: { id, avatarUrl } }));
+    }
   } catch (e) {
     console.warn('Failed to save avatar to localStorage:', e);
   }

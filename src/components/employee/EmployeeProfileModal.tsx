@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, User as UserIcon, Calendar, ShieldCheck, Clock, MapPin, Mail, Phone, Heart, FileText, Camera, Loader2, Trash2 } from 'lucide-react';
 import type { User } from '../../types';
 import { compressAndResizeAvatar } from '../../lib/imageUtils';
-import { updateEmployeeInDb } from '../../lib/databaseService';
+import { updateEmployeeInDb, getSavedLocalAvatar } from '../../lib/databaseService';
 
 interface EmployeeProfileModalProps {
   isOpen: boolean;
@@ -25,11 +25,15 @@ export function EmployeeProfileModal({
   onAvatarChange
 }: EmployeeProfileModalProps) {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [currentAvatar, setCurrentAvatar] = useState<string | undefined>(profile?.avatar_url);
+  const [currentAvatar, setCurrentAvatar] = useState<string | undefined>(() => {
+    return profile?.avatar_url || (profile?.id ? getSavedLocalAvatar(profile.id) : undefined);
+  });
 
   // Sync avatar when profile changes
-  if (profile?.avatar_url !== currentAvatar && !isUploadingPhoto) {
-    setCurrentAvatar(profile?.avatar_url);
+  const cachedFromStorage = profile?.id ? getSavedLocalAvatar(profile.id) : undefined;
+  const effectiveProfileAvatar = profile?.avatar_url || cachedFromStorage;
+  if (effectiveProfileAvatar && effectiveProfileAvatar !== currentAvatar && !isUploadingPhoto) {
+    setCurrentAvatar(effectiveProfileAvatar);
   }
   if (!isOpen || !profile) return null;
 

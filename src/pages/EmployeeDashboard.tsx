@@ -12,7 +12,7 @@ import { getCompanySettings, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
-import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb } from '../lib/databaseService';
+import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar } from '../lib/databaseService';
 import { EmployeeProfileModal } from '../components/employee/EmployeeProfileModal';
 import { EmployeeAttendanceTimesheet } from '../components/employee/EmployeeAttendanceTimesheet';
 
@@ -253,6 +253,15 @@ export function EmployeeDashboard() {
     pregnancy: profile?.leave_balances?.pregnancy ?? 98,
   });
 
+  // Ensure avatar is synced immediately from local storage cache
+  useEffect(() => {
+    if (!profile?.id) return;
+    const cached = getSavedLocalAvatar(profile.id);
+    if (cached && profile.avatar_url !== cached) {
+      updateCurrentUserProfile({ avatar_url: cached });
+    }
+  }, [profile?.id]);
+
   const loadEmployeeLeaves = async () => {
     if (!profile?.id) return;
     setLoadingLeaves(true);
@@ -260,9 +269,9 @@ export function EmployeeDashboard() {
       const leaves = await getEmployeeLeaveRequestsFromDb(profile.id, profile.email);
       setMyLeaves(leaves);
 
-      // Query live balances directly from users table to guarantee 100% realtime accuracy
+      // Query live balances and latest avatar directly from users table
       const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(profile.id);
-      let query = supabase.from('users').select('id, leave_balance_yearly, leave_balance_sick, leave_balance_maternity');
+      let query = supabase.from('users').select('id, leave_balance_yearly, leave_balance_sick, leave_balance_maternity, avatar_url');
       if (isUuid) {
         query = query.eq('id', profile.id);
       } else if (profile.email) {
@@ -278,12 +287,19 @@ export function EmployeeDashboard() {
         };
         setLiveBalances(updated);
 
+        const localAvatar = getSavedLocalAvatar(profile.id);
+        const effectiveAvatar = userData.avatar_url || localAvatar;
+        if (effectiveAvatar && profile.avatar_url !== effectiveAvatar) {
+          updateCurrentUserProfile({ avatar_url: effectiveAvatar });
+        }
+
         // Also sync local demo profile so any other components read the latest balances
         const saved = localStorage.getItem('osan_demo_profile');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
             parsed.leave_balances = updated;
+            if (effectiveAvatar) parsed.avatar_url = effectiveAvatar;
             localStorage.setItem('osan_demo_profile', JSON.stringify(parsed));
           } catch (e) { }
         }
@@ -548,8 +564,8 @@ export function EmployeeDashboard() {
             title="Click to view your employment profile"
           >
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0 overflow-hidden">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt={profile.name} className="w-full h-full object-cover" />
+              {(profile?.avatar_url || (profile?.id ? getSavedLocalAvatar(profile.id) : undefined)) ? (
+                <img src={profile?.avatar_url || (profile?.id ? getSavedLocalAvatar(profile.id) : '')} alt={profile?.name} className="w-full h-full object-cover" />
               ) : profile?.name ? (
                 profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
               ) : (
