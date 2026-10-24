@@ -89,8 +89,16 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
   const remMinutesWorked = totalMinutes % 60;
   const formattedTotalWorked = `${totalHoursWorked}h ${remMinutesWorked}m`;
 
-  // Standard target hours (assuming 8h standard shift per scheduled work day)
-  const scheduledStandardHours = scheduledWorkDays * 8;
+  // Standard target hours (factoring in 7h Thursday shift for ASAS Sanad Center)
+  const isAsasComp = (companyName || employee.company || '').toLowerCase().includes('asas');
+  const scheduledStandardHours = dailyLogs.filter(d => {
+    const dayOfWeek = d.date.getDay();
+    const isWeekendDay = isExpatShift ? (dayOfWeek === 5) : (dayOfWeek === 5 || dayOfWeek === 6);
+    return !isWeekendDay && d.status !== 'holiday';
+  }).reduce((sum, d) => {
+    const isThu = d.date.getDay() === 4;
+    return sum + (isAsasComp && isThu ? 7 : 8);
+  }, 0);
 
   const totalLateDelayMinutes = dailyLogs
     .filter(d => d.status === 'late')

@@ -225,8 +225,15 @@ export function EmployeeAttendanceTimesheet({
               shiftDurationText = `${mins}m`;
             }
           } else {
-            shiftDurationText = '8h 0m';
-            totalMinutesWorked = 480;
+            const isThu = dateObj.getDay() === 4;
+            const isAsasComp = (companyName || '').toLowerCase().includes('asas');
+            if (isAsasComp && isThu) {
+              shiftDurationText = '7h 0m';
+              totalMinutesWorked = 420;
+            } else {
+              shiftDurationText = '8h 0m';
+              totalMinutesWorked = 480;
+            }
           }
         } else {
           clockOutText = 'Active Shift';
@@ -337,7 +344,9 @@ export function EmployeeAttendanceTimesheet({
               {MONTH_NAMES[selectedMonth]} {selectedYear}
             </h2>
             <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
-              {userName ? `${userName} • ` : ''}Scheduled: {scheduledShiftStart} – {scheduledShiftEnd}
+              {(companyName || '').toLowerCase().includes('asas') 
+                ? `${userName ? `${userName} • ` : ''}Sun–Wed: 08:00–17:00 / 12:00–20:00 • Thu: 08:00–15:00`
+                : `${userName ? `${userName} • ` : ''}Scheduled: ${scheduledShiftStart} – ${scheduledShiftEnd}`}
             </p>
           </div>
         </div>

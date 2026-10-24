@@ -25,6 +25,7 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
   const [theme, setTheme] = useState('emerald');
   const [logoUrl, setLogoUrl] = useState('');
   const [authPolicy, setAuthPolicy] = useState<AuthPolicy>('both');
+  const [companyType, setCompanyType] = useState<'standard' | 'sanad'>('standard');
   
   // Nationality Shift Bounds
   const [omaniShiftStart, setOmaniShiftStart] = useState('08:30');
@@ -45,6 +46,7 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
         const validLogo = initialData.logoUrl && !initialData.logoUrl.startsWith('blob:') ? initialData.logoUrl : '';
         setLogoUrl(validLogo);
         setAuthPolicy(initialData.authPolicy || 'both');
+        setCompanyType(initialData.companyType || (initialData.name.toLowerCase().includes('asas') ? 'sanad' : 'standard'));
         setOmaniShiftStart(initialData.omaniShiftStart || '08:30');
         setOmaniShiftEnd(initialData.omaniShiftEnd || '17:00');
         setExpatShiftStart(initialData.expatShiftStart || '08:30');
@@ -56,6 +58,7 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
         setTheme('emerald');
         setLogoUrl('');
         setAuthPolicy('both');
+        setCompanyType('standard');
         setOmaniShiftStart('08:30');
         setOmaniShiftEnd('17:00');
         setExpatShiftStart('08:30');
@@ -149,10 +152,11 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
         theme,
         logoUrl,
         authPolicy,
-        omaniShiftStart,
-        omaniShiftEnd,
-        expatShiftStart,
-        expatShiftEnd
+        companyType,
+        omaniShiftStart: companyType === 'sanad' ? '08:00' : omaniShiftStart,
+        omaniShiftEnd: companyType === 'sanad' ? '17:00' : omaniShiftEnd,
+        expatShiftStart: companyType === 'sanad' ? '08:00' : expatShiftStart,
+        expatShiftEnd: companyType === 'sanad' ? '17:00' : expatShiftEnd
       });
       onClose();
     } catch (error) {
@@ -298,56 +302,107 @@ export function CompanyFormModal({ isOpen, onClose, onSave, initialData }: Compa
             </select>
           </div>
 
-          {/* Shift configuration bounds per nationality */}
-          <div className="space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
-            <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Shift Configurations (Labor Law)
-            </h3>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Omani Shift Start</label>
-                <input
-                  type="time"
-                  value={omaniShiftStart}
-                  onChange={(e) => setOmaniShiftStart(e.target.value)}
-                  className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Omani Shift End</label>
-                <input
-                  type="time"
-                  value={omaniShiftEnd}
-                  onChange={(e) => setOmaniShiftEnd(e.target.value)}
-                  className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Expat Shift Start</label>
-                <input
-                  type="time"
-                  value={expatShiftStart}
-                  onChange={(e) => setExpatShiftStart(e.target.value)}
-                  className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Expat Shift End</label>
-                <input
-                  type="time"
-                  value={expatShiftEnd}
-                  onChange={(e) => setExpatShiftEnd(e.target.value)}
-                  className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
-                />
-              </div>
-            </div>
-            <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-relaxed">
-              * Omani Shift operates **Sunday–Thursday** (Fri/Sat rest).<br />
-              * Expat Shift operates **Saturday–Thursday** (Fri rest).
-            </p>
+          {/* Company Model / Schedule Type */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1.5 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Company Schedule Type
+            </label>
+            <select
+              value={companyType}
+              onChange={(e) => {
+                const val = e.target.value as 'standard' | 'sanad';
+                setCompanyType(val);
+                if (val === 'sanad') {
+                  setOmaniShiftStart('08:00');
+                  setOmaniShiftEnd('17:00');
+                  setExpatShiftStart('08:00');
+                  setExpatShiftEnd('17:00');
+                }
+              }}
+              className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none appearance-none transition-all font-semibold"
+            >
+              <option value="standard" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Standard Corporate Office (Single Shift)</option>
+              <option value="sanad" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Sanad Service Center (ASAS Dual Rotating Shifts)</option>
+            </select>
           </div>
+
+          {/* Shift configuration bounds per nationality / model */}
+          {companyType === 'sanad' ? (
+            <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 space-y-3">
+              <div className="flex items-center justify-between text-xs font-black text-emerald-800 dark:text-emerald-300">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  Sanad Center Automated Schedule (ASAS)
+                </span>
+                <span className="text-[10px] bg-emerald-500 text-white px-2 py-0.5 rounded-full font-bold">Dual Shift Active</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] font-semibold text-slate-700 dark:text-gray-300">
+                <div className="bg-white dark:bg-slate-800/80 p-2.5 rounded-lg border border-emerald-500/20 space-y-1">
+                  <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Sun – Wed (2 Shifts Daily)</span>
+                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">☀️ Morning: 08:00 AM – 05:00 PM</div>
+                  <div className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">🌙 Evening: 12:00 PM – 08:00 PM</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800/80 p-2.5 rounded-lg border border-emerald-500/20 space-y-1">
+                  <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider">Thursday (Single Shift Only)</span>
+                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300">☀️ Morning: 08:00 AM – 03:00 PM</div>
+                  <div className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">* No Evening Shift on Thursday</div>
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-relaxed font-medium">
+                * Friday & Saturday: Weekend Off. Employees select Morning or Evening shift from their portal before punching in.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 p-4 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+              <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" /> Shift Configurations (Labor Law)
+              </h3>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Omani Shift Start</label>
+                  <input
+                    type="time"
+                    value={omaniShiftStart}
+                    onChange={(e) => setOmaniShiftStart(e.target.value)}
+                    className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Omani Shift End</label>
+                  <input
+                    type="time"
+                    value={omaniShiftEnd}
+                    onChange={(e) => setOmaniShiftEnd(e.target.value)}
+                    className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Expat Shift Start</label>
+                  <input
+                    type="time"
+                    value={expatShiftStart}
+                    onChange={(e) => setExpatShiftStart(e.target.value)}
+                    className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="block text-[11px] font-semibold text-slate-600 dark:text-gray-400">Expat Shift End</label>
+                  <input
+                    type="time"
+                    value={expatShiftEnd}
+                    onChange={(e) => setExpatShiftEnd(e.target.value)}
+                    className="w-full bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-slate-500 dark:text-gray-400 leading-relaxed">
+                * Omani Shift operates **Sunday–Thursday** (Fri/Sat rest).<br />
+                * Expat Shift operates **Saturday–Thursday** (Fri rest).
+              </p>
+            </div>
+          )}
 
           {/* Theme Selection */}
           <div>

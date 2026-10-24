@@ -70,6 +70,7 @@ export function HrCompanies() {
         name: c.name,
         count: countMap[c.id] || 0,
         authPolicy: c.auth_policy,
+        companyType: c.company_type || (c.name.toLowerCase().includes('asas') ? 'sanad' : 'standard'),
         omaniShiftStart: c.omani_shift_start,
         omaniShiftEnd: c.omani_shift_end,
         expatShiftStart: c.expat_shift_start,
@@ -107,6 +108,7 @@ export function HrCompanies() {
     await createCompany({
       id: editingCompany?.id,
       name: companyData.name,
+      company_type: companyData.companyType || (companyData.name.toLowerCase().includes('asas') ? 'sanad' : 'standard'),
       auth_policy: companyData.authPolicy || 'both',
       omani_shift_start: companyData.omaniShiftStart || '08:30',
       omani_shift_end: companyData.omaniShiftEnd || '17:00',

@@ -39,8 +39,28 @@ export function EmployeeDashboard() {
   const [elapsedTime, setElapsedTime] = useState('00:00');
   const [now, setNow] = useState(new Date());
   const [settings, setSettings] = useState<CompanySettings | null>(null);
-
   const [companyName, setCompanyName] = useState<string>('');
+
+  const isAsas = useMemo(() => {
+    const cName = (companyName || profile?.company || profile?.company_id || '').toLowerCase();
+    return cName.includes('asas') || cName.includes('sanad');
+  }, [companyName, profile?.company, profile?.company_id]);
+
+  const dayOfWeek = now.getDay();
+  const isThursday = dayOfWeek === 4;
+  const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+
+  // Selected shift for ASAS / dual-shift centers
+  const [selectedShift, setSelectedShift] = useState<'morning' | 'evening'>(() => {
+    const today = new Date();
+    if (today.getDay() === 4) return 'morning'; // Thursday only has morning shift
+    const dateStr = today.toISOString().split('T')[0];
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(`osan_shift_${dateStr}`) : null;
+    if (saved === 'evening' || saved === 'morning') return saved;
+    // Auto-select based on time: after 11:15 AM defaults to evening
+    const mins = today.getHours() * 60 + today.getMinutes();
+    return mins >= (11 * 60 + 15) ? 'evening' : 'morning';
+  });
 
   // Restore today's active check-in state from DB & localStorage on page refresh
   useEffect(() => {
@@ -57,6 +77,9 @@ export function EmployeeDashboard() {
             setIsCheckedIn(true);
             setCurrentSessionStart(inDate);
             setFirstCheckInTime(inDate);
+            if (parsed.shiftType) {
+              setSelectedShift(parsed.shiftType);
+            }
           }
         }
       } catch (e) {
@@ -214,8 +237,19 @@ export function EmployeeDashboard() {
       setCurrentSessionStart(nowTime);
       setIsCheckedIn(true);
       if (profile?.id) {
-        localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: true, checkInTime: nowTime.toISOString() }));
-        recordPunchInDb(profile.id, 'clock_in', nowTime, profile.company_id).catch(console.error);
+        localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ 
+          isCheckedIn: true, 
+          checkInTime: nowTime.toISOString(),
+          shiftType: selectedShift
+        }));
+        recordPunchInDb(
+          profile.id, 
+          'clock_in', 
+          nowTime, 
+          profile.company_id, 
+          selectedShift, 
+          companyName || profile?.company
+        ).catch(console.error);
       }
     } else {
       // Check out
@@ -233,7 +267,14 @@ export function EmployeeDashboard() {
       setIsCheckedIn(false);
       if (profile?.id) {
         localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: false }));
-        recordPunchInDb(profile.id, 'clock_out', nowTime, profile.company_id).catch(console.error);
+        recordPunchInDb(
+          profile.id, 
+          'clock_out', 
+          nowTime, 
+          profile.company_id, 
+          selectedShift, 
+          companyName || profile?.company
+        ).catch(console.error);
       }
     }
   };
@@ -410,8 +451,22 @@ export function EmployeeDashboard() {
 
   const isOmani = profile?.nationality === 'Omani';
   const activeCompany = MOCK_COMPANIES.find(c => c.name === companyName) || MOCK_COMPANIES[0];
-  const shiftStart = isOmani ? (activeCompany.omaniShiftStart || '08:30') : (activeCompany.expatShiftStart || '08:30');
-  const shiftEnd = isOmani ? (activeCompany.omaniShiftEnd || '17:00') : (activeCompany.expatShiftEnd || '18:00');
+  
+  let shiftStart = isOmani ? (activeCompany.omaniShiftStart || '08:30') : (activeCompany.expatShiftStart || '08:30');
+  let shiftEnd = isOmani ? (activeCompany.omaniShiftEnd || '17:00') : (activeCompany.expatShiftEnd || '18:00');
+
+  if (isAsas) {
+    if (isThursday) {
+      shiftStart = '08:00';
+      shiftEnd = '15:00';
+    } else if (selectedShift === 'evening') {
+      shiftStart = '12:00';
+      shiftEnd = '20:00';
+    } else {
+      shiftStart = '08:00';
+      shiftEnd = '17:00';
+    }
+  }
 
   const renderJourneyBar = () => {
     if (!profile) return null;
@@ -478,7 +533,7 @@ export function EmployeeDashboard() {
         </div>
 
         {/* CUMULATIVE WORKED HOURS TODAY KPI BADGE */}
-        <div className="mb-8 px-6 py-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-3 shadow-lg shadow-emerald-500/5">
+        <div className="mb-6 px-6 py-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 flex items-center gap-3 shadow-lg shadow-emerald-500/5">
           <div className="w-9 h-9 rounded-xl bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
             <Clock className="w-5 h-5 animate-pulse" />
           </div>
@@ -487,6 +542,70 @@ export function EmployeeDashboard() {
             <span className="text-xl font-black text-emerald-700 dark:text-emerald-400 tracking-tight" translate="no">{formattedCumulativeWorked}</span>
           </div>
         </div>
+
+        {/* ASAS / SANAD CENTER DYNAMIC SHIFT SELECTOR */}
+        {isAsas && !isCheckedIn && !isWeekend && (
+          isThursday ? (
+            <div className="mb-6 px-4 py-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-300 font-bold max-w-md w-full justify-center shadow-xs animate-in fade-in duration-200">
+              <Clock className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+              <span>Thursday Schedule: Single Morning Shift (08:00 AM – 03:00 PM)</span>
+            </div>
+          ) : (
+            <div className="mb-6 max-w-md w-full flex flex-col items-center gap-2 animate-in fade-in duration-200">
+              <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>Select Today's Assigned Shift</span>
+              </div>
+              <div className="grid grid-cols-2 p-1.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl w-full gap-2 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedShift('morning');
+                    localStorage.setItem(`osan_shift_${now.toISOString().split('T')[0]}`, 'morning');
+                  }}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                    selectedShift === 'morning'
+                      ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-500/30 ring-1 ring-emerald-500/20'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-1">☀️ Morning Shift</span>
+                  <span className="text-[10px] font-semibold opacity-75">08:00 AM – 05:00 PM</span>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedShift('evening');
+                    localStorage.setItem(`osan_shift_${now.toISOString().split('T')[0]}`, 'evening');
+                  }}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
+                    selectedShift === 'evening'
+                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/30 ring-1 ring-indigo-500/20'
+                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <span className="flex items-center gap-1">🌙 Evening Shift</span>
+                  <span className="text-[10px] font-semibold opacity-75">12:00 PM – 08:00 PM</span>
+                </button>
+              </div>
+            </div>
+          )
+        )}
+
+        {/* If already checked in at ASAS, display which shift is active */}
+        {isAsas && isCheckedIn && (
+          <div className="mb-4 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+            <span>
+              {isThursday 
+                ? 'Thursday Shift: 08:00 AM – 03:00 PM' 
+                : selectedShift === 'evening' 
+                  ? 'Active: Evening Shift (12:00 PM – 08:00 PM)' 
+                  : 'Active: Morning Shift (08:00 AM – 05:00 PM)'}
+            </span>
+          </div>
+        )}
 
         <PunchRing
           isCheckedIn={isCheckedIn}

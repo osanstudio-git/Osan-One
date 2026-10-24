@@ -20,12 +20,15 @@ export type LeaveType =
 
 export type CompanyName = string;
 export type AuthPolicy = 'email' | 'phone' | 'both';
+export type CompanyType = 'standard' | 'sanad';
+export type ShiftType = 'morning' | 'evening';
 
 export interface Company {
   id: string;
   name: CompanyName;
   created_at: string;
   auth_policy: AuthPolicy;
+  company_type?: CompanyType;
   omani_shift_start: string;
   omani_shift_end: string;
   expat_shift_start: string;
@@ -98,6 +101,7 @@ export interface AttendanceLog {
   exceptions: any[];
   ip_address: string | null;
   status: AttendanceStatus;
+  shift_type?: ShiftType;
 }
 
 export interface LeaveRequest {

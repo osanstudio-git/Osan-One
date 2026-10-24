@@ -9,6 +9,7 @@ export interface CompanyData {
   theme?: string;
   logoUrl?: string;
   authPolicy?: AuthPolicy;
+  companyType?: 'standard' | 'sanad';
   omaniShiftStart: string;
   omaniShiftEnd: string;
   expatShiftStart: string;
@@ -20,7 +21,7 @@ export const MOCK_COMPANIES: CompanyData[] = [
   { name: 'Masar', count: 8, location: 'Dubai, UAE', theme: 'blue', authPolicy: 'phone', omaniShiftStart: '08:00', omaniShiftEnd: '16:30', expatShiftStart: '08:00', expatShiftEnd: '17:30' },
   { name: 'Osan Studio', count: 15, location: 'Muscat, Oman', theme: 'indigo', authPolicy: 'email', omaniShiftStart: '09:00', omaniShiftEnd: '17:30', expatShiftStart: '09:00', expatShiftEnd: '18:30' },
   { name: 'Amer', count: 5, location: 'Doha, Qatar', theme: 'amber', authPolicy: 'both', omaniShiftStart: '08:30', omaniShiftEnd: '17:00', expatShiftStart: '08:30', expatShiftEnd: '18:00' },
-  { name: 'Asas', count: 9, location: 'Riyadh, KSA', theme: 'rose', authPolicy: 'phone', omaniShiftStart: '08:30', omaniShiftEnd: '17:00', expatShiftStart: '08:30', expatShiftEnd: '18:00' },
+  { name: 'Asas', count: 9, location: 'Muscat, Oman', theme: 'rose', authPolicy: 'phone', companyType: 'sanad', omaniShiftStart: '08:00', omaniShiftEnd: '17:00', expatShiftStart: '08:00', expatShiftEnd: '17:00' },
   { name: 'Musk', count: 4, location: 'Muscat, Oman', theme: 'emerald', authPolicy: 'email', omaniShiftStart: '08:30', omaniShiftEnd: '17:00', expatShiftStart: '08:30', expatShiftEnd: '18:00' },
   { name: 'Osbic', count: 6, location: 'Manama, Bahrain', theme: 'blue', authPolicy: 'both', omaniShiftStart: '08:30', omaniShiftEnd: '17:00', expatShiftStart: '08:30', expatShiftEnd: '18:00' },
   { name: 'Maisarah', count: 3, location: 'Kuwait City, Kuwait', theme: 'amber', authPolicy: 'phone', omaniShiftStart: '08:30', omaniShiftEnd: '17:00', expatShiftStart: '08:30', expatShiftEnd: '18:00' },

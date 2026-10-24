@@ -120,13 +120,24 @@ export async function createCompany(companyData: Partial<Company>): Promise<Comp
     }
   }
 
+  if (companyData.company_type) {
+    payload.company_type = companyData.company_type;
+  }
+
   if (existingId) {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('companies')
       .update(payload)
       .eq('id', existingId)
       .select()
       .single();
+
+    if (error && error.message?.includes('company_type')) {
+      delete payload.company_type;
+      const retry = await supabase.from('companies').update(payload).eq('id', existingId).select().single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Error updating company in Supabase:', error.message || error);
@@ -134,11 +145,18 @@ export async function createCompany(companyData: Partial<Company>): Promise<Comp
     }
     return data as Company;
   } else {
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from('companies')
       .insert([payload])
       .select()
       .single();
+
+    if (error && error.message?.includes('company_type')) {
+      delete payload.company_type;
+      const retry = await supabase.from('companies').insert([payload]).select().single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       console.error('Error creating company in Supabase:', error.message || error);
@@ -1103,7 +1121,14 @@ export async function getEmployeeAttendanceLogsFromDb(userId: string): Promise<a
   }
 }
 
-export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_out' | 'break_start' | 'break_end', timestamp?: Date, explicitCompanyId?: string): Promise<boolean> {
+export async function recordPunchInDb(
+  userId: string, 
+  type: 'clock_in' | 'clock_out' | 'break_start' | 'break_end', 
+  timestamp?: Date, 
+  explicitCompanyId?: string,
+  shiftType?: 'morning' | 'evening',
+  companyName?: string
+): Promise<boolean> {
   if (!isLiveSupabaseConfigured()) {
     return true;
   }
@@ -1151,6 +1176,15 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
     const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const isoString = now.toISOString();
 
+    // Cache chosen shift type locally
+    if (shiftType) {
+      try {
+        localStorage.setItem(`osan_shift_${validUserId}_${dateStr}`, shiftType);
+      } catch (e) {
+        // ignore
+      }
+    }
+
     const { data: existing } = await supabase
       .from('attendance_logs')
       .select('*')
@@ -1159,19 +1193,47 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
       .maybeSingle();
 
     if (type === 'clock_in') {
-      const isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 30);
+      const dayOfWeek = now.getDay(); // 0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu
+      const compLower = (companyName || explicitCompanyId || '').toLowerCase().trim();
+      const isAsas = compLower.includes('asas') || compLower.includes('sanad');
+
+      let isLate = false;
+      if (isAsas) {
+        if (dayOfWeek === 4) {
+          // Thursday: Single shift 08:00 AM – 03:00 PM (15m grace -> 08:15 AM)
+          isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15);
+        } else if (shiftType === 'evening') {
+          // Sun–Wed Evening: 12:00 PM – 08:00 PM (15m grace -> 12:15 PM)
+          isLate = now.getHours() > 12 || (now.getHours() === 12 && now.getMinutes() > 15);
+        } else {
+          // Sun–Wed Morning: 08:00 AM – 05:00 PM (15m grace -> 08:15 AM)
+          isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15);
+        }
+      } else {
+        // Standard Corporate: 08:30 AM
+        isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 30);
+      }
+
       const status = isLate ? 'Late' : 'Present';
 
       if (existing) {
+        const updatePayload: any = {
+          clock_in_time: existing.clock_in_time || isoString,
+          status: existing.status === 'Absent' ? status : (existing.status || status),
+          company_id: existing.company_id || validCompanyId
+        };
+        if (shiftType) updatePayload.shift_type = shiftType;
+
         const { error: updateErr } = await supabase
           .from('attendance_logs')
-          .update({
-            clock_in_time: existing.clock_in_time || isoString,
-            status: existing.status === 'Absent' ? status : (existing.status || status),
-            company_id: existing.company_id || validCompanyId
-          })
+          .update(updatePayload)
           .eq('id', existing.id);
-        if (updateErr) console.warn('Supabase punch-in update warning:', updateErr.message);
+
+        if (updateErr) {
+          // Retry without shift_type if column doesn't exist in Supabase schema yet
+          delete updatePayload.shift_type;
+          await supabase.from('attendance_logs').update(updatePayload).eq('id', existing.id);
+        }
       } else {
         const insertPayload: any = {
           user_id: validUserId,
@@ -1180,18 +1242,23 @@ export async function recordPunchInDb(userId: string, type: 'clock_in' | 'clock_
           clock_in_time: isoString,
           status: status
         };
+        if (shiftType) insertPayload.shift_type = shiftType;
 
         let { error: insertErr } = await supabase.from('attendance_logs').insert([insertPayload]);
 
         if (insertErr) {
           console.warn('Primary punch-in insert failed, retrying with core columns...', insertErr.message);
-          const fallbackPayload: any = {
-            user_id: validUserId,
-            date: dateStr,
-            clock_in_time: isoString
-          };
-          if (validCompanyId) fallbackPayload.company_id = validCompanyId;
-          await supabase.from('attendance_logs').insert([fallbackPayload]);
+          delete insertPayload.shift_type;
+          let { error: retryErr } = await supabase.from('attendance_logs').insert([insertPayload]);
+          if (retryErr) {
+            const fallbackPayload: any = {
+              user_id: validUserId,
+              date: dateStr,
+              clock_in_time: isoString
+            };
+            if (validCompanyId) fallbackPayload.company_id = validCompanyId;
+            await supabase.from('attendance_logs').insert([fallbackPayload]);
+          }
         }
       }
     } else if (type === 'break_start') {
