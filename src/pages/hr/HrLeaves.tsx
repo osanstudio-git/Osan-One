@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { LayoutGrid, List, CheckCircle2, XCircle, Clock, Search, Calendar, Plus, Trash2, Globe, Check, X, FileText, MessageSquare, UserCheck } from 'lucide-react';
-import { getLeaveRequestsFromDb, updateLeaveRequestStatusInDb, recordEmployeeLeaveByHrInDb } from '../../lib/databaseService';
+import { LayoutGrid, List, CheckCircle2, XCircle, Clock, Search, Calendar, Plus, Trash2, Globe, Check, X, FileText, MessageSquare, UserCheck, UploadCloud } from 'lucide-react';
+import { getLeaveRequestsFromDb, updateLeaveRequestStatusInDb, recordEmployeeLeaveByHrInDb, attachMedicalReportToLeaveInDb } from '../../lib/databaseService';
 import { getPublicHolidays, addPublicHoliday, deletePublicHoliday, type PublicHoliday } from '../../lib/holidayService';
 import { getLeaveApprovalWhatsAppUrl, getLeaveRejectionWhatsAppUrl } from '../../lib/whatsappService';
 import { supabase } from '../../lib/supabase';
@@ -23,6 +23,7 @@ export function HrLeaves() {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [employeesList, setEmployeesList] = useState<any[]>([]);
   const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
+  const [recordFile, setRecordFile] = useState<File | null>(null);
   const [recordForm, setRecordForm] = useState({
     userId: '',
     leaveType: 'Yearly',
@@ -132,6 +133,25 @@ export function HrLeaves() {
     }
   };
 
+  const handleUploadMedicalForLeave = async (leaveId: string, file: File) => {
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        const success = await attachMedicalReportToLeaveInDb(leaveId, base64);
+        if (success) {
+          await loadLeaves();
+        } else {
+          alert('Failed to attach medical report. Please try again.');
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error uploading medical doc:', err);
+      alert('Error uploading document.');
+    }
+  };
+
   const handleRecordLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recordForm.userId || !recordForm.startDate || !recordForm.endDate) {
@@ -140,16 +160,28 @@ export function HrLeaves() {
     }
     setIsSubmittingRecord(true);
     try {
+      let docUrl: string | undefined = undefined;
+      if (recordFile) {
+        docUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(recordFile);
+        });
+      }
+
       const res = await recordEmployeeLeaveByHrInDb({
         userId: recordForm.userId,
         leaveType: recordForm.leaveType,
         startDate: recordForm.startDate,
         endDate: recordForm.endDate,
         status: recordForm.status,
-        notes: recordForm.notes
+        notes: recordForm.notes,
+        documentUrl: docUrl
       });
       if (res.success) {
         setIsRecordModalOpen(false);
+        setRecordFile(null);
         setRecordForm({
           userId: '',
           leaveType: 'Yearly',
@@ -423,14 +455,42 @@ export function HrLeaves() {
                   <span className="text-slate-500 dark:text-gray-400">Sick Balance: <strong className="text-amber-600">{leave.balances?.sick ?? 14} days</strong></span>
                 </div>
 
-                {leave.documentUrl && (
-                  <button
-                    onClick={() => setPreviewDoc(leave.documentUrl)}
-                    className="mt-3 w-full py-2 px-3 bg-blue-50/80 hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10 text-[#1D70B8] dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-200/60 dark:border-white/10 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                  >
-                    <FileText className="w-3.5 h-3.5" /> View Attached Document
-                  </button>
-                )}
+                {leave.documentUrl ? (
+                  <div className="mt-3 flex items-center gap-1.5">
+                    <button
+                      onClick={() => setPreviewDoc(leave.documentUrl)}
+                      className="flex-1 py-2 px-3 bg-blue-50/80 hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10 text-[#1D70B8] dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-200/60 dark:border-white/10 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <FileText className="w-3.5 h-3.5" /> View Attached Document
+                    </button>
+                    <label className="p-2 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer transition-colors" title="Replace / Update document">
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/*,.pdf"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleUploadMedicalForLeave(leave.id, f);
+                        }}
+                      />
+                    </label>
+                  </div>
+                ) : ((leave.type || '').toLowerCase().includes('sick') || (leave.type || '').toLowerCase().includes('maternity')) ? (
+                  <label className="mt-3 w-full py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-bold border border-amber-500/30 flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-2xs" title="Upload official doctor or hospital certificate">
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>+ Upload Medical Certificate</span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*,.pdf"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) handleUploadMedicalForLeave(leave.id, f);
+                      }}
+                    />
+                  </label>
+                ) : null}
 
                 {leave.notes && (
                   <div className="mt-2.5 p-2 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5 text-[11px] text-slate-600 dark:text-gray-300">
@@ -596,12 +656,40 @@ export function HrLeaves() {
                     </td>
                     <td className="p-4">
                       {leave.documentUrl ? (
-                        <button
-                          onClick={() => setPreviewDoc(leave.documentUrl)}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 rounded-lg text-[11px] font-bold border border-blue-200/60 dark:border-white/10 flex items-center gap-1 cursor-pointer transition-all"
-                        >
-                          <FileText className="w-3 h-3" /> View Doc
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setPreviewDoc(leave.documentUrl)}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 rounded-lg text-[11px] font-bold border border-blue-200/60 dark:border-white/10 flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            <FileText className="w-3 h-3" /> View Doc
+                          </button>
+                          <label className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Replace / Update document">
+                            <UploadCloud className="w-3 h-3" />
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*,.pdf"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0];
+                                if (f) handleUploadMedicalForLeave(leave.id, f);
+                              }}
+                            />
+                          </label>
+                        </div>
+                      ) : ((leave.type || '').toLowerCase().includes('sick') || (leave.type || '').toLowerCase().includes('maternity')) ? (
+                        <label className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-lg text-[11px] font-bold border border-amber-500/30 inline-flex items-center gap-1 cursor-pointer transition-all shadow-2xs" title="Upload official medical certificate">
+                          <UploadCloud className="w-3 h-3" />
+                          <span>+ Attach Cert</span>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*,.pdf"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleUploadMedicalForLeave(leave.id, f);
+                            }}
+                          />
+                        </label>
                       ) : (
                         <span className="text-slate-400 dark:text-gray-500 text-[11px] italic">None</span>
                       )}
@@ -1143,7 +1231,10 @@ export function HrLeaves() {
                 </div>
               </div>
               <button
-                onClick={() => setIsRecordModalOpen(false)}
+                onClick={() => {
+                  setIsRecordModalOpen(false);
+                  setRecordFile(null);
+                }}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -1189,6 +1280,54 @@ export function HrLeaves() {
                   <option value="Bereavement_Immediate">Bereavement Leave</option>
                   <option value="Unpaid">Unpaid Leave</option>
                 </select>
+              </div>
+
+              {/* Optional Medical Certificate / Document Upload */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                    Medical Certificate / Document (Optional)
+                  </label>
+                  {(recordForm.leaveType === 'Sick' || recordForm.leaveType === 'Maternity') && (
+                    <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+                      Recommended for {recordForm.leaveType} Leave
+                    </span>
+                  )}
+                </div>
+
+                {recordFile ? (
+                  <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <FileText className="w-4 h-4 shrink-0 text-emerald-600" />
+                      <span className="text-xs font-bold truncate">{recordFile.name}</span>
+                      <span className="text-[10px] opacity-75 shrink-0">({(recordFile.size / 1024).toFixed(0)} KB)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setRecordFile(null)}
+                      className="p-1 rounded-lg hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 cursor-pointer"
+                      title="Remove file"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="relative flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer group">
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*,.pdf"
+                      onChange={(e) => setRecordFile(e.target.files?.[0] || null)}
+                    />
+                    <UploadCloud className="w-6 h-6 text-slate-400 group-hover:text-primary transition-colors mb-1" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
+                      {recordForm.leaveType === 'Sick' || recordForm.leaveType === 'Maternity'
+                        ? 'Attach Clinic / Hospital Sick Leave Certificate'
+                        : 'Attach Medical Report or Official Document'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 dark:text-gray-500">Supports PDF, JPG, PNG (Max 10MB)</span>
+                  </label>
+                )}
               </div>
 
               {/* Date Range */}
@@ -1252,7 +1391,10 @@ export function HrLeaves() {
               <div className="flex gap-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
                 <button
                   type="button"
-                  onClick={() => setIsRecordModalOpen(false)}
+                  onClick={() => {
+                    setIsRecordModalOpen(false);
+                    setRecordFile(null);
+                  }}
                   className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 font-bold text-xs rounded-xl cursor-pointer"
                 >
                   Cancel
