@@ -1,10 +1,10 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { LogOut, LayoutDashboard, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { LogOut, LayoutDashboard, Menu, X, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { OsanLogo } from '../common/OsanLogo';
-import { getSavedLocalAvatar } from '../../lib/databaseService';
+import { getSavedLocalAvatar, invalidateEmployeeCache, invalidateCompanyCache } from '../../lib/databaseService';
 
 interface DashboardLayoutProps {
   children?: ReactNode;
@@ -16,12 +16,42 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
   const { profile, signOut } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth < 1280;
     }
     return false;
   });
+
+  const handleHardRefresh = async () => {
+    setIsSyncing(true);
+    try {
+      invalidateEmployeeCache();
+      invalidateCompanyCache();
+
+      // Clear Service Worker Caches
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(k => caches.delete(k)));
+      }
+
+      // Update Service Worker registration
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.update();
+        }
+      }
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 350);
+    } catch (e) {
+      console.warn('Hard refresh error:', e);
+      window.location.reload();
+    }
+  };
 
   // Responsive sidebar auto-collapse for tablets (< 1280px)
   useEffect(() => {
@@ -274,7 +304,19 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
             </h1>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* 1-Tap Hard Refresh & Cloud Sync button */}
+            <button
+              type="button"
+              onClick={handleHardRefresh}
+              disabled={isSyncing}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Hard Refresh & Cloud Sync: Bypasses tablet cache and reloads live cloud data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
+            </button>
+
             <ThemeToggle />
           </div>
         </header>

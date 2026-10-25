@@ -7,12 +7,12 @@ import { CompactWidget } from '../components/employee/CompactWidget';
 import { ThemeToggle } from '../components/common/ThemeToggle';
 import { LanguageToggle } from '../components/common/LanguageToggle';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Calendar, Clock, LogOut, CheckCircle2, History, AlertTriangle, Building2, MapPin, FileText, XCircle, X } from 'lucide-react';
+import { Calendar, Clock, LogOut, CheckCircle2, History, AlertTriangle, Building2, MapPin, FileText, XCircle, X, RefreshCw } from 'lucide-react';
 import { getCompanySettings, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
-import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar, getEmployeeAvatarFromDb, syncAvatarToCloud } from '../lib/databaseService';
+import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar, getEmployeeAvatarFromDb, syncAvatarToCloud, invalidateEmployeeCache, invalidateCompanyCache } from '../lib/databaseService';
 import { EmployeeProfileModal } from '../components/employee/EmployeeProfileModal';
 import { EmployeeAttendanceTimesheet } from '../components/employee/EmployeeAttendanceTimesheet';
 
@@ -30,6 +30,30 @@ export function EmployeeDashboard() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleHardRefresh = async () => {
+    setIsSyncing(true);
+    try {
+      invalidateEmployeeCache();
+      invalidateCompanyCache();
+      if (typeof window !== 'undefined' && 'caches' in window) {
+        const cacheKeys = await caches.keys();
+        await Promise.all(cacheKeys.map(k => caches.delete(k)));
+      }
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.update();
+        }
+      }
+      setTimeout(() => {
+        window.location.reload();
+      }, 350);
+    } catch (e) {
+      window.location.reload();
+    }
+  };
 
   // Dynamic avatar state with multi-key cache & cloud sync
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(() => {
@@ -785,6 +809,18 @@ export function EmployeeDashboard() {
 
           <LanguageToggle />
           <ThemeToggle />
+
+          {/* 1-Tap Hard Refresh & Cloud Sync */}
+          <button
+            type="button"
+            onClick={handleHardRefresh}
+            disabled={isSyncing}
+            className="p-2 sm:px-3 sm:py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 rounded-xl transition-all font-bold text-xs flex items-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 shadow-xs"
+            title="Live Sync: Refresh attendance and cloud profile data"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
+          </button>
 
           {('documentPictureInPicture' in window) && (
             <button
