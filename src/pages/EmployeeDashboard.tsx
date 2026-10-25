@@ -237,17 +237,17 @@ export function EmployeeDashboard() {
       setCurrentSessionStart(nowTime);
       setIsCheckedIn(true);
       if (profile?.id) {
-        localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ 
-          isCheckedIn: true, 
+        localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({
+          isCheckedIn: true,
           checkInTime: nowTime.toISOString(),
           shiftType: selectedShift
         }));
         recordPunchInDb(
-          profile.id, 
-          'clock_in', 
-          nowTime, 
-          profile.company_id, 
-          selectedShift, 
+          profile.id,
+          'clock_in',
+          nowTime,
+          profile.company_id,
+          selectedShift,
           companyName || profile?.company
         ).catch(console.error);
       }
@@ -268,11 +268,11 @@ export function EmployeeDashboard() {
       if (profile?.id) {
         localStorage.setItem(`osan_punch_${profile.id}`, JSON.stringify({ isCheckedIn: false }));
         recordPunchInDb(
-          profile.id, 
-          'clock_out', 
-          nowTime, 
-          profile.company_id, 
-          selectedShift, 
+          profile.id,
+          'clock_out',
+          nowTime,
+          profile.company_id,
+          selectedShift,
           companyName || profile?.company
         ).catch(console.error);
       }
@@ -451,7 +451,7 @@ export function EmployeeDashboard() {
 
   const isOmani = profile?.nationality === 'OMAN' || profile?.nationality === 'Omani';
   const activeCompany = MOCK_COMPANIES.find(c => c.name === companyName) || MOCK_COMPANIES[0];
-  
+
   let shiftStart = isOmani ? (activeCompany.omaniShiftStart || '08:30') : (activeCompany.expatShiftStart || '08:30');
   let shiftEnd = isOmani ? (activeCompany.omaniShiftEnd || '17:00') : (activeCompany.expatShiftEnd || '18:00');
 
@@ -563,27 +563,25 @@ export function EmployeeDashboard() {
                     setSelectedShift('morning');
                     localStorage.setItem(`osan_shift_${now.toISOString().split('T')[0]}`, 'morning');
                   }}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                    selectedShift === 'morning'
-                      ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-500/30 ring-1 ring-emerald-500/20'
-                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${selectedShift === 'morning'
+                    ? 'bg-white dark:bg-slate-800 text-emerald-600 dark:text-emerald-400 shadow-sm border border-emerald-500/30 ring-1 ring-emerald-500/20'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
                 >
                   <span className="flex items-center gap-1">☀️ Morning Shift</span>
                   <span className="text-[10px] font-semibold opacity-75">08:00 AM – 05:00 PM</span>
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={() => {
                     setSelectedShift('evening');
                     localStorage.setItem(`osan_shift_${now.toISOString().split('T')[0]}`, 'evening');
                   }}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${
-                    selectedShift === 'evening'
-                      ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/30 ring-1 ring-indigo-500/20'
-                      : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer ${selectedShift === 'evening'
+                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border border-indigo-500/30 ring-1 ring-indigo-500/20'
+                    : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
                 >
                   <span className="flex items-center gap-1">🌙 Evening Shift</span>
                   <span className="text-[10px] font-semibold opacity-75">12:00 PM – 08:00 PM</span>
@@ -598,10 +596,10 @@ export function EmployeeDashboard() {
           <div className="mb-4 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-extrabold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
             <span>
-              {isThursday 
-                ? 'Thursday Shift: 08:00 AM – 03:00 PM' 
-                : selectedShift === 'evening' 
-                  ? 'Active: Evening Shift (12:00 PM – 08:00 PM)' 
+              {isThursday
+                ? 'Thursday Shift: 08:00 AM – 03:00 PM'
+                : selectedShift === 'evening'
+                  ? 'Active: Evening Shift (12:00 PM – 08:00 PM)'
                   : 'Active: Morning Shift (08:00 AM – 05:00 PM)'}
             </span>
           </div>
@@ -709,11 +707,10 @@ export function EmployeeDashboard() {
             <button
               type="button"
               onClick={() => setActiveTab('punch')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'punch'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md'
-                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'punch'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md'
+                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
             >
               <Clock className="w-3.5 h-3.5 text-emerald-500" />
               <span>Live Punch</span>
@@ -721,11 +718,10 @@ export function EmployeeDashboard() {
             <button
               type="button"
               onClick={() => setActiveTab('timesheet')}
-              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'timesheet'
-                  ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md'
-                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${activeTab === 'timesheet'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-md'
+                : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
             >
               <Calendar className="w-3.5 h-3.5 text-primary" />
               <span>My Timesheet</span>
