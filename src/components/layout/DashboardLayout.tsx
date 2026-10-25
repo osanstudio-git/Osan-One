@@ -16,7 +16,23 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
   const { profile, signOut } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 1280;
+    }
+    return false;
+  });
+
+  // Responsive sidebar auto-collapse for tablets (< 1280px)
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1280) {
+        setIsCollapsed(true);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Close mobile drawer on route navigation
   useEffect(() => {

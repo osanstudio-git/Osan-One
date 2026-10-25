@@ -807,75 +807,81 @@ export function HrEmployeeProfile() {
       <div className="bg-white dark:bg-white/5 p-4 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none animate-pulse" />
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 relative z-10">
-          {/* Avatar Container */}
-          <div className="shrink-0">
-            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/30 flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary shadow-lg overflow-hidden">
-              {employee.avatar_url ? (
-                <img src={employee.avatar_url} alt={employee.name} className="w-full h-full object-cover" />
-              ) : (
-                getInitials(employee.name)
-              )}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5 sm:gap-6 relative z-10">
+          {/* Employee Identity Group */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6 min-w-0 flex-1 w-full">
+            {/* Avatar Container */}
+            <div className="shrink-0">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/30 flex items-center justify-center text-2xl sm:text-3xl font-bold text-primary shadow-lg overflow-hidden">
+                {employee.avatar_url ? (
+                  <img src={employee.avatar_url} alt={employee.name} className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(employee.name)
+                )}
+              </div>
+
+              <input
+                id="hr-employee-avatar-upload"
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={isUploadingPhoto}
+                onChange={handleAvatarUpload}
+              />
             </div>
 
-            <input
-              id="hr-employee-avatar-upload"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              disabled={isUploadingPhoto}
-              onChange={handleAvatarUpload}
-            />
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white truncate">{employee.name}</h1>
-              <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${employee.status === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/20'}`}>
-                {employee.status}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 text-xs sm:text-sm text-slate-600 dark:text-gray-400 mb-2 font-medium">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Briefcase className="w-4 h-4 text-primary shrink-0" />
-                <span className="truncate">{employee.role.replace('_', ' ')}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 dark:text-white break-words">
+                  {employee.name}
+                </h1>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-bold border ${employee.status === 'Active' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' : 'bg-slate-100 text-slate-500 border-slate-200 dark:bg-gray-500/10 dark:text-gray-400 dark:border-gray-500/20'}`}>
+                  {employee.status}
+                </span>
               </div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span className="truncate">{employee.company}</span>
-              </div>
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-                <span className="truncate">{employee.email}</span>
-              </div>
-            </div>
 
-            {/* Quick Photo Actions */}
-            <div className="flex items-center gap-2 mt-1">
-              <label
-                htmlFor="hr-employee-avatar-upload"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-gray-300 rounded-lg text-xs font-bold cursor-pointer transition-colors"
-              >
-                <Camera className="w-3.5 h-3.5 text-primary" />
-                <span>{employee.avatar_url ? 'Change Photo' : 'Upload Photo'}</span>
-              </label>
-              {employee.avatar_url && (
-                <button
-                  type="button"
-                  onClick={handleRemoveAvatar}
-                  disabled={isUploadingPhoto}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 text-red-500 hover:bg-red-500/10 rounded-lg text-xs font-bold transition-colors cursor-pointer"
-                  title="Remove custom photo and reset to initials"
+              <div className="flex flex-wrap gap-x-4 sm:gap-x-6 gap-y-2 text-xs sm:text-sm text-slate-600 dark:text-gray-400 mb-2 font-medium">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Briefcase className="w-4 h-4 text-primary shrink-0" />
+                  <span className="truncate">{employee.role.replace('_', ' ')}</span>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <MapPin className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <span className="truncate">{employee.company}</span>
+                </div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Mail className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span className="truncate">{employee.email}</span>
+                </div>
+              </div>
+
+              {/* Quick Photo Actions */}
+              <div className="flex items-center gap-2 mt-1">
+                <label
+                  htmlFor="hr-employee-avatar-upload"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-gray-300 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-2xs"
                 >
-                  <Trash2 className="w-3 h-3" />
-                  <span>Remove</span>
-                </button>
-              )}
+                  <Camera className="w-3.5 h-3.5 text-primary" />
+                  <span>{employee.avatar_url ? 'Change Photo' : 'Upload Photo'}</span>
+                </label>
+                {employee.avatar_url && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveAvatar}
+                    disabled={isUploadingPhoto}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 text-red-500 hover:bg-red-500/10 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                    title="Remove custom photo and reset to initials"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>Remove</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-3 w-full md:w-auto">
+          {/* Action Buttons Toolbar: neatly wrapping below identity on tablets & mobile, or aligned right on wide desktop */}
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 w-full xl:w-auto pt-3 sm:pt-4 xl:pt-0 border-t xl:border-t-0 border-slate-100 dark:border-white/5 shrink-0">
             <button
               onClick={() => sendEmployeeWhatsAppInvite({
                 name: employee.name,
@@ -884,10 +890,10 @@ export function HrEmployeeProfile() {
                 company: employee.company || 'Osan Group',
                 pin: employee.pin || '123456'
               })}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <MessageSquare className="w-4 h-4" />
-              Share Login (WhatsApp)
+              <MessageSquare className="w-4 h-4 shrink-0" />
+              <span>Share Login (WhatsApp)</span>
             </button>
             <button
               onClick={() => {
@@ -1010,10 +1016,10 @@ export function HrEmployeeProfile() {
                 `);
                 printWindow.document.close();
               }}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white shadow-xs cursor-pointer active:scale-95"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10 border border-slate-200 dark:border-white/10 rounded-xl text-xs font-bold transition-colors text-slate-700 dark:text-white shadow-xs cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <Download className="w-4 h-4" />
-              Export PDF Profile
+              <Download className="w-4 h-4 shrink-0" />
+              <span>Export PDF Profile</span>
             </button>
             <button
               onClick={() => {
@@ -1039,18 +1045,18 @@ export function HrEmployeeProfile() {
                   dailyLogs: monthlyHeatmapData,
                 });
               }}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-xs font-bold transition-colors text-emerald-700 dark:text-emerald-300 shadow-xs cursor-pointer active:scale-95"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-xs font-bold transition-colors text-emerald-700 dark:text-emerald-300 shadow-xs cursor-pointer active:scale-95 whitespace-nowrap"
               title="Download official monthly attendance report sheet"
             >
-              <FileText className="w-4 h-4" />
-              Attendance Sheet
+              <FileText className="w-4 h-4 shrink-0" />
+              <span>Attendance Sheet</span>
             </button>
             <button
               onClick={() => setIsManageModalOpen(true)}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 bg-primary/10 dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 border border-primary/30 rounded-xl text-xs font-bold transition-all text-primary cursor-pointer"
+              className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 bg-primary/10 dark:bg-primary/20 hover:bg-primary/20 dark:hover:bg-primary/30 border border-primary/30 rounded-xl text-xs font-bold transition-all text-primary cursor-pointer active:scale-95 whitespace-nowrap"
             >
-              <Settings className="w-4 h-4" />
-              Manage Status
+              <Settings className="w-4 h-4 shrink-0" />
+              <span>Manage Status</span>
             </button>
           </div>
         </div>
@@ -1071,7 +1077,7 @@ export function HrEmployeeProfile() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as EmployeeTabType)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${activeTab === tab.id
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all ${activeTab === tab.id
               ? 'bg-primary/10 text-primary border border-primary/30 shadow-sm dark:bg-primary/20 dark:border-primary/40'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5'
               }`}
