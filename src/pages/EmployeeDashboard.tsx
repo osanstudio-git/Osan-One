@@ -1037,7 +1037,7 @@ export function EmployeeDashboard() {
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10">
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-white">Need to take time off?</h3>
-                  <p className="text-xs text-slate-500 dark:text-gray-400">Submit a new leave application with optional medical or travel documents.</p>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">Submit a new leave application with your preferred dates and reason notes.</p>
                 </div>
                 <button
                   onClick={() => setIsLeaveModalOpen(true)}
@@ -1070,7 +1070,7 @@ export function EmployeeDashboard() {
                           <th className="p-3">{t('leaveType')}</th>
                           <th className="p-3">{t('dates')}</th>
                           <th className="p-3">{t('status')}</th>
-                          <th className="p-3 pr-4 text-right rtl:text-left">{t('viewDocument')}</th>
+                          <th className="p-3 pr-4 text-right rtl:text-left">Medical Report / Document</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
@@ -1086,6 +1086,11 @@ export function EmployeeDashboard() {
                                 }`}>
                                 {l.leaveType} Leave
                               </span>
+                              {l.notes && (
+                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-normal italic mt-0.5 truncate max-w-[200px]" title={l.notes}>
+                                  "{l.notes}"
+                                </p>
+                              )}
                             </td>
                             <td className="p-3 text-slate-700 dark:text-gray-300 font-mono text-[11px]">
                               {l.startDate} <span className="text-slate-400">➔</span> {l.endDate}
@@ -1104,17 +1109,35 @@ export function EmployeeDashboard() {
                             </td>
                             <td className="p-3 pr-4 text-right rtl:text-left">
                               {l.documentUrl ? (
-                                <button
-                                  onClick={() => setPreviewDocUrl(l.documentUrl)}
-                                  className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 font-bold text-[11px] border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1 cursor-pointer"
-                                >
-                                  <FileText className="w-3 h-3" />
-                                  <span>{t('viewDocument')}</span>
-                                </button>
+                                <div className="inline-flex items-center gap-1.5 justify-end">
+                                  <button
+                                    onClick={() => setPreviewDocUrl(l.documentUrl)}
+                                    className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 font-bold text-[11px] border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                  >
+                                    <FileText className="w-3 h-3" />
+                                    <span>View Report</span>
+                                  </button>
+                                  <label className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Replace / Update medical report">
+                                    <UploadCloud className="w-3.5 h-3.5" />
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept="image/*,.pdf"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleUploadMedicalDoc(l.id, f);
+                                      }}
+                                    />
+                                  </label>
+                                </div>
                               ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
-                                <label className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 font-bold text-[11px] border border-amber-500/30 inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs" title="Upload Doctor / Hospital Sick Leave Certificate">
-                                  <UploadCloud className="w-3 h-3" />
-                                  <span>Attach Medical Note</span>
+                                <label className={`px-2.5 py-1 rounded-lg font-extrabold text-[11px] border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs ${
+                                  l.status === 'Approved'
+                                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 ring-2 ring-emerald-500/10'
+                                    : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                }`} title="Upload Doctor / Hospital Sick Leave Certificate">
+                                  <UploadCloud className="w-3.5 h-3.5" />
+                                  <span>+ Upload Medical Report</span>
                                   <input
                                     type="file"
                                     className="hidden"

@@ -1,22 +1,21 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, UploadCloud, ChevronDown, ShieldAlert, FileText, CheckCircle2, Trash2 } from 'lucide-react';
+import { X, Calendar, ChevronDown, ShieldAlert } from 'lucide-react';
 import type { LeaveType } from '../../types';
 
 interface LeaveModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => Promise<void>;
-  balances: { yearly: number; sick: number; pregnancy: number };
+  balances?: { yearly: number; sick: number; pregnancy: number };
   userProfile?: any;
 }
 
-export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }: LeaveModalProps) {
+export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModalProps) {
   const [leaveType, setLeaveType] = useState<LeaveType>('Yearly');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Derive user details (fallbacks for mock stability)
@@ -135,7 +134,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ leaveType, startDate, endDate, durationDays: requestDurationDays, file, notes });
+      await onSubmit({ leaveType, startDate, endDate, durationDays: requestDurationDays, notes });
       onClose();
     } catch (error) {
       console.error(error);
@@ -173,21 +172,6 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto max-h-[80vh]">
-              {/* Balances Display Cards */}
-              <div className="grid grid-cols-3 gap-3 mb-2">
-                <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-3 text-center">
-                  <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{balances.yearly}</div>
-                  <div className="text-xs font-bold text-slate-600 dark:text-gray-300 mt-1">Yearly Days</div>
-                </div>
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-3 text-center">
-                  <div className="text-2xl font-black text-amber-600 dark:text-amber-400">{balances.sick}</div>
-                  <div className="text-xs font-bold text-slate-600 dark:text-gray-300 mt-1">Sick Days</div>
-                </div>
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-3 text-center">
-                  <div className="text-2xl font-black text-blue-600 dark:text-blue-400">{balances.pregnancy}</div>
-                  <div className="text-xs font-bold text-slate-600 dark:text-gray-300 mt-1">Maternity</div>
-                </div>
-              </div>
 
               {/* Yearly leave 6-months guard check message */}
               {leaveType === 'Yearly' && !isEligibleForYearly && (
@@ -305,63 +289,6 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
                   rows={2}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-xs resize-none placeholder:text-slate-400"
                 />
-              </div>
-
-              {/* File Attachment */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
-                    {leaveType === 'Sick' || leaveType === 'Maternity'
-                      ? 'Medical Report / Sick Certificate (Optional)'
-                      : 'Required Documentation (Optional)'}
-                  </label>
-                  {(leaveType === 'Sick' || leaveType === 'Maternity') && (
-                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
-                      Can also upload after visiting doctor
-                    </span>
-                  )}
-                </div>
-                {file ? (
-                  <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-                        <FileText className="w-5 h-5" />
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{file.name}</p>
-                        <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold flex items-center gap-1 mt-0.5">
-                          <CheckCircle2 className="w-3 h-3" /> Ready to upload ({(Math.round(file.size / 1024))} KB)
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFile(null)}
-                      className="p-2 rounded-xl text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer shrink-0"
-                      title="Remove file"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="relative border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl p-5 text-center bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer group">
-                    <input
-                      type="file"
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={(e) => setFile(e.target.files?.[0] || null)}
-                      accept="image/*,.pdf"
-                    />
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <UploadCloud className="w-7 h-7 text-slate-400 dark:text-gray-400 group-hover:text-primary transition-colors" />
-                      <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
-                        {leaveType === 'Sick' || leaveType === 'Maternity'
-                          ? 'Attach Hospital Sick Leave Certificate or Medical Note'
-                          : 'Attach Medical Report, Certificate, or Official Document'}
-                      </span>
-                      <span className="text-[10px] text-slate-400 dark:text-gray-500">Supports PDF, JPG, PNG (Max 10MB)</span>
-                    </div>
-                  </div>
-                )}
               </div>
 
               {/* Submit Button */}
