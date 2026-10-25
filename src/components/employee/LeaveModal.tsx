@@ -15,6 +15,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
   const [leaveType, setLeaveType] = useState<LeaveType>('Yearly');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [notes, setNotes] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -134,7 +135,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ leaveType, startDate, endDate, durationDays: requestDurationDays, file });
+      await onSubmit({ leaveType, startDate, endDate, durationDays: requestDurationDays, file, notes });
       onClose();
     } catch (error) {
       console.error(error);
@@ -292,9 +293,34 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
                 </div>
               )}
 
+              {/* Reason / Notes Field */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                  Reason / Notes (Optional)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="State the reason or purpose for your leave request..."
+                  rows={2}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-xs resize-none placeholder:text-slate-400"
+                />
+              </div>
+
               {/* File Attachment */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">Required Documentation (Optional)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                    {leaveType === 'Sick' || leaveType === 'Maternity'
+                      ? 'Medical Report / Sick Certificate (Optional)'
+                      : 'Required Documentation (Optional)'}
+                  </label>
+                  {(leaveType === 'Sick' || leaveType === 'Maternity') && (
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold">
+                      Can also upload after visiting doctor
+                    </span>
+                  )}
+                </div>
                 {file ? (
                   <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 overflow-hidden">
@@ -328,7 +354,9 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
                     <div className="flex flex-col items-center justify-center gap-2">
                       <UploadCloud className="w-7 h-7 text-slate-400 dark:text-gray-400 group-hover:text-primary transition-colors" />
                       <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
-                        Attach Medical Report, Certificate, or Official Document
+                        {leaveType === 'Sick' || leaveType === 'Maternity'
+                          ? 'Attach Hospital Sick Leave Certificate or Medical Note'
+                          : 'Attach Medical Report, Certificate, or Official Document'}
                       </span>
                       <span className="text-[10px] text-slate-400 dark:text-gray-500">Supports PDF, JPG, PNG (Max 10MB)</span>
                     </div>

@@ -187,3 +187,111 @@ export function sendAbsentWarningWhatsAppNotice(notice: AbsentWarningNotice) {
   window.open(whatsappUrl, '_blank');
 }
 
+export interface LeaveApprovalNotice {
+  employeeName: string;
+  phone?: string;
+  leaveType?: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  language: 'en' | 'ar';
+}
+
+export function getLeaveApprovalWhatsAppText(notice: LeaveApprovalNotice): string {
+  const isAnnual = !notice.leaveType || notice.leaveType.toLowerCase().includes('yearly') || notice.leaveType.toLowerCase().includes('annual');
+  const typeEn = isAnnual ? 'annual leave' : `${notice.leaveType} leave`;
+  const typeAr = isAnnual ? 'إجازتكم السنوية' : `إجازتكم (${notice.leaveType})`;
+
+  if (notice.language === 'ar') {
+    return `الموضوع: الموافقة على طلب الإجازة السنوية
+الفاضل\\ة: ${notice.employeeName} المحترم/ة،
+نود إفادتكم بأنه قد تمت الموافقة على طلب ${typeAr} للفترة من ${notice.startDate} إلى ${notice.endDate}، لمدة إجمالية قدرها ${notice.totalDays} يومًا، وذلك بناءً على رصيد إجازاتكم المتاح ووفقًا لسياسات الموارد البشرية المعتمدة في الشركة.
+يرجى التنسيق مع المسؤول المباشر لضمان تسليم المهام والمسؤوليات بالشكل المناسب، والمحافظة على استمرارية سير العمل خلال فترة غيابكم.
+
+نتمنى لكم إجازة سعيدة ومريحة.
+
+وتفضلوا بقبول فائق الاحترام والتقدير،
+إخلاص سعيد النيري
+قسم الموارد البشرية`;
+  }
+
+  return `Dear Ms.\\ Mr. ${notice.employeeName},
+We would like to inform you that your request for ${typeEn} has been approved for the period from ${notice.startDate} to ${notice.endDate}, for a total of ${notice.totalDays} days, based on your available leave balance and in accordance with the company’s HR policies.
+Kindly coordinate with your direct supervisor to ensure proper handover of responsibilities and maintain workflow continuity during your absence.
+
+We wish you a pleasant and restful vacation.
+
+Best regards, 
+Eklas Said Al Nairi
+HR`;
+}
+
+export function getLeaveApprovalWhatsAppUrl(notice: LeaveApprovalNotice): string {
+  const phoneRaw = notice.phone || '';
+  const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
+  let formattedPhone = digitsOnly.replace(/^0+/, '');
+  if (formattedPhone.length === 8) {
+    formattedPhone = `968${formattedPhone}`;
+  }
+
+  const messageText = getLeaveApprovalWhatsAppText(notice);
+  const encodedText = encodeURIComponent(messageText);
+  return formattedPhone 
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
+}
+
+export interface LeaveRejectionNotice {
+  employeeName: string;
+  phone?: string;
+  leaveType?: string;
+  startDate: string;
+  endDate: string;
+  language: 'en' | 'ar';
+}
+
+export function getLeaveRejectionWhatsAppText(notice: LeaveRejectionNotice): string {
+  const isAnnual = !notice.leaveType || notice.leaveType.toLowerCase().includes('yearly') || notice.leaveType.toLowerCase().includes('annual');
+  const typeEn = isAnnual ? 'annual leave' : `${notice.leaveType} leave`;
+  const typeAr = isAnnual ? 'إجازتكم السنوية' : `إجازتكم (${notice.leaveType})`;
+
+  if (notice.language === 'ar') {
+    return `الموضوع: رفض طلب الإجازة السنوية
+الفاضل\\ة: ${notice.employeeName} المحترم/ة،
+نود إفادتكم بأنه، وبعد مراجعة طلب ${typeAr} للفترة من ${notice.startDate} إلى ${notice.endDate}، يؤسفنا إبلاغكم بأنه لم تتم الموافقة على الطلب، وذلك وفقًا لمتطلبات العمل وسياسات الموارد البشرية المعتمدة في الشركة.
+يرجى التنسيق مع المسؤول المباشر في حال الرغبة في تقديم طلب إجازة بديل، بما يضمن تلبية متطلبات العمل والمحافظة على استمرارية سيره.
+
+نشكركم على تفهمكم وتعاونكم.
+
+وتفضلوا بقبول فائق الاحترام والتقدير،
+إخلاص سعيد النعيري
+قسم الموارد البشرية`;
+  }
+
+  return `Subject: Annual Leave Request Rejection
+Dear Mr./Ms. ${notice.employeeName},
+We regret to inform you that your ${typeEn} request for the period from ${notice.startDate} to ${notice.endDate} has not been approved, due to operational requirements and in accordance with the company’s HR policies.
+Kindly coordinate with your direct supervisor if you wish to submit an alternative leave request, ensuring that business needs are met and workflow continuity is maintained.
+
+Thank you for your understanding and cooperation.
+
+Best regards,
+Eklas Said Al Nairi
+HR Department`;
+}
+
+export function getLeaveRejectionWhatsAppUrl(notice: LeaveRejectionNotice): string {
+  const phoneRaw = notice.phone || '';
+  const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
+  let formattedPhone = digitsOnly.replace(/^0+/, '');
+  if (formattedPhone.length === 8) {
+    formattedPhone = `968${formattedPhone}`;
+  }
+
+  const messageText = getLeaveRejectionWhatsAppText(notice);
+  const encodedText = encodeURIComponent(messageText);
+  return formattedPhone 
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
+}
+

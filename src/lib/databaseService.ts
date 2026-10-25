@@ -1183,7 +1183,7 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
   }
 
   try {
-    const { data: usersData } = await supabase.from('users').select('id, name, leave_balance_yearly, leave_balance_sick');
+    const { data: usersData } = await supabase.from('users').select('id, name, phone, email, leave_balance_yearly, leave_balance_sick');
     const userMap: Record<string, any> = {};
     (usersData || []).forEach(u => { userMap[u.id] = u; });
 
@@ -1199,19 +1199,27 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
 
     return data.map(r => {
       const u = userMap[r.user_id] || {};
+      const start = new Date(r.start_date);
+      const end = new Date(r.end_date);
+      const durationDays = r.duration_days || Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
       return {
         id: r.id,
         user_id: r.user_id,
         employee: u.name || 'Employee',
+        phone: u.phone,
+        email: u.email,
         type: r.leave_type || 'Yearly',
         start: r.start_date,
         end: r.end_date,
+        durationDays,
         status: r.status || 'Pending',
         balances: {
           yearly: u.leave_balance_yearly ?? 30,
           sick: u.leave_balance_sick ?? 14,
         },
         documentUrl: r.document_url,
+        notes: r.rejection_reason || null,
         createdAt: r.created_at
       };
     });
@@ -1260,6 +1268,7 @@ export async function getEmployeeLeaveRequestsFromDb(userId: string, email?: str
         durationDays,
         status: (r.status || 'Pending') as 'Pending' | 'Approved' | 'Rejected',
         documentUrl: r.document_url,
+        notes: r.rejection_reason || null,
         createdAt: r.created_at
       };
     });
@@ -1277,6 +1286,7 @@ export async function createLeaveRequestInDb(request: {
   endDate: string;
   durationDays?: number;
   documentUrl?: string;
+  notes?: string;
 }): Promise<{ success: boolean; error?: string }> {
   if (!isLiveSupabaseConfigured()) {
     return { success: true };
@@ -1337,6 +1347,7 @@ export async function createLeaveRequestInDb(request: {
         start_date: request.startDate,
         end_date: request.endDate,
         document_url: request.documentUrl || null,
+        rejection_reason: request.notes || null,
         status: 'Pending'
       }])
       .select();
@@ -1349,6 +1360,90 @@ export async function createLeaveRequestInDb(request: {
     return { success: true };
   } catch (err: any) {
     console.error('Failed to submit leave request to Supabase:', err);
+    return { success: false, error: err?.message || 'Database error occurred' };
+  }
+}
+
+export async function attachMedicalReportToLeaveInDb(leaveId: string, documentUrl: string): Promise<boolean> {
+  if (!isLiveSupabaseConfigured()) return true;
+  try {
+    const { error } = await supabase
+      .from('leave_requests')
+      .update({ document_url: documentUrl })
+      .eq('id', leaveId);
+    return !error;
+  } catch (e) {
+    console.error('Failed to attach medical report:', e);
+    return false;
+  }
+}
+
+export async function recordEmployeeLeaveByHrInDb(data: {
+  userId: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  durationDays?: number;
+  status: 'Approved' | 'Pending';
+  notes?: string;
+  documentUrl?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  if (!isLiveSupabaseConfigured()) return { success: true };
+
+  try {
+    const lowerType = (data.leaveType || '').toLowerCase();
+    let dbLeaveType: 'Yearly' | 'Sick' | 'Unpaid' = 'Yearly';
+    if (lowerType.includes('sick')) {
+      dbLeaveType = 'Sick';
+    } else if (lowerType.includes('unpaid')) {
+      dbLeaveType = 'Unpaid';
+    } else {
+      dbLeaveType = 'Yearly';
+    }
+
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+    const days = data.durationDays || Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    const { error } = await supabase
+      .from('leave_requests')
+      .insert([{
+        user_id: data.userId,
+        leave_type: dbLeaveType,
+        start_date: data.startDate,
+        end_date: data.endDate,
+        document_url: data.documentUrl || null,
+        rejection_reason: data.notes || null,
+        status: data.status || 'Approved'
+      }]);
+
+    if (error) {
+      console.error('Failed to record leave by HR:', error.message);
+      return { success: false, error: error.message };
+    }
+
+    // If status is Approved, automatically deduct from employee balance
+    if (data.status === 'Approved') {
+      const { data: userRecord } = await supabase
+        .from('users')
+        .select('leave_balance_yearly, leave_balance_sick')
+        .eq('id', data.userId)
+        .maybeSingle();
+
+      if (userRecord) {
+        if (dbLeaveType === 'Yearly') {
+          const newBal = Math.max(0, (userRecord.leave_balance_yearly ?? 30) - days);
+          await supabase.from('users').update({ leave_balance_yearly: newBal }).eq('id', data.userId);
+        } else if (dbLeaveType === 'Sick') {
+          const newBal = Math.max(0, (userRecord.leave_balance_sick ?? 14) - days);
+          await supabase.from('users').update({ leave_balance_sick: newBal }).eq('id', data.userId);
+        }
+      }
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    console.error('Failed to record HR leave:', err);
     return { success: false, error: err?.message || 'Database error occurred' };
   }
 }

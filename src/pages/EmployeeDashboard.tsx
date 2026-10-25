@@ -7,12 +7,12 @@ import { CompactWidget } from '../components/employee/CompactWidget';
 import { ThemeToggle } from '../components/common/ThemeToggle';
 import { LanguageToggle } from '../components/common/LanguageToggle';
 import { useLanguage } from '../contexts/LanguageContext';
-import { Calendar, Clock, LogOut, CheckCircle2, History, AlertTriangle, Building2, MapPin, FileText, XCircle, X, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, LogOut, CheckCircle2, History, AlertTriangle, Building2, MapPin, FileText, XCircle, X, RefreshCw, UploadCloud } from 'lucide-react';
 import { getCompanySettings, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
-import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar, getEmployeeAvatarFromDb, syncAvatarToCloud, invalidateEmployeeCache, invalidateCompanyCache } from '../lib/databaseService';
+import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar, getEmployeeAvatarFromDb, syncAvatarToCloud, invalidateEmployeeCache, invalidateCompanyCache, attachMedicalReportToLeaveInDb } from '../lib/databaseService';
 import { EmployeeProfileModal } from '../components/employee/EmployeeProfileModal';
 import { EmployeeAttendanceTimesheet } from '../components/employee/EmployeeAttendanceTimesheet';
 
@@ -485,6 +485,7 @@ export function EmployeeDashboard() {
         endDate: data.endDate,
         durationDays: data.durationDays || 1,
         documentUrl,
+        notes: data.notes,
       });
 
       if (res.success) {
@@ -497,6 +498,22 @@ export function EmployeeDashboard() {
     } catch (err: any) {
       console.error('Failed to submit leave request:', err);
       alert(t('uploadFailed') || 'Failed to submit leave request. Please try again.');
+    }
+  };
+
+  const handleUploadMedicalDoc = async (leaveId: string, file: File) => {
+    try {
+      const base64 = await convertFileToBase64(file);
+      const success = await attachMedicalReportToLeaveInDb(leaveId, base64);
+      if (success) {
+        alert('Medical report uploaded successfully! HR can now review it.');
+        await loadEmployeeLeaves();
+      } else {
+        alert('Failed to upload medical report. Please try again.');
+      }
+    } catch (e) {
+      console.error('Failed to upload medical report:', e);
+      alert('Error reading medical file.');
     }
   };
 
@@ -1094,6 +1111,20 @@ export function EmployeeDashboard() {
                                   <FileText className="w-3 h-3" />
                                   <span>{t('viewDocument')}</span>
                                 </button>
+                              ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
+                                <label className="px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 font-bold text-[11px] border border-amber-500/30 inline-flex items-center gap-1 cursor-pointer transition-colors shadow-2xs" title="Upload Doctor / Hospital Sick Leave Certificate">
+                                  <UploadCloud className="w-3 h-3" />
+                                  <span>Attach Medical Note</span>
+                                  <input
+                                    type="file"
+                                    className="hidden"
+                                    accept="image/*,.pdf"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0];
+                                      if (f) handleUploadMedicalDoc(l.id, f);
+                                    }}
+                                  />
+                                </label>
                               ) : (
                                 <span className="text-slate-400 text-[11px] italic">None</span>
                               )}

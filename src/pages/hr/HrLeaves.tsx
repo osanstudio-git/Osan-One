@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { LayoutGrid, List, CheckCircle2, XCircle, Clock, Search, Calendar, Plus, Trash2, Globe, Check, X, FileText } from 'lucide-react';
-import { getLeaveRequestsFromDb, updateLeaveRequestStatusInDb } from '../../lib/databaseService';
+import { LayoutGrid, List, CheckCircle2, XCircle, Clock, Search, Calendar, Plus, Trash2, Globe, Check, X, FileText, MessageSquare, UserCheck } from 'lucide-react';
+import { getLeaveRequestsFromDb, updateLeaveRequestStatusInDb, recordEmployeeLeaveByHrInDb } from '../../lib/databaseService';
 import { getPublicHolidays, addPublicHoliday, deletePublicHoliday, type PublicHoliday } from '../../lib/holidayService';
+import { getLeaveApprovalWhatsAppUrl, getLeaveRejectionWhatsAppUrl } from '../../lib/whatsappService';
 import { supabase } from '../../lib/supabase';
 
 export function HrLeaves() {
@@ -17,6 +18,25 @@ export function HrLeaves() {
   });
   const [statusFilter, setStatusFilter] = useState<'all' | 'Pending' | 'Approved' | 'Rejected'>('Pending');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Record Leave on Behalf of Employee State
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [employeesList, setEmployeesList] = useState<any[]>([]);
+  const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
+  const [recordForm, setRecordForm] = useState({
+    userId: '',
+    leaveType: 'Yearly',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    status: 'Approved' as 'Approved' | 'Pending',
+    notes: ''
+  });
+
+  // Action Notice Modal State (WhatsApp instant prompt)
+  const [actionModalNotice, setActionModalNotice] = useState<{
+    leave: any;
+    action: 'Approved' | 'Rejected';
+  } | null>(null);
 
   // Holidays state
   const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
@@ -50,6 +70,15 @@ export function HrLeaves() {
   useEffect(() => {
     loadLeaves();
     setHolidays(getPublicHolidays());
+
+    const fetchEmployees = async () => {
+      const { data } = await supabase
+        .from('users')
+        .select('id, name, email, phone, role, job_title, department')
+        .order('name');
+      if (data) setEmployeesList(data);
+    };
+    fetchEmployees();
 
     // Subscribe to live leave requests via Supabase Realtime
     const channel = supabase
@@ -85,14 +114,59 @@ export function HrLeaves() {
   };
 
   const handleAction = async (id: string, status: 'Approved' | 'Rejected') => {
+    const targetLeave = leaves.find(l => l.id === id);
     // Optimistic UI update: instantly update status on screen
     setLeaves(prev => prev.map(l => l.id === id ? { ...l, status } : l));
     try {
       await updateLeaveRequestStatusInDb(id, status);
       await loadLeaves();
+      if (targetLeave) {
+        setActionModalNotice({
+          leave: { ...targetLeave, status },
+          action: status
+        });
+      }
     } catch (err) {
       console.error('Failed to update leave status:', err);
       await loadLeaves();
+    }
+  };
+
+  const handleRecordLeaveSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recordForm.userId || !recordForm.startDate || !recordForm.endDate) {
+      alert('Please select an employee and valid start/end dates.');
+      return;
+    }
+    setIsSubmittingRecord(true);
+    try {
+      const res = await recordEmployeeLeaveByHrInDb({
+        userId: recordForm.userId,
+        leaveType: recordForm.leaveType,
+        startDate: recordForm.startDate,
+        endDate: recordForm.endDate,
+        status: recordForm.status,
+        notes: recordForm.notes
+      });
+      if (res.success) {
+        setIsRecordModalOpen(false);
+        setRecordForm({
+          userId: '',
+          leaveType: 'Yearly',
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0],
+          status: 'Approved',
+          notes: ''
+        });
+        await loadLeaves();
+        alert('Employee leave recorded successfully in database and balance adjusted!');
+      } else {
+        alert(res.error || 'Failed to record leave.');
+      }
+    } catch (err: any) {
+      alert('Error recording leave: ' + err?.message);
+    } finally {
+      setIsSubmittingRecord(false);
     }
   };
 
@@ -152,58 +226,77 @@ export function HrLeaves() {
               </div>
 
               {/* Mobile view switcher in top-right */}
-              <div className="flex sm:hidden items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-white/10 shrink-0">
+              <div className="flex sm:hidden items-center gap-1.5 shrink-0">
                 <button
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    viewMode === 'grid'
-                      ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
-                      : 'text-slate-500 hover:text-slate-900 dark:text-gray-400'
-                  }`}
-                  title="Grid View"
+                  onClick={() => setIsRecordModalOpen(true)}
+                  className="p-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer"
+                  title="Record Employee Leave"
                 >
-                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    viewMode === 'list'
-                      ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
-                      : 'text-slate-500 hover:text-slate-900 dark:text-gray-400'
-                  }`}
-                  title="List View"
-                >
-                  <List className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-0.5 rounded-xl border border-slate-200 dark:border-white/10">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      viewMode === 'grid'
+                        ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-gray-400'
+                    }`}
+                    title="Grid View"
+                  >
+                    <LayoutGrid className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      viewMode === 'list'
+                        ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
+                        : 'text-slate-500 hover:text-slate-900 dark:text-gray-400'
+                    }`}
+                    title="List View"
+                  >
+                    <List className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Desktop view switcher */}
-            <div className="hidden sm:flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-white/10 shrink-0">
+            {/* Desktop Action & View Switcher */}
+            <div className="hidden sm:flex items-center gap-2.5">
               <button
-                onClick={() => setViewMode('grid')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewMode === 'grid'
-                    ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-                title="Grid View"
+                onClick={() => setIsRecordModalOpen(true)}
+                className="py-2 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-sm flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
-                <LayoutGrid className="w-4 h-4" />
-                <span>Grid</span>
+                <Plus className="w-4 h-4" />
+                <span>Record Employee Leave</span>
               </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  viewMode === 'list'
-                    ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
-                    : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
-                }`}
-                title="List View"
-              >
-                <List className="w-4 h-4" />
-                <span>List</span>
-              </button>
+
+              <div className="flex items-center bg-slate-100 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-white/10 shrink-0">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    viewMode === 'grid'
+                      ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                  title="Grid View"
+                >
+                  <LayoutGrid className="w-4 h-4" />
+                  <span>Grid</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    viewMode === 'list'
+                      ? 'bg-white dark:bg-white/10 text-[#1D70B8] shadow-xs'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'
+                  }`}
+                  title="List View"
+                >
+                  <List className="w-4 h-4" />
+                  <span>List</span>
+                </button>
+              </div>
             </div>
           </div>
         </>
@@ -338,18 +431,112 @@ export function HrLeaves() {
                     <FileText className="w-3.5 h-3.5" /> View Attached Document
                   </button>
                 )}
+
+                {leave.notes && (
+                  <div className="mt-2.5 p-2 bg-slate-50 dark:bg-white/5 rounded-xl border border-slate-100 dark:border-white/5 text-[11px] text-slate-600 dark:text-gray-300">
+                    <span className="font-bold text-slate-700 dark:text-gray-200">Reason / Notes:</span> {leave.notes}
+                  </div>
+                )}
               </div>
 
               {/* Status or Action Buttons */}
               <div className="mt-5 pt-3 border-t border-slate-100 dark:border-white/5">
                 {leave.status === 'Approved' ? (
-                  <span className="w-full py-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-emerald-500/20">
-                    <CheckCircle2 className="w-4 h-4" /> Approved
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="py-1 px-3 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-emerald-500/20">
+                      <CheckCircle2 className="w-4 h-4" /> Approved
+                    </span>
+
+                    {/* WhatsApp Notice pill (EN | AR) */}
+                    <div className="inline-flex items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-0.5 text-[11px] shadow-2xs">
+                      <div className="px-1.5 py-0.5 flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span className="text-[10px]">Notice:</span>
+                      </div>
+                      <a
+                        href={getLeaveApprovalWhatsAppUrl({
+                          employeeName: leave.employee,
+                          phone: leave.phone,
+                          leaveType: leave.type,
+                          startDate: leave.start,
+                          endDate: leave.end,
+                          totalDays: leave.durationDays,
+                          language: 'en'
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded-md font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        title={`Send English Approval Message to ${leave.employee}`}
+                      >
+                        EN
+                      </a>
+                      <span className="opacity-30 text-[10px] select-none">|</span>
+                      <a
+                        href={getLeaveApprovalWhatsAppUrl({
+                          employeeName: leave.employee,
+                          phone: leave.phone,
+                          leaveType: leave.type,
+                          startDate: leave.start,
+                          endDate: leave.end,
+                          totalDays: leave.durationDays,
+                          language: 'ar'
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded-md font-black text-emerald-600 dark:text-emerald-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        title={`إرسال رسالة الموافقة بالعربية إلى ${leave.employee}`}
+                      >
+                        AR
+                      </a>
+                    </div>
+                  </div>
                 ) : leave.status === 'Rejected' ? (
-                  <span className="w-full py-2 bg-red-500/10 text-red-600 dark:text-red-400 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 border border-red-500/20">
-                    <XCircle className="w-4 h-4" /> Rejected
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="py-1 px-3 bg-red-500/10 text-red-600 dark:text-red-400 font-bold rounded-xl text-xs flex items-center gap-1.5 border border-red-500/20">
+                      <XCircle className="w-4 h-4" /> Rejected
+                    </span>
+
+                    {/* WhatsApp Notice pill (EN | AR) */}
+                    <div className="inline-flex items-center rounded-lg border border-red-500/30 bg-red-500/10 p-0.5 text-[11px] shadow-2xs">
+                      <div className="px-1.5 py-0.5 flex items-center gap-1 font-bold text-red-700 dark:text-red-400">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span className="text-[10px]">Notice:</span>
+                      </div>
+                      <a
+                        href={getLeaveRejectionWhatsAppUrl({
+                          employeeName: leave.employee,
+                          phone: leave.phone,
+                          leaveType: leave.type,
+                          startDate: leave.start,
+                          endDate: leave.end,
+                          language: 'en'
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded-md font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        title={`Send English Rejection Message to ${leave.employee}`}
+                      >
+                        EN
+                      </a>
+                      <span className="opacity-30 text-[10px] select-none">|</span>
+                      <a
+                        href={getLeaveRejectionWhatsAppUrl({
+                          employeeName: leave.employee,
+                          phone: leave.phone,
+                          leaveType: leave.type,
+                          startDate: leave.start,
+                          endDate: leave.end,
+                          language: 'ar'
+                        })}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2 py-0.5 rounded-md font-black text-red-600 dark:text-red-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                        title={`إرسال رسالة الرفض بالعربية إلى ${leave.employee}`}
+                      >
+                        AR
+                      </a>
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex gap-2">
                     <button
@@ -431,8 +618,88 @@ export function HrLeaves() {
                       </span>
                     </td>
                     <td className="p-4 text-right pr-6">
-                      {leave.status === 'Approved' || leave.status === 'Rejected' ? (
-                        <span className="text-slate-400 dark:text-gray-500 text-[11px] font-semibold italic">Processed</span>
+                      {leave.status === 'Approved' ? (
+                        <div className="inline-flex items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-0.5 text-[11px] shadow-2xs">
+                          <div className="px-1.5 py-0.5 flex items-center gap-1 font-bold text-emerald-700 dark:text-emerald-400">
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span className="text-[10px]">Notice:</span>
+                          </div>
+                          <a
+                            href={getLeaveApprovalWhatsAppUrl({
+                              employeeName: leave.employee,
+                              phone: leave.phone,
+                              leaveType: leave.type,
+                              startDate: leave.start,
+                              endDate: leave.end,
+                              totalDays: leave.durationDays,
+                              language: 'en'
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded-md font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            title={`Send English Approval Message to ${leave.employee}`}
+                          >
+                            EN
+                          </a>
+                          <span className="opacity-30 text-[10px] select-none">|</span>
+                          <a
+                            href={getLeaveApprovalWhatsAppUrl({
+                              employeeName: leave.employee,
+                              phone: leave.phone,
+                              leaveType: leave.type,
+                              startDate: leave.start,
+                              endDate: leave.end,
+                              totalDays: leave.durationDays,
+                              language: 'ar'
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded-md font-black text-emerald-600 dark:text-emerald-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            title={`إرسال رسالة الموافقة بالعربية إلى ${leave.employee}`}
+                          >
+                            AR
+                          </a>
+                        </div>
+                      ) : leave.status === 'Rejected' ? (
+                        <div className="inline-flex items-center rounded-lg border border-red-500/30 bg-red-500/10 p-0.5 text-[11px] shadow-2xs">
+                          <div className="px-1.5 py-0.5 flex items-center gap-1 font-bold text-red-700 dark:text-red-400">
+                            <MessageSquare className="w-3.5 h-3.5" />
+                            <span className="text-[10px]">Notice:</span>
+                          </div>
+                          <a
+                            href={getLeaveRejectionWhatsAppUrl({
+                              employeeName: leave.employee,
+                              phone: leave.phone,
+                              leaveType: leave.type,
+                              startDate: leave.start,
+                              endDate: leave.end,
+                              language: 'en'
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded-md font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            title={`Send English Rejection Message to ${leave.employee}`}
+                          >
+                            EN
+                          </a>
+                          <span className="opacity-30 text-[10px] select-none">|</span>
+                          <a
+                            href={getLeaveRejectionWhatsAppUrl({
+                              employeeName: leave.employee,
+                              phone: leave.phone,
+                              leaveType: leave.type,
+                              startDate: leave.start,
+                              endDate: leave.end,
+                              language: 'ar'
+                            })}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded-md font-black text-red-600 dark:text-red-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            title={`إرسال رسالة الرفض بالعربية إلى ${leave.employee}`}
+                          >
+                            AR
+                          </a>
+                        </div>
                       ) : (
                         <div className="inline-flex items-center gap-1.5">
                           {leave.documentUrl && (
@@ -757,6 +1024,248 @@ export function HrLeaves() {
                 Download / Open Full
               </a>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ACTION NOTICE (WHATSAPP MODAL PROMPT UPON APPROVE / REJECT) */}
+      {actionModalNotice && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-white/10 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${
+                  actionModalNotice.action === 'Approved' ? 'bg-emerald-500/15 text-emerald-600' : 'bg-rose-500/15 text-rose-600'
+                }`}>
+                  {actionModalNotice.action === 'Approved' ? <CheckCircle2 className="w-6 h-6" /> : <XCircle className="w-6 h-6" />}
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                    {actionModalNotice.action === 'Approved' ? 'Leave Request Approved' : 'Leave Request Rejected'}
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-gray-400">
+                    {actionModalNotice.leave.employee} • {actionModalNotice.leave.start} to {actionModalNotice.leave.end}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setActionModalNotice(null)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 text-xs text-slate-600 dark:text-gray-300">
+              Send the official {actionModalNotice.action === 'Approved' ? 'Approval' : 'Rejection'} letter to <strong>{actionModalNotice.leave.employee}</strong> on WhatsApp now?
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <a
+                href={actionModalNotice.action === 'Approved'
+                  ? getLeaveApprovalWhatsAppUrl({
+                      employeeName: actionModalNotice.leave.employee,
+                      phone: actionModalNotice.leave.phone,
+                      leaveType: actionModalNotice.leave.type,
+                      startDate: actionModalNotice.leave.start,
+                      endDate: actionModalNotice.leave.end,
+                      totalDays: actionModalNotice.leave.durationDays,
+                      language: 'en'
+                    })
+                  : getLeaveRejectionWhatsAppUrl({
+                      employeeName: actionModalNotice.leave.employee,
+                      phone: actionModalNotice.leave.phone,
+                      leaveType: actionModalNotice.leave.type,
+                      startDate: actionModalNotice.leave.start,
+                      endDate: actionModalNotice.leave.end,
+                      language: 'en'
+                    })}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setActionModalNotice(null)}
+                className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-800 dark:text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
+              >
+                <MessageSquare className="w-3.5 h-3.5 text-primary" />
+                <span>Send in English (EN)</span>
+              </a>
+
+              <a
+                href={actionModalNotice.action === 'Approved'
+                  ? getLeaveApprovalWhatsAppUrl({
+                      employeeName: actionModalNotice.leave.employee,
+                      phone: actionModalNotice.leave.phone,
+                      leaveType: actionModalNotice.leave.type,
+                      startDate: actionModalNotice.leave.start,
+                      endDate: actionModalNotice.leave.end,
+                      totalDays: actionModalNotice.leave.durationDays,
+                      language: 'ar'
+                    })
+                  : getLeaveRejectionWhatsAppUrl({
+                      employeeName: actionModalNotice.leave.employee,
+                      phone: actionModalNotice.leave.phone,
+                      leaveType: actionModalNotice.leave.type,
+                      startDate: actionModalNotice.leave.start,
+                      endDate: actionModalNotice.leave.end,
+                      language: 'ar'
+                    })}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setActionModalNotice(null)}
+                className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-center"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>إرسال بالعربية (AR)</span>
+              </a>
+            </div>
+
+            <button
+              onClick={() => setActionModalNotice(null)}
+              className="w-full py-2 text-center text-xs font-semibold text-slate-400 hover:text-slate-600 dark:hover:text-gray-300 cursor-pointer"
+            >
+              Skip WhatsApp Notice
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* RECORD EMPLOYEE LEAVE (HR DIRECT ENTRY MODAL) */}
+      {isRecordModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-white/10 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-600 flex items-center justify-center shrink-0">
+                  <UserCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Record Employee Leave</h3>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">Add already taken or approved leaves into records</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsRecordModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordLeaveSubmit} className="space-y-4">
+              {/* Employee Selection */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                  Select Employee *
+                </label>
+                <select
+                  required
+                  value={recordForm.userId}
+                  onChange={(e) => setRecordForm({ ...recordForm, userId: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+                >
+                  <option value="">-- Choose Employee --</option>
+                  {employeesList.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.job_title || emp.role} {emp.department ? `• ${emp.department}` : ''})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Leave Category */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                  Leave Category *
+                </label>
+                <select
+                  value={recordForm.leaveType}
+                  onChange={(e) => setRecordForm({ ...recordForm, leaveType: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+                >
+                  <option value="Yearly">Yearly / Annual Leave (Paid)</option>
+                  <option value="Sick">Sick / Medical Leave</option>
+                  <option value="Maternity">Maternity Leave (98 Days)</option>
+                  <option value="Paternity">Paternity Leave (7 Days)</option>
+                  <option value="Marriage">Marriage Leave (3 Days)</option>
+                  <option value="Bereavement_Immediate">Bereavement Leave</option>
+                  <option value="Unpaid">Unpaid Leave</option>
+                </select>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                    Start Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={recordForm.startDate}
+                    onChange={(e) => setRecordForm({ ...recordForm, startDate: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                    End Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={recordForm.endDate}
+                    min={recordForm.startDate}
+                    onChange={(e) => setRecordForm({ ...recordForm, endDate: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  />
+                </div>
+              </div>
+
+              {/* Status */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                  Record Status *
+                </label>
+                <select
+                  value={recordForm.status}
+                  onChange={(e) => setRecordForm({ ...recordForm, status: e.target.value as 'Approved' | 'Pending' })}
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+                >
+                  <option value="Approved">Approved (Already Taken - Automatically Deduct Balance)</option>
+                  <option value="Pending">Pending (Requires Review)</option>
+                </select>
+              </div>
+
+              {/* Notes / Reason */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                  Notes / Reference (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={recordForm.notes}
+                  onChange={(e) => setRecordForm({ ...recordForm, notes: e.target.value })}
+                  placeholder="e.g. Annual leave taken in Jan 2026, offline approval record..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2 border-t border-slate-100 dark:border-white/5">
+                <button
+                  type="button"
+                  onClick={() => setIsRecordModalOpen(false)}
+                  className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRecord}
+                  className="flex-1 py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-sm cursor-pointer"
+                >
+                  {isSubmittingRecord ? 'Saving...' : 'Save & Record Leave'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
