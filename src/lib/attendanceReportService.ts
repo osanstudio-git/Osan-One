@@ -495,8 +495,8 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
           <div class="val">${cleanCompanyEntity}</div>
         </td>
         <td style="width: 25%;">
-          <div class="lbl">Contact Phone / Email</div>
-          <div class="val">${[employee.phone, employee.email].filter(Boolean).join(' &bull; ') || 'N/A'}</div>
+          <div class="lbl">Contact Number</div>
+          <div class="val font-mono">${employee.phone || 'N/A'}</div>
         </td>
       </tr>
     </table>

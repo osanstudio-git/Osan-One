@@ -17,6 +17,7 @@ interface EmployeeAttendanceTimesheetProps {
   scheduledShiftEnd?: string;
   avatarUrl?: string;
   companyName?: string;
+  phone?: string;
 }
 
 const MONTH_NAMES = [
@@ -32,7 +33,8 @@ export function EmployeeAttendanceTimesheet({
   scheduledShiftStart = '08:30 AM',
   scheduledShiftEnd = '05:00 PM',
   avatarUrl,
-  companyName = 'OSAN GROUP'
+  companyName = 'OSAN GROUP',
+  phone
 }: EmployeeAttendanceTimesheetProps) {
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
@@ -385,6 +387,7 @@ export function EmployeeAttendanceTimesheet({
                 employee: {
                   id: userId,
                   name: userName || 'Employee',
+                  phone: phone || '',
                   nationality,
                   join_date: joinDate,
                   avatar_url: avatarUrl,

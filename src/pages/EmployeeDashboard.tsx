@@ -814,6 +814,7 @@ export function EmployeeDashboard() {
               scheduledShiftEnd={shiftEnd}
               avatarUrl={profile.avatar_url}
               companyName={companyName || profile.company}
+              phone={profile.phone}
             />
           )
         )}
