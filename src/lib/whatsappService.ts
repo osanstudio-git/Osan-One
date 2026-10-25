@@ -141,3 +141,49 @@ export function sendLateWarningWhatsAppNotice(notice: LateWarningNotice) {
   window.open(whatsappUrl, '_blank');
 }
 
+export interface AbsentWarningNotice {
+  name: string;
+  phone?: string;
+  company?: string;
+  language: 'en' | 'ar';
+}
+
+export function getAbsentWarningWhatsAppText(notice: AbsentWarningNotice): string {
+  if (notice.language === 'ar') {
+    return `الموضوع: إنذار بسبب الغياب دون إشعار مسبق
+
+عزيزي الموظف،
+يُعد هذا الخطاب إنذارًا رسميًا بسبب تغيبك عن العمل دون إشعار مسبق أو موافقة. نرجو إبلاغ المسؤول المباشر مسبقًا في حال عدم التمكن من الحضور، باستثناء الحالات الطارئة.
+وفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.
+
+مع التحية،
+مسؤول الموارد البشرية`;
+  }
+
+  return `Subject: Warning for Absence Without Prior Notice
+
+Dear Employee,
+This letter serves as a formal warning regarding your absence from work without prior notice or approval. You are required to notify your supervisor in advance of any absence, except in emergencies.
+Further violations may result in disciplinary action.
+
+Regards,
+HR Officer`;
+}
+
+export function sendAbsentWarningWhatsAppNotice(notice: AbsentWarningNotice) {
+  const phoneRaw = notice.phone || '';
+  const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
+  let formattedPhone = digitsOnly.replace(/^0+/, '');
+  if (formattedPhone.length === 8) {
+    formattedPhone = `968${formattedPhone}`;
+  }
+
+  const messageText = getAbsentWarningWhatsAppText(notice);
+  const encodedText = encodeURIComponent(messageText);
+  const whatsappUrl = formattedPhone 
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
+
+  window.open(whatsappUrl, '_blank');
+}
+

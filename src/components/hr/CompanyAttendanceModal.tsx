@@ -361,9 +361,9 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       title = `Send Absence Notice to ${emp.name}`;
       buttonLabel = 'Absence Notice';
 
-      textEn = `Subject: Notice of Absence\n\nDear Employee,\nThis letter serves as a formal notice that you have been marked absent today (${todayFormatted}) with no check-in recorded on the attendance system.\n\nPlease provide your justification or submit an official leave request immediately to avoid unauthorized absence deduction.\n\nRegards,\nHR Officer`;
+      textEn = `Subject: Warning for Absence Without Prior Notice\n\nDear Employee,\nThis letter serves as a formal warning regarding your absence from work without prior notice or approval. You are required to notify your supervisor in advance of any absence, except in emergencies.\nFurther violations may result in disciplinary action.\n\nRegards,\nHR Officer`;
 
-      textAr = `الموضوع: إشعار غياب عن العمل\n\nعزيزي الموظف،\nيُعد هذا الخطاب إشعارًا رسميًا بتسجيلك غائبًا عن العمل اليوم (${todayFormatted}) لعدم تسجيل حضورك في النظام.\nنرجو تقديم مبرر الغياب أو تقديم طلب إجازة رسمي لتفادي الخصم من الراتب.\n\nمع التحية،\nمسؤول الموارد البشرية`;
+      textAr = `الموضوع: إنذار بسبب الغياب دون إشعار مسبق\n\nعزيزي الموظف،\nيُعد هذا الخطاب إنذارًا رسميًا بسبب تغيبك عن العمل دون إشعار مسبق أو موافقة. نرجو إبلاغ المسؤول المباشر مسبقًا في حال عدم التمكن من الحضور، باستثناء الحالات الطارئة.\nوفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.\n\nمع التحية،\nمسؤول الموارد البشرية`;
     } else if (item.isLate) {
       // Yellow/Amber styling for Late
       colorClass = 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30';
