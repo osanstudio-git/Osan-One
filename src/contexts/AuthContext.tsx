@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { User as Profile } from '../types';
-import { getSavedLocalAvatar } from '../lib/databaseService';
+import { getSavedLocalAvatar, getEmployeeAvatarFromDb } from '../lib/databaseService';
 
 interface AuthContextType {
   session: Session | null;
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           parsed.role = 'HR';
         }
         if (parsed?.id) {
-          const cached = getSavedLocalAvatar(parsed.id);
+          const cached = getSavedLocalAvatar(parsed.id, parsed.email, parsed.phone);
           if (cached) parsed.avatar_url = cached;
         }
         return parsed;
@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const setDemoProfile = (newProfile: Profile | null) => {
     let toSave = newProfile;
     if (toSave?.id) {
-      const cached = getSavedLocalAvatar(toSave.id);
+      const cached = getSavedLocalAvatar(toSave.id, toSave.email, toSave.phone);
       if (cached && !toSave.avatar_url) {
         toSave = { ...toSave, avatar_url: cached };
       }
@@ -178,7 +178,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error('Error fetching user profile:', error);
       } else if (data) {
-        const cached = getSavedLocalAvatar(data.id) || getSavedLocalAvatar(userId);
+        const cloudAvatar = await getEmployeeAvatarFromDb(data.id || userId);
+        const cached = cloudAvatar || getSavedLocalAvatar(data.id, data.email, data.phone) || getSavedLocalAvatar(userId);
         // Map database columns (including leave_balance_yearly, etc.) to user profile
         const mapped: Profile = {
           ...(data as any),

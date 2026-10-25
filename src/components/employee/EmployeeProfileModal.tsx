@@ -26,11 +26,11 @@ export function EmployeeProfileModal({
 }: EmployeeProfileModalProps) {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [currentAvatar, setCurrentAvatar] = useState<string | undefined>(() => {
-    return profile?.avatar_url || (profile?.id ? getSavedLocalAvatar(profile.id) : undefined);
+    return profile?.avatar_url || (profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : undefined);
   });
 
   // Sync avatar when profile changes
-  const cachedFromStorage = profile?.id ? getSavedLocalAvatar(profile.id) : undefined;
+  const cachedFromStorage = profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : undefined;
   const effectiveProfileAvatar = profile?.avatar_url || cachedFromStorage;
   if (effectiveProfileAvatar && effectiveProfileAvatar !== currentAvatar && !isUploadingPhoto) {
     setCurrentAvatar(effectiveProfileAvatar);

@@ -4,6 +4,7 @@ import { LogOut, LayoutDashboard, Menu, X, ChevronLeft, ChevronRight } from 'luc
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { ThemeToggle } from '../common/ThemeToggle';
 import { OsanLogo } from '../common/OsanLogo';
+import { getSavedLocalAvatar } from '../../lib/databaseService';
 
 interface DashboardLayoutProps {
   children?: ReactNode;
@@ -103,8 +104,16 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
         {/* Drawer Footer User Profile */}
         <div className="p-4 border-t border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02]">
           <div className="flex items-center gap-3 mb-3 px-1">
-            <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary shadow-xs shrink-0 text-sm">
-              {profile?.name?.charAt(0) || 'U'}
+            <div className="w-9 h-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center font-bold text-primary shadow-xs shrink-0 text-sm overflow-hidden">
+              {(profile?.avatar_url || (profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : undefined)) ? (
+                <img
+                  src={profile?.avatar_url || (profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : '')}
+                  alt={profile?.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                profile?.name?.charAt(0) || 'U'
+              )}
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-semibold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
@@ -190,8 +199,16 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
           {!isCollapsed ? (
             <>
               <div className="flex items-center gap-3 mb-3 px-2">
-                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 dark:bg-white/10 dark:border-white/10 flex items-center justify-center font-bold text-slate-800 dark:text-white shadow-xs shrink-0 text-sm">
-                  {profile?.name?.charAt(0) || 'U'}
+                <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 dark:bg-white/10 dark:border-white/10 flex items-center justify-center font-bold text-slate-800 dark:text-white shadow-xs shrink-0 text-sm overflow-hidden">
+                  {(profile?.avatar_url || (profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : undefined)) ? (
+                    <img
+                      src={profile?.avatar_url || (profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : '')}
+                      alt={profile?.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    profile?.name?.charAt(0) || 'U'
+                  )}
                 </div>
                 <div className="flex flex-col min-w-0">
                   <span className="font-semibold text-xs text-slate-900 dark:text-white truncate">

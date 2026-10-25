@@ -219,32 +219,38 @@ export async function deleteCompanyFromDb(companyIdOrName: string): Promise<bool
 }
 
 // ---------------------------------------------------------------------
-// Local avatar persistence helper
-export function getSavedLocalAvatar(id: string): string | undefined {
+// Local and Cloud avatar persistence helper
+export function getSavedLocalAvatar(...keys: (string | undefined | null)[]): string | undefined {
   try {
     const raw = localStorage.getItem('osan_employee_avatars');
     if (!raw) return undefined;
     const map = JSON.parse(raw);
-    return map[id] || undefined;
+    for (const key of keys) {
+      if (key && map[key]) return map[key];
+    }
+    return undefined;
   } catch {
     return undefined;
   }
 }
 
-export function saveLocalAvatar(id: string, avatarUrl?: string) {
+export function saveLocalAvatar(id: string, avatarUrl?: string, additionalKeys: (string | undefined | null)[] = []) {
   try {
     const raw = localStorage.getItem('osan_employee_avatars');
     const map = raw ? JSON.parse(raw) : {};
-    if (avatarUrl) {
-      map[id] = avatarUrl;
-    } else {
-      delete map[id];
-    }
+    const allKeys = [id, ...additionalKeys].filter(Boolean) as string[];
+    allKeys.forEach(k => {
+      if (avatarUrl) {
+        map[k] = avatarUrl;
+      } else {
+        delete map[k];
+      }
+    });
     localStorage.setItem('osan_employee_avatars', JSON.stringify(map));
 
     // Update avatar in memory cache immediately
     if (cachedEmployees && cachedEmployees.data) {
-      const match = cachedEmployees.data.find(u => u.id === id || u.email === id);
+      const match = cachedEmployees.data.find(u => allKeys.includes(u.id) || allKeys.includes(u.email) || (u.phone && allKeys.includes(u.phone)));
       if (match) {
         match.avatar_url = avatarUrl;
       }
@@ -253,11 +259,13 @@ export function saveLocalAvatar(id: string, avatarUrl?: string) {
     // Also update osan_demo_profile if this employee is the one currently active
     const savedDemo = localStorage.getItem('osan_demo_profile');
     if (savedDemo) {
-      const parsed = JSON.parse(savedDemo);
-      if (parsed && (parsed.id === id || parsed.email === id)) {
-        parsed.avatar_url = avatarUrl;
-        localStorage.setItem('osan_demo_profile', JSON.stringify(parsed));
-      }
+      try {
+        const parsed = JSON.parse(savedDemo);
+        if (parsed && (allKeys.includes(parsed.id) || allKeys.includes(parsed.email) || (parsed.phone && allKeys.includes(parsed.phone)))) {
+          parsed.avatar_url = avatarUrl;
+          localStorage.setItem('osan_demo_profile', JSON.stringify(parsed));
+        }
+      } catch (e) {}
     }
 
     // Broadcast update across windows, tabs, and listeners
@@ -270,17 +278,74 @@ export function saveLocalAvatar(id: string, avatarUrl?: string) {
   }
 }
 
+export async function getEmployeeAvatarFromDb(userId: string): Promise<string | undefined> {
+  if (!userId) return undefined;
+  try {
+    const local = getSavedLocalAvatar(userId);
+    if (local) return local;
+
+    if (!isLiveSupabaseConfigured()) return local;
+
+    // 1. Query employee_documents for cloud Avatar
+    const { data: docData } = await supabase
+      .from('employee_documents')
+      .select('file_url')
+      .eq('user_id', userId)
+      .or('document_type.eq.Avatar,document_type.eq.Profile Photo')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (docData?.file_url) {
+      saveLocalAvatar(userId, docData.file_url);
+      return docData.file_url;
+    }
+
+    // 2. Fallback check users.documents jsonb
+    const { data: uData } = await supabase
+      .from('users')
+      .select('documents, email, phone')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (uData?.documents && Array.isArray(uData.documents)) {
+      const av = uData.documents.find((d: any) => d.type === 'Avatar' || d.type === 'Profile Photo' || d.name === 'Profile Photo');
+      if (av?.url || av?.attachedFile || av?.file_url) {
+        const found = av.url || av.attachedFile || av.file_url;
+        saveLocalAvatar(userId, found, [uData.email, uData.phone]);
+        return found;
+      }
+    }
+    return undefined;
+  } catch (err) {
+    console.error('Error fetching employee avatar from DB:', err);
+    return getSavedLocalAvatar(userId);
+  }
+}
+
 // 2. EMPLOYEES SERVICES
 export function mapDbUserToUser(data: any, companyNameMap?: Record<string, string>): User {
   const role = (data.role === 'Super_HR' ? 'HR' : data.role) || 'Employee';
   const companyName = companyNameMap?.[data.company_id] || data.company_id || 'Company';
+
+  // Extract avatar from documents if present
+  let avatarFromDocs: string | undefined = undefined;
+  if (Array.isArray(data.documents)) {
+    const av = data.documents.find((d: any) => d.type === 'Avatar' || d.type === 'Profile Photo' || d.name === 'Profile Photo');
+    if (av) avatarFromDocs = av.url || av.attachedFile || av.file_url;
+  }
+
+  const effectiveAvatar = data.avatar_url || avatarFromDocs || getSavedLocalAvatar(data.id, data.email, data.phone) || undefined;
+  if (effectiveAvatar && data.id) {
+    saveLocalAvatar(data.id, effectiveAvatar, [data.email, data.phone]);
+  }
 
   return {
     id: data.id,
     name: data.name,
     email: data.email || '',
     phone: data.phone || '',
-    avatar_url: data.avatar_url || getSavedLocalAvatar(data.id) || undefined,
+    avatar_url: effectiveAvatar,
     pin: data.pin || '123456',
     role: role as Role,
     company_id: data.company_id || 'Company',
@@ -408,10 +473,15 @@ export async function getEmployees(forceRefresh = false): Promise<User[]> {
       return cachedEmployees?.data || [];
     }
 
-    // Batch fetch official documents for all employees to power real-time compliance tracking
+    // Batch fetch official documents for all employees to power real-time compliance tracking and cloud avatars
     const { data: docsData } = await supabase.from('employee_documents').select('*');
     const docsByUserId: Record<string, any[]> = {};
+    const avatarByUserId: Record<string, string> = {};
     (docsData || []).forEach(d => {
+      if (d.document_type === 'Avatar' || d.document_name === 'Profile Photo') {
+        if (d.file_url) avatarByUserId[d.user_id] = d.file_url;
+        return;
+      }
       if (!docsByUserId[d.user_id]) docsByUserId[d.user_id] = [];
       docsByUserId[d.user_id].push({
         id: d.id,
@@ -425,6 +495,10 @@ export async function getEmployees(forceRefresh = false): Promise<User[]> {
 
     const result = (data || []).map(u => {
       const userObj = mapDbUserToUser(u, compMap);
+      if (avatarByUserId[u.id]) {
+        userObj.avatar_url = avatarByUserId[u.id];
+        saveLocalAvatar(u.id, avatarByUserId[u.id], [u.email, u.phone]);
+      }
       if (docsByUserId[u.id] && docsByUserId[u.id].length > 0) {
         userObj.documents = docsByUserId[u.id];
       }
@@ -463,17 +537,29 @@ export async function getEmployeeById(id: string): Promise<User | null> {
     // Fetch official documents from employee_documents table
     const { data: docs } = await supabase.from('employee_documents').select('*').eq('user_id', id);
 
+    let avatarFromDocs: string | undefined = undefined;
+    const cleanDocs: any[] = [];
+    (docs || []).forEach(d => {
+      if (d.document_type === 'Avatar' || d.document_name === 'Profile Photo') {
+        if (d.file_url) avatarFromDocs = d.file_url;
+      } else {
+        cleanDocs.push({
+          id: d.id,
+          name: d.document_name,
+          type: d.document_type,
+          number: d.document_number,
+          expiryDate: d.expiry_date,
+          attachedFile: d.file_url,
+        });
+      }
+    });
+
     const userObj = mapDbUserToUser(data, { [data.company_id]: compName });
-    if (docs && docs.length > 0) {
-      userObj.documents = docs.map(d => ({
-        id: d.id,
-        name: d.document_name,
-        type: d.document_type,
-        number: d.document_number,
-        expiryDate: d.expiry_date,
-        attachedFile: d.file_url,
-      }));
+    if (avatarFromDocs) {
+      userObj.avatar_url = avatarFromDocs;
+      saveLocalAvatar(id, avatarFromDocs, [userObj.email, userObj.phone]);
     }
+    userObj.documents = cleanDocs;
 
     return userObj;
   } catch (err) {
@@ -604,7 +690,72 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
   }
 
   if (updates.avatar_url !== undefined) {
-    saveLocalAvatar(employeeId, updates.avatar_url);
+    const avatarVal = updates.avatar_url || '';
+    saveLocalAvatar(employeeId, avatarVal || undefined, [updates.email, updates.phone]);
+
+    // Persist to Supabase cloud storage (employee_documents and users.documents)
+    if (isLiveSupabaseConfigured()) {
+      (async () => {
+        try {
+          if (avatarVal) {
+            const { data: existingDoc } = await supabase
+              .from('employee_documents')
+              .select('id')
+              .eq('user_id', employeeId)
+              .or('document_type.eq.Avatar,document_type.eq.Profile Photo')
+              .maybeSingle();
+
+            if (existingDoc?.id) {
+              await supabase
+                .from('employee_documents')
+                .update({
+                  document_name: 'Profile Photo',
+                  document_type: 'Avatar',
+                  file_url: avatarVal,
+                })
+                .eq('id', existingDoc.id);
+            } else {
+              await supabase
+                .from('employee_documents')
+                .insert([{
+                  user_id: employeeId,
+                  document_name: 'Profile Photo',
+                  document_type: 'Avatar',
+                  file_url: avatarVal,
+                }]);
+            }
+
+            // Mirror in users.documents JSONB
+            const { data: uRow } = await supabase
+              .from('users')
+              .select('documents')
+              .eq('id', employeeId)
+              .maybeSingle();
+            const curDocs = Array.isArray(uRow?.documents) ? uRow.documents.filter((d: any) => d.type !== 'Avatar' && d.name !== 'Profile Photo') : [];
+            curDocs.push({ type: 'Avatar', name: 'Profile Photo', url: avatarVal });
+            await supabase.from('users').update({ documents: curDocs }).eq('id', employeeId);
+          } else {
+            await supabase
+              .from('employee_documents')
+              .delete()
+              .eq('user_id', employeeId)
+              .or('document_type.eq.Avatar,document_type.eq.Profile Photo');
+
+            const { data: uRow } = await supabase
+              .from('users')
+              .select('documents')
+              .eq('id', employeeId)
+              .maybeSingle();
+            if (uRow?.documents && Array.isArray(uRow.documents)) {
+              const curDocs = uRow.documents.filter((d: any) => d.type !== 'Avatar' && d.name !== 'Profile Photo');
+              await supabase.from('users').update({ documents: curDocs }).eq('id', employeeId);
+            }
+          }
+        } catch (avatarSyncErr) {
+          console.warn('Could not persist avatar to Supabase cloud storage:', avatarSyncErr);
+        }
+      })();
+    }
   }
   invalidateEmployeeCache();
 
@@ -617,7 +768,6 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     if (updates.name !== undefined) payload.name = updates.name;
     if (updates.email !== undefined) payload.email = updates.email;
     if (updates.phone !== undefined) payload.phone = updates.phone;
-    if (updates.avatar_url !== undefined) payload.avatar_url = updates.avatar_url;
     if (updates.date_of_birth !== undefined) payload.date_of_birth = updates.date_of_birth;
     if (updates.nationality !== undefined) {
       payload.nationality = updates.nationality;
@@ -642,13 +792,6 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     if (error && (error.message?.includes('user_nationality') || error.message?.includes('enum'))) {
       console.warn('Supabase nationality enum constraint detected. Retrying with simplified category...');
       payload.nationality = (updates.nationality || 'Omani').startsWith('Expat') ? 'Expat' : 'Omani';
-      const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
-      error = retryRes.error;
-    }
-
-    if (error && error.message?.includes('avatar_url')) {
-      console.warn('Supabase users table does not have avatar_url column yet. Saving to local storage only.');
-      delete payload.avatar_url;
       const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
       error = retryRes.error;
     }

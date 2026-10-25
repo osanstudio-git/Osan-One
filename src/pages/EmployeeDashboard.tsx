@@ -12,7 +12,7 @@ import { getCompanySettings, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
-import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar } from '../lib/databaseService';
+import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar, getEmployeeAvatarFromDb } from '../lib/databaseService';
 import { EmployeeProfileModal } from '../components/employee/EmployeeProfileModal';
 import { EmployeeAttendanceTimesheet } from '../components/employee/EmployeeAttendanceTimesheet';
 
@@ -294,14 +294,29 @@ export function EmployeeDashboard() {
     pregnancy: profile?.leave_balances?.pregnancy ?? 98,
   });
 
-  // Ensure avatar is synced immediately from local storage cache
+  // Ensure avatar is synced immediately from local storage cache & Supabase
   useEffect(() => {
     if (!profile?.id) return;
-    const cached = getSavedLocalAvatar(profile.id);
+    const cached = getSavedLocalAvatar(profile.id, profile.email, profile.phone);
     if (cached && profile.avatar_url !== cached) {
       updateCurrentUserProfile({ avatar_url: cached });
     }
-  }, [profile?.id]);
+
+    getEmployeeAvatarFromDb(profile.id).then(cloudAvatar => {
+      if (cloudAvatar && profile.avatar_url !== cloudAvatar) {
+        updateCurrentUserProfile({ avatar_url: cloudAvatar });
+      }
+    });
+
+    const handleAvatarUpdate = (e: any) => {
+      const { id, avatarUrl } = e.detail || {};
+      if (id && profile && (profile.id === id || profile.email === id || profile.phone === id)) {
+        updateCurrentUserProfile({ avatar_url: avatarUrl });
+      }
+    };
+    window.addEventListener('osan_avatar_updated', handleAvatarUpdate);
+    return () => window.removeEventListener('osan_avatar_updated', handleAvatarUpdate);
+  }, [profile?.id, profile?.email, profile?.phone]);
 
   const loadEmployeeLeaves = async () => {
     if (!profile?.id) return;
@@ -310,9 +325,9 @@ export function EmployeeDashboard() {
       const leaves = await getEmployeeLeaveRequestsFromDb(profile.id, profile.email);
       setMyLeaves(leaves);
 
-      // Query live balances and latest avatar directly from users table
+      // Query live balances safely from users table without nonexistent avatar_url column
       const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(profile.id);
-      let query = supabase.from('users').select('id, leave_balance_yearly, leave_balance_sick, leave_balance_maternity, avatar_url');
+      let query = supabase.from('users').select('id, leave_balance_yearly, leave_balance_sick, leave_balance_maternity, documents');
       if (isUuid) {
         query = query.eq('id', profile.id);
       } else if (profile.email) {
@@ -328,8 +343,9 @@ export function EmployeeDashboard() {
         };
         setLiveBalances(updated);
 
-        const localAvatar = getSavedLocalAvatar(profile.id);
-        const effectiveAvatar = userData.avatar_url || localAvatar;
+        const cloudAvatar = await getEmployeeAvatarFromDb(profile.id);
+        const localAvatar = getSavedLocalAvatar(profile.id, profile.email, profile.phone);
+        const effectiveAvatar = cloudAvatar || localAvatar || profile.avatar_url;
         if (effectiveAvatar && profile.avatar_url !== effectiveAvatar) {
           updateCurrentUserProfile({ avatar_url: effectiveAvatar });
         }
@@ -681,13 +697,17 @@ export function EmployeeDashboard() {
             title="Click to view your employment profile"
           >
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0 overflow-hidden">
-              {(profile?.avatar_url || (profile?.id ? getSavedLocalAvatar(profile.id) : undefined)) ? (
-                <img src={profile?.avatar_url || (profile?.id ? getSavedLocalAvatar(profile.id) : '')} alt={profile?.name} className="w-full h-full object-cover" />
-              ) : profile?.name ? (
-                profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
-              ) : (
-                'EM'
-              )}
+              {(() => {
+                const avatarSrc = profile?.avatar_url || getSavedLocalAvatar(profile?.id, profile?.email, profile?.phone);
+                if (avatarSrc) {
+                  return <img src={avatarSrc} alt={profile?.name} className="w-full h-full object-cover" />;
+                }
+                return profile?.name ? (
+                  profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
+                ) : (
+                  'EM'
+                );
+              })()}
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">

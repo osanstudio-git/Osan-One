@@ -16,7 +16,8 @@ import {
   getEmployeeLeaveRequestsFromDb,
   addEmployeeDocumentToDb,
   deleteEmployeeDocumentFromDb,
-  renewEmployeeDocumentInDb
+  renewEmployeeDocumentInDb,
+  getSavedLocalAvatar
 } from '../../lib/databaseService';
 import { supabase } from '../../lib/supabase';
 import { isDatePublicHoliday } from '../../lib/holidayService';
@@ -49,6 +50,11 @@ export function HrEmployeeProfile() {
     const loadProfileData = () => {
       getEmployeeById(id).then(emp => {
         if (emp) {
+          const localAvatar = getSavedLocalAvatar(emp.id, emp.email, emp.phone);
+          if (localAvatar && !emp.avatar_url) {
+            emp.avatar_url = localAvatar;
+            updateEmployeeInDb(emp.id, { avatar_url: localAvatar });
+          }
           setEmployee(emp);
         } else {
           setEmployee(MOCK_EMPLOYEES.find(e => e.id === id) || MOCK_EMPLOYEES[0]);
