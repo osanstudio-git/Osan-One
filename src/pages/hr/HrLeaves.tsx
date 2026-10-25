@@ -84,13 +84,16 @@ export function HrLeaves() {
     setHolidays(updated);
   };
 
-  useEffect(() => {
-    loadLeaves();
-  }, []);
-
   const handleAction = async (id: string, status: 'Approved' | 'Rejected') => {
-    await updateLeaveRequestStatusInDb(id, status);
-    await loadLeaves();
+    // Optimistic UI update: instantly update status on screen
+    setLeaves(prev => prev.map(l => l.id === id ? { ...l, status } : l));
+    try {
+      await updateLeaveRequestStatusInDb(id, status);
+      await loadLeaves();
+    } catch (err) {
+      console.error('Failed to update leave status:', err);
+      await loadLeaves();
+    }
   };
 
   const filteredLeaves = leaves.filter(l => {

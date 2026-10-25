@@ -13,11 +13,12 @@ import {
   deleteEmployeeInDb, 
   updateEmployeeInDb, 
   getEmployeeAttendanceLogsFromDb, 
-  getLeaveRequestsFromDb,
+  getEmployeeLeaveRequestsFromDb,
   addEmployeeDocumentToDb,
   deleteEmployeeDocumentFromDb,
   renewEmployeeDocumentInDb
 } from '../../lib/databaseService';
+import { supabase } from '../../lib/supabase';
 import { isDatePublicHoliday } from '../../lib/holidayService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
@@ -43,7 +44,9 @@ export function HrEmployeeProfile() {
   const [dbLeaves, setDbLeaves] = useState<any[]>([]);
 
   useEffect(() => {
-    if (id) {
+    if (!id) return;
+
+    const loadProfileData = () => {
       getEmployeeById(id).then(emp => {
         if (emp) {
           setEmployee(emp);
@@ -56,8 +59,28 @@ export function HrEmployeeProfile() {
       });
 
       getEmployeeAttendanceLogsFromDb(id).then((logs: any[]) => setDbLogs(logs)).catch(console.error);
-      getLeaveRequestsFromDb().then((leaves: any[]) => setDbLeaves(leaves)).catch(console.error);
-    }
+      getEmployeeLeaveRequestsFromDb(id).then((leaves: any[]) => setDbLeaves(leaves)).catch(console.error);
+    };
+
+    loadProfileData();
+
+    // Supabase Realtime channel for live punch-in/out and leave sync
+    const channel = supabase
+      .channel(`hr-profile-sync-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs', filter: `user_id=eq.${id}` }, () => {
+        getEmployeeAttendanceLogsFromDb(id).then((logs: any[]) => setDbLogs(logs)).catch(console.error);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests', filter: `user_id=eq.${id}` }, () => {
+        getEmployeeLeaveRequestsFromDb(id).then((leaves: any[]) => setDbLeaves(leaves)).catch(console.error);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${id}` }, () => {
+        getEmployeeById(id).then(emp => emp && setEmployee(emp)).catch(console.error);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [id]);
 
   // Management modal states

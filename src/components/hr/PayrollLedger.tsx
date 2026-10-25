@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Download, Filter, FileSpreadsheet, Users, Lock, CheckCircle2, Wallet, Printer, Plus, History, X, Save, FileText, Check, Sparkles, Calendar, LayoutGrid, List } from 'lucide-react';
-import { MOCK_EXCEPTIONS } from '../../pages/hr/mockData';
 import {
   getEmployees,
   getPayrollTransactionsFromDb,
   savePayrollTransactionToDb,
   getEmployeePayslipOverrides,
-  saveEmployeePayslipRecord
+  saveEmployeePayslipRecord,
+  getAttendanceExceptionsFromDb
 } from '../../lib/databaseService';
+import { supabase } from '../../lib/supabase';
 import type { User } from '../../types';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -37,20 +38,23 @@ export function PayrollLedger() {
   });
 
   const [payslipOverrides, setPayslipOverrides] = useState<Record<string, any>>({});
+  const [attendanceExceptions, setAttendanceExceptions] = useState<any[]>([]);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [overtimeMultiplier, setOvertimeMultiplier] = useState(1.25);
   const [payslipEditForm, setPayslipEditForm] = useState<any>({});
 
   const loadData = async () => {
     try {
-      const [emps, txMap, overrides] = await Promise.all([
+      const [emps, txMap, overrides, liveExceptions] = await Promise.all([
         getEmployees(),
         getPayrollTransactionsFromDb(selectedMonth, selectedYear),
-        getEmployeePayslipOverrides(selectedMonth, selectedYear)
+        getEmployeePayslipOverrides(selectedMonth, selectedYear),
+        getAttendanceExceptionsFromDb()
       ]);
       setEmployees(emps);
       setTransactions(txMap);
       setPayslipOverrides(overrides);
+      setAttendanceExceptions(liveExceptions || []);
     } catch (err) {
       console.error('Failed to load payroll data:', err);
     }
@@ -58,6 +62,21 @@ export function PayrollLedger() {
 
   useEffect(() => {
     loadData();
+
+    // Supabase Realtime for instant payroll & exception updates
+    const channel = supabase
+      .channel(`payroll-ledger-${selectedMonth}-${selectedYear}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
+        loadData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [selectedMonth, selectedYear]);
 
   const companiesList = useMemo(() => {
@@ -77,17 +96,19 @@ export function PayrollLedger() {
   const [activePayslipId, setActivePayslipId] = useState<string | null>(null);
   const [mobilePayslipTab, setMobilePayslipTab] = useState<'edit' | 'preview'>('edit');
 
-  // Generate dynamic ledger data based on real employees and custom overrides
+  // Generate dynamic ledger data based on real employees, real exceptions, and custom overrides
   const ledgerData = useMemo(() => {
     return employees.map(emp => {
       const override = payslipOverrides[emp.id] || {};
+      const daysWorked = override.paid_days !== undefined ? Number(override.paid_days) : 22;
 
-      const isPartTime = emp.role === 'Employee' && emp.id.endsWith('2');
-      const daysWorked = override.paid_days !== undefined ? Number(override.paid_days) : (isPartTime ? 15 : 22);
-
-      const lateExceptions = MOCK_EXCEPTIONS.filter(exc => exc.employee === emp.name && (exc.type.includes('Late') || exc.type.includes('Departure')));
-      const lateCount = lateExceptions.length;
-      const unpaidLeave = emp.id.endsWith('4') ? 2 : (emp.id.endsWith('7') ? 1 : 0);
+      // Real live attendance exceptions from database
+      const employeeExceptions = attendanceExceptions.filter(exc => 
+        (exc.employee && exc.employee.toLowerCase() === emp.name.toLowerCase()) || 
+        exc.user_id === emp.id
+      );
+      const lateCount = employeeExceptions.filter(exc => (exc.type || '').includes('Late')).length;
+      const unpaidLeave = employeeExceptions.filter(exc => (exc.type || '').includes('Absent')).length;
 
       // Default or custom earnings & allowances
       let baseSalary = override.basic_salary !== undefined
@@ -139,12 +160,12 @@ export function PayrollLedger() {
         balance,
         status,
         empTxs,
-        exceptions: lateExceptions,
+        exceptions: employeeExceptions,
         accountNumber: override.account_number || emp.account_number || 'CASH IN HAND',
         mobileNumber: override.mobile_number || emp.phone || ''
       };
     });
-  }, [employees, transactions, payslipOverrides]);
+  }, [employees, transactions, payslipOverrides, attendanceExceptions]);
 
   const filteredData = useMemo(() => {
     return ledgerData.filter(d => {

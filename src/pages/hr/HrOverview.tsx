@@ -6,19 +6,26 @@ import {
 } from 'recharts';
 import { Users, Building2, CalendarX, AlertCircle, Activity, CheckCircle2 } from 'lucide-react';
 import { DocumentComplianceWidget } from '../../components/hr/DocumentComplianceWidget';
-import { getEmployees, getCompanies, getLeaveRequestsFromDb, getAttendanceExceptionsFromDb } from '../../lib/databaseService';
+import { 
+  getEmployees, 
+  getCompanies, 
+  getLeaveRequestsFromDb, 
+  getAttendanceExceptionsFromDb,
+  getRecentAttendanceTrendFromDb,
+  invalidateEmployeeCache,
+  invalidateCompanyCache
+} from '../../lib/databaseService';
 import { supabase } from '../../lib/supabase';
 import type { User, Company } from '../../types';
 
-// Attendance trend template
-const attendanceData = [
-  { day: 'Mon', onTime: 45, late: 12, absent: 5 },
-  { day: 'Tue', onTime: 50, late: 8, absent: 4 },
-  { day: 'Wed', onTime: 48, late: 10, absent: 4 },
-  { day: 'Thu', onTime: 52, late: 5, absent: 5 },
-  { day: 'Fri', onTime: 40, late: 15, absent: 7 },
-  { day: 'Sat', onTime: 5, late: 1, absent: 1 },
-  { day: 'Sun', onTime: 55, late: 4, absent: 3 },
+const defaultAttendanceData = [
+  { day: 'Sun', onTime: 0, late: 0, absent: 0 },
+  { day: 'Mon', onTime: 0, late: 0, absent: 0 },
+  { day: 'Tue', onTime: 0, late: 0, absent: 0 },
+  { day: 'Wed', onTime: 0, late: 0, absent: 0 },
+  { day: 'Thu', onTime: 0, late: 0, absent: 0 },
+  { day: 'Fri', onTime: 0, late: 0, absent: 0 },
+  { day: 'Sat', onTime: 0, late: 0, absent: 0 },
 ];
 
 const companyColors = ['#3b82f6', '#10b981', '#f59e0b', '#f43f5e', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
@@ -46,18 +53,23 @@ export function HrOverview() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [exceptions, setExceptions] = useState<any[]>([]);
+  const [attendanceData, setAttendanceData] = useState(defaultAttendanceData);
 
-  const loadData = () => {
+  const loadData = (force = false) => {
     Promise.all([
-      getEmployees(),
-      getCompanies(),
+      getEmployees(force),
+      getCompanies(force),
       getLeaveRequestsFromDb(),
-      getAttendanceExceptionsFromDb()
-    ]).then(([empData, compData, leaveData, excData]) => {
+      getAttendanceExceptionsFromDb(),
+      getRecentAttendanceTrendFromDb(7)
+    ]).then(([empData, compData, leaveData, excData, trendData]) => {
       setEmployees(empData);
       setCompanies(compData);
       setLeaveRequests(leaveData);
       setExceptions(excData);
+      if (trendData && trendData.length > 0) {
+        setAttendanceData(trendData);
+      }
     }).catch(err => console.error('Failed to load HR overview data:', err));
   };
 
@@ -68,13 +80,18 @@ export function HrOverview() {
     const channel = supabase
       .channel('hr-overview-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => {
-        loadData();
+        loadData(true);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
-        loadData();
+        loadData(true);
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
-        loadData();
+        invalidateEmployeeCache();
+        loadData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, () => {
+        invalidateCompanyCache();
+        loadData(true);
       })
       .subscribe();
 

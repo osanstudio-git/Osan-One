@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { MapPin, Globe, Loader2, Save, Building2, CheckCircle2, ShieldAlert, Compass, LayoutGrid, List, ArrowRight, ExternalLink, X, Sparkles } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { getCompanies } from '../../lib/databaseService';
+import { getCompanies, invalidateCompanyCache } from '../../lib/databaseService';
 import { getCompanySettings, updateCompanySettings } from '../../lib/settings';
+import { supabase } from '../../lib/supabase';
 import type { Company } from '../../types';
 
 export function HrOffice() {
@@ -67,6 +68,22 @@ export function HrOffice() {
 
   useEffect(() => {
     loadAllCompaniesAndSettings();
+
+    // Supabase Realtime channel for office geofencing / IP updates
+    const channel = supabase
+      .channel('hr-office-settings-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'company_settings' }, () => {
+        loadAllCompaniesAndSettings();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'companies' }, () => {
+        invalidateCompanyCache();
+        loadAllCompaniesAndSettings();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [profile]);
 
   // Load settings whenever selected company changes

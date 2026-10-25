@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Download, UserCircle2, Users, MessageSquare, LayoutGrid, List, ArrowRight } from 'lucide-react';
 import { AddEmployeeModal } from '../../components/hr/AddEmployeeModal';
 import type { UserStatus, User } from '../../types';
-import { getEmployees, createEmployeeInDb, getCompanies } from '../../lib/databaseService';
+import { getEmployees, createEmployeeInDb, getCompanies, invalidateEmployeeCache } from '../../lib/databaseService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
+import { supabase } from '../../lib/supabase';
 
 export function HrDirectory() {
   const navigate = useNavigate();
@@ -22,12 +23,12 @@ export function HrDirectory() {
     return 'table';
   });
 
-  const loadData = async () => {
+  const loadData = async (forceRefresh = false) => {
     try {
-      const data = await getEmployees();
+      const data = await getEmployees(forceRefresh);
       setEmployees(data);
 
-      const comps = await getCompanies();
+      const comps = await getCompanies(forceRefresh);
       setCompaniesList(comps.map(c => c.name));
     } catch (err) {
       console.error('Failed to load directory:', err);
@@ -36,6 +37,33 @@ export function HrDirectory() {
 
   useEffect(() => {
     loadData();
+
+    // 1. Supabase Realtime channel for instant sync across tabs / HR sessions
+    const channel = supabase
+      .channel('hr-directory-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, () => {
+        invalidateEmployeeCache();
+        loadData(true);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_documents' }, () => {
+        invalidateEmployeeCache();
+        loadData(true);
+      })
+      .subscribe();
+
+    // 2. Avatar update listener for instant local photo changes
+    const handleAvatarUpdate = (e: any) => {
+      const { id, avatarUrl } = e.detail || {};
+      if (id) {
+        setEmployees(prev => prev.map(emp => (emp.id === id || emp.email === id) ? { ...emp, avatar_url: avatarUrl } : emp));
+      }
+    };
+    window.addEventListener('osan_avatar_updated', handleAvatarUpdate);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('osan_avatar_updated', handleAvatarUpdate);
+    };
   }, []);
 
   const handleAddEmployee = async (data: any) => {
@@ -49,8 +77,18 @@ export function HrDirectory() {
         pregnancy: 98
       }
     };
-    await createEmployeeInDb(newEmp);
-    await loadData();
+    // Optimistic UI insert
+    const tempId = `temp-${Date.now()}`;
+    const optimisticUser: User = { ...newEmp, id: tempId } as User;
+    setEmployees(prev => [optimisticUser, ...prev]);
+
+    try {
+      await createEmployeeInDb(newEmp);
+      await loadData(true);
+    } catch (e) {
+      console.error('Failed to add employee:', e);
+      await loadData(true);
+    }
   };
 
   const filteredEmployees = employees.filter(emp => {

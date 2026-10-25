@@ -14,12 +14,29 @@ export function isLiveSupabaseConfigured(): boolean {
   return Boolean(url && key && !url.includes('placeholder-url') && !key.includes('placeholder-key'));
 }
 
+// In-memory SWR caches with TTL for ultra-fast, smooth page transitions
+let cachedEmployees: { data: User[]; timestamp: number } | null = null;
+let cachedCompanies: { data: Company[]; timestamp: number } | null = null;
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
+
+export function invalidateEmployeeCache(): void {
+  cachedEmployees = null;
+}
+
+export function invalidateCompanyCache(): void {
+  cachedCompanies = null;
+}
+
 // ---------------------------------------------------------------------
 // 1. COMPANIES SERVICES
 // ---------------------------------------------------------------------
-export async function getCompanies(): Promise<Company[]> {
+export async function getCompanies(forceRefresh = false): Promise<Company[]> {
+  if (!forceRefresh && cachedCompanies && (Date.now() - cachedCompanies.timestamp < CACHE_TTL_MS)) {
+    return cachedCompanies.data;
+  }
+
   if (!isLiveSupabaseConfigured()) {
-    return MOCK_COMPANIES.map((c, i) => ({
+    const mockResult = MOCK_COMPANIES.map((c, i) => ({
       id: `comp-${i}`,
       name: c.name,
       created_at: new Date().toISOString(),
@@ -29,13 +46,15 @@ export async function getCompanies(): Promise<Company[]> {
       expat_shift_start: c.expatShiftStart || '08:30',
       expat_shift_end: c.expatShiftEnd || '18:00',
     }));
+    cachedCompanies = { data: mockResult, timestamp: Date.now() };
+    return mockResult;
   }
 
   try {
     const { data, error } = await supabase.from('companies').select('*').order('created_at', { ascending: true });
     if (error) {
       console.error('Supabase companies query error:', error.message);
-      return [];
+      return cachedCompanies?.data || [];
     }
 
     // Deduplicate companies by name to prevent duplicate UI cards
@@ -46,10 +65,12 @@ export async function getCompanies(): Promise<Company[]> {
       }
     });
 
-    return Array.from(uniqueMap.values());
+    const result = Array.from(uniqueMap.values());
+    cachedCompanies = { data: result, timestamp: Date.now() };
+    return result;
   } catch (err) {
     console.error('Failed to fetch companies from Supabase:', err);
-    return [];
+    return cachedCompanies?.data || [];
   }
 }
 
@@ -162,6 +183,7 @@ export async function createCompany(companyData: Partial<Company>): Promise<Comp
       console.error('Error creating company in Supabase:', error.message || error);
       throw new Error(error.message || 'Failed to create company in database');
     }
+    invalidateCompanyCache();
     return data as Company;
   }
 }
@@ -172,6 +194,7 @@ export async function deleteCompanyFromDb(companyIdOrName: string): Promise<bool
   if (idx !== -1) {
     MOCK_COMPANIES.splice(idx, 1);
   }
+  invalidateCompanyCache();
 
   if (!isLiveSupabaseConfigured()) {
     return true;
@@ -187,6 +210,7 @@ export async function deleteCompanyFromDb(companyIdOrName: string): Promise<bool
       console.error('Error deleting company from Supabase:', error.message);
       return false;
     }
+    invalidateCompanyCache();
     return true;
   } catch (err) {
     console.error('Failed to delete company from database:', err);
@@ -217,6 +241,14 @@ export function saveLocalAvatar(id: string, avatarUrl?: string) {
       delete map[id];
     }
     localStorage.setItem('osan_employee_avatars', JSON.stringify(map));
+
+    // Update avatar in memory cache immediately
+    if (cachedEmployees && cachedEmployees.data) {
+      const match = cachedEmployees.data.find(u => u.id === id || u.email === id);
+      if (match) {
+        match.avatar_url = avatarUrl;
+      }
+    }
 
     // Also update osan_demo_profile if this employee is the one currently active
     const savedDemo = localStorage.getItem('osan_demo_profile');
@@ -355,8 +387,13 @@ export async function authenticateUserInDb(identifier: string, inputPin: string)
 // ---------------------------------------------------------------------
 // 2. EMPLOYEES SERVICES
 // ---------------------------------------------------------------------
-export async function getEmployees(): Promise<User[]> {
+export async function getEmployees(forceRefresh = false): Promise<User[]> {
+  if (!forceRefresh && cachedEmployees && (Date.now() - cachedEmployees.timestamp < CACHE_TTL_MS)) {
+    return cachedEmployees.data;
+  }
+
   if (!isLiveSupabaseConfigured()) {
+    cachedEmployees = { data: MOCK_EMPLOYEES, timestamp: Date.now() };
     return MOCK_EMPLOYEES;
   }
 
@@ -368,7 +405,7 @@ export async function getEmployees(): Promise<User[]> {
     const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
     if (error) {
       console.error('Supabase users query error:', error.message);
-      return [];
+      return cachedEmployees?.data || [];
     }
 
     // Batch fetch official documents for all employees to power real-time compliance tracking
@@ -386,16 +423,19 @@ export async function getEmployees(): Promise<User[]> {
       });
     });
 
-    return (data || []).map(u => {
+    const result = (data || []).map(u => {
       const userObj = mapDbUserToUser(u, compMap);
       if (docsByUserId[u.id] && docsByUserId[u.id].length > 0) {
         userObj.documents = docsByUserId[u.id];
       }
       return userObj;
     });
+
+    cachedEmployees = { data: result, timestamp: Date.now() };
+    return result;
   } catch (err) {
     console.error('Failed to fetch employees from Supabase:', err);
-    return [];
+    return cachedEmployees?.data || [];
   }
 }
 
@@ -550,6 +590,7 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     console.error('Error creating employee in Supabase:', error.message || error);
     throw new Error(error.message || 'Failed to create employee in database');
   }
+  invalidateEmployeeCache();
   return data as User;
 }
 
@@ -563,6 +604,7 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
   if (updates.avatar_url !== undefined) {
     saveLocalAvatar(employeeId, updates.avatar_url);
   }
+  invalidateEmployeeCache();
 
   if (!isLiveSupabaseConfigured()) {
     return true;
@@ -612,6 +654,7 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
       console.error('Error updating employee in Supabase:', error.message);
       return false;
     }
+    invalidateEmployeeCache();
     return true;
   } catch (err) {
     console.error('Failed to update employee in database:', err);
@@ -625,6 +668,7 @@ export async function updateEmployeeStatusInDb(
   exitDate?: string, 
   exitReason?: string
 ): Promise<boolean> {
+  invalidateEmployeeCache();
   if (!isLiveSupabaseConfigured()) {
     const idx = MOCK_EMPLOYEES.findIndex(e => e.id === employeeId);
     if (idx !== -1) {
@@ -647,6 +691,7 @@ export async function updateEmployeeStatusInDb(
     console.error('Error updating employee status in Supabase:', error);
     return false;
   }
+  invalidateEmployeeCache();
   return true;
 }
 
@@ -656,6 +701,7 @@ export async function deleteEmployeeInDb(employeeId: string): Promise<boolean> {
   if (idx !== -1) {
     MOCK_EMPLOYEES.splice(idx, 1);
   }
+  invalidateEmployeeCache();
 
   if (!isLiveSupabaseConfigured()) {
     return true;
@@ -677,6 +723,7 @@ export async function deleteEmployeeInDb(employeeId: string): Promise<boolean> {
       console.error('Error deleting employee from Supabase users table:', error.message);
       return false;
     }
+    invalidateEmployeeCache();
     return true;
   } catch (err) {
     console.error('Failed to delete employee from database:', err);
@@ -1422,6 +1469,67 @@ export async function resolveAttendanceExceptionInDb(id: string, _action: 'Deduc
     return false;
   }
   return true;
+}
+
+export async function getRecentAttendanceTrendFromDb(days = 7): Promise<{ day: string; onTime: number; late: number; absent: number }[]> {
+  if (!isLiveSupabaseConfigured()) {
+    return [
+      { day: 'Sun', onTime: 12, late: 2, absent: 1 },
+      { day: 'Mon', onTime: 14, late: 1, absent: 0 },
+      { day: 'Tue', onTime: 13, late: 2, absent: 0 },
+      { day: 'Wed', onTime: 15, late: 0, absent: 0 },
+      { day: 'Thu', onTime: 14, late: 1, absent: 0 },
+      { day: 'Fri', onTime: 0, late: 0, absent: 0 },
+      { day: 'Sat', onTime: 0, late: 0, absent: 0 },
+    ];
+  }
+
+  try {
+    const today = new Date();
+    const startDate = new Date();
+    startDate.setDate(today.getDate() - (days - 1));
+    const startStr = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')}`;
+
+    const { data, error } = await supabase
+      .from('attendance_logs')
+      .select('date, status')
+      .gte('date', startStr);
+
+    if (error || !data) {
+      return [];
+    }
+
+    // Build day map for the last `days` days
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const trendMap: Record<string, { day: string; onTime: number; late: number; absent: number }> = {};
+
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const dayLabel = dayNames[d.getDay()];
+      trendMap[dStr] = { day: dayLabel, onTime: 0, late: 0, absent: 0 };
+    }
+
+    data.forEach((log: any) => {
+      const entry = trendMap[log.date];
+      if (entry) {
+        const st = (log.status || '').toLowerCase();
+        if (st === 'present' || st === 'ontime') {
+          entry.onTime++;
+        } else if (st === 'late') {
+          entry.late++;
+        } else if (st === 'absent') {
+          entry.absent++;
+        }
+      }
+    });
+
+    return Object.values(trendMap);
+  } catch (err) {
+    console.error('Failed to get attendance trend:', err);
+    return [];
+  }
 }
 
 // ---------------------------------------------------------------------
