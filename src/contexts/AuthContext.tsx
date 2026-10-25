@@ -178,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) {
         console.error('Error fetching user profile:', error);
       } else if (data) {
-        const cloudAvatar = await getEmployeeAvatarFromDb(data.id || userId);
+        const cloudAvatar = await getEmployeeAvatarFromDb(data.id || userId, data.email, data.phone);
         const cached = cloudAvatar || getSavedLocalAvatar(data.id, data.email, data.phone) || getSavedLocalAvatar(userId);
         // Map database columns (including leave_balance_yearly, etc.) to user profile
         const mapped: Profile = {

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, Download, UserCircle2, Users, MessageSquare, LayoutGrid, List, ArrowRight } from 'lucide-react';
 import { AddEmployeeModal } from '../../components/hr/AddEmployeeModal';
 import type { UserStatus, User } from '../../types';
-import { getEmployees, createEmployeeInDb, getCompanies, invalidateEmployeeCache } from '../../lib/databaseService';
+import { getEmployees, createEmployeeInDb, getCompanies, invalidateEmployeeCache, getAllLocalAvatars, syncAvatarToCloud } from '../../lib/databaseService';
 import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 import { supabase } from '../../lib/supabase';
 
@@ -30,6 +30,14 @@ export function HrDirectory() {
 
       const comps = await getCompanies(forceRefresh);
       setCompaniesList(comps.map(c => c.name));
+
+      // Auto-sync any locally cached avatars from this HR browser to Supabase cloud storage
+      const allAvatars = getAllLocalAvatars();
+      for (const [key, val] of Object.entries(allAvatars)) {
+        if (val && typeof val === 'string' && val.startsWith('data:image')) {
+          syncAvatarToCloud(key, val);
+        }
+      }
     } catch (err) {
       console.error('Failed to load directory:', err);
     }

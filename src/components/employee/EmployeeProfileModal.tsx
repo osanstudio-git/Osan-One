@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, User as UserIcon, Calendar, ShieldCheck, Clock, MapPin, Mail, Phone, Heart, FileText, Camera, Trash2 } from 'lucide-react';
 import type { User } from '../../types';
 import { compressAndResizeAvatar } from '../../lib/imageUtils';
-import { updateEmployeeInDb, getSavedLocalAvatar } from '../../lib/databaseService';
+import { updateEmployeeInDb, getSavedLocalAvatar, getEmployeeAvatarFromDb, syncAvatarToCloud, saveLocalAvatar } from '../../lib/databaseService';
 
 interface EmployeeProfileModalProps {
   isOpen: boolean;
@@ -29,12 +29,23 @@ export function EmployeeProfileModal({
     return profile?.avatar_url || (profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : undefined);
   });
 
-  // Sync avatar when profile changes
-  const cachedFromStorage = profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : undefined;
-  const effectiveProfileAvatar = profile?.avatar_url || cachedFromStorage;
-  if (effectiveProfileAvatar && effectiveProfileAvatar !== currentAvatar && !isUploadingPhoto) {
-    setCurrentAvatar(effectiveProfileAvatar);
-  }
+  // Sync avatar when profile or modal changes
+  useEffect(() => {
+    if (!profile) return;
+    const local = getSavedLocalAvatar(profile.id, profile.email, profile.phone);
+    const initial = profile.avatar_url || local;
+    if (initial && initial !== currentAvatar && !isUploadingPhoto) {
+      setCurrentAvatar(initial);
+    }
+    if (profile.id) {
+      getEmployeeAvatarFromDb(profile.id, profile.email, profile.phone).then(av => {
+        if (av && !isUploadingPhoto) {
+          setCurrentAvatar(av);
+        }
+      });
+    }
+  }, [profile?.id, profile?.avatar_url, profile?.email, profile?.phone, isOpen]);
+
   if (!isOpen || !profile) return null;
 
   const getInitials = (name: string) => {
@@ -64,11 +75,13 @@ export function EmployeeProfileModal({
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !profile) return;
     try {
       setIsUploadingPhoto(true);
       const dataUrl = await compressAndResizeAvatar(file, 400, 0.85);
       setCurrentAvatar(dataUrl);
+      saveLocalAvatar(profile.id, dataUrl, [profile.email, profile.phone]);
+      await syncAvatarToCloud(profile.id, dataUrl);
       await updateEmployeeInDb(profile.id, { avatar_url: dataUrl });
       if (onAvatarChange) onAvatarChange(dataUrl);
     } catch (err) {
@@ -81,10 +94,12 @@ export function EmployeeProfileModal({
   };
 
   const handleRemoveAvatar = async () => {
+    if (!profile) return;
     if (!window.confirm('Are you sure you want to remove your profile photo?')) return;
     try {
       setIsUploadingPhoto(true);
       setCurrentAvatar(undefined);
+      saveLocalAvatar(profile.id, undefined, [profile.email, profile.phone]);
       await updateEmployeeInDb(profile.id, { avatar_url: '' });
       if (onAvatarChange) onAvatarChange('');
     } catch (err) {

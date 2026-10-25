@@ -12,7 +12,7 @@ import { getCompanySettings, type CompanySettings } from '../lib/settings';
 import { supabase } from '../lib/supabase';
 import { MOCK_COMPANIES } from './hr/mockData';
 import { saveOfflinePunch } from '../lib/offlineQueue';
-import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar, getEmployeeAvatarFromDb } from '../lib/databaseService';
+import { recordPunchInDb, getTodayAttendanceLogFromDb, createLeaveRequestInDb, getEmployeeLeaveRequestsFromDb, getSavedLocalAvatar, getEmployeeAvatarFromDb, syncAvatarToCloud } from '../lib/databaseService';
 import { EmployeeProfileModal } from '../components/employee/EmployeeProfileModal';
 import { EmployeeAttendanceTimesheet } from '../components/employee/EmployeeAttendanceTimesheet';
 
@@ -30,6 +30,45 @@ export function EmployeeDashboard() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
+
+  // Dynamic avatar state with multi-key cache & cloud sync
+  const [avatarUrl, setAvatarUrl] = useState<string | undefined>(() => {
+    return profile?.avatar_url || (profile ? getSavedLocalAvatar(profile.id, profile.email, profile.phone) : undefined);
+  });
+
+  useEffect(() => {
+    if (!profile) return;
+    const local = getSavedLocalAvatar(profile.id, profile.email, profile.phone);
+    const initial = profile.avatar_url || local;
+    if (initial) {
+      setAvatarUrl(initial);
+      if (profile.id && local) {
+        syncAvatarToCloud(profile.id, local);
+      }
+    }
+
+    if (profile.id) {
+      getEmployeeAvatarFromDb(profile.id, profile.email, profile.phone).then(cloudAv => {
+        if (cloudAv) {
+          setAvatarUrl(cloudAv);
+          if (!profile.avatar_url) {
+            updateCurrentUserProfile({ avatar_url: cloudAv });
+          }
+        }
+      });
+    }
+  }, [profile?.id, profile?.avatar_url, profile?.email, profile?.phone]);
+
+  useEffect(() => {
+    const handleAvatarUpdate = (e: any) => {
+      const detail = e?.detail;
+      if (detail && profile && (detail.id === profile.id || detail.id === profile.email)) {
+        setAvatarUrl(detail.avatarUrl);
+      }
+    };
+    window.addEventListener('osan_avatar_updated', handleAvatarUpdate);
+    return () => window.removeEventListener('osan_avatar_updated', handleAvatarUpdate);
+  }, [profile?.id, profile?.email]);
 
   // Multi-session punch tracking
   const [sessions, setSessions] = useState<WorkSession[]>([]);
@@ -697,17 +736,13 @@ export function EmployeeDashboard() {
             title="Click to view your employment profile"
           >
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-base flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform shrink-0 overflow-hidden">
-              {(() => {
-                const avatarSrc = profile?.avatar_url || getSavedLocalAvatar(profile?.id, profile?.email, profile?.phone);
-                if (avatarSrc) {
-                  return <img src={avatarSrc} alt={profile?.name} className="w-full h-full object-cover" />;
-                }
-                return profile?.name ? (
-                  profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
-                ) : (
-                  'EM'
-                );
-              })()}
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={profile?.name} className="w-full h-full object-cover" />
+              ) : profile?.name ? (
+                profile.name.split(' ').filter(Boolean).map(n => n[0]).join('').slice(0, 2).toUpperCase()
+              ) : (
+                'EM'
+              )}
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-tight group-hover:text-primary transition-colors">
@@ -1099,13 +1134,16 @@ export function EmployeeDashboard() {
       <EmployeeProfileModal
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
-        profile={profile}
+        profile={profile ? { ...profile, avatar_url: avatarUrl || profile.avatar_url } : null}
         companyName={companyName}
         shiftSchedule={{
           start: shiftStart,
           end: shiftEnd,
         }}
-        onAvatarChange={(newUrl) => updateCurrentUserProfile({ avatar_url: newUrl })}
+        onAvatarChange={(newUrl) => {
+          setAvatarUrl(newUrl);
+          updateCurrentUserProfile({ avatar_url: newUrl });
+        }}
       />
     </div>
   );

@@ -234,6 +234,15 @@ export function getSavedLocalAvatar(...keys: (string | undefined | null)[]): str
   }
 }
 
+export function getAllLocalAvatars(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem('osan_employee_avatars');
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function saveLocalAvatar(id: string, avatarUrl?: string, additionalKeys: (string | undefined | null)[] = []) {
   try {
     const raw = localStorage.getItem('osan_employee_avatars');
@@ -278,48 +287,149 @@ export function saveLocalAvatar(id: string, avatarUrl?: string, additionalKeys: 
   }
 }
 
-export async function getEmployeeAvatarFromDb(userId: string): Promise<string | undefined> {
-  if (!userId) return undefined;
+export async function syncAvatarToCloud(userId: string, avatarUrl: string): Promise<boolean> {
+  if (!userId || !avatarUrl || !isLiveSupabaseConfigured()) return false;
   try {
-    const local = getSavedLocalAvatar(userId);
+    let validUserId = userId;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userId);
+    if (!isUuid) {
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('id')
+        .or(`email.eq.${userId},phone.eq.${userId},name.ilike.%${userId}%`)
+        .maybeSingle();
+      if (userRow?.id) {
+        validUserId = userRow.id;
+      } else {
+        return false;
+      }
+    }
+
+    const { data: existingDoc } = await supabase
+      .from('employee_documents')
+      .select('id, file_url')
+      .eq('user_id', validUserId)
+      .or('document_type.eq.Avatar,document_type.eq.Profile Photo')
+      .maybeSingle();
+
+    if (existingDoc?.id) {
+      if (existingDoc.file_url !== avatarUrl) {
+        await supabase
+          .from('employee_documents')
+          .update({
+            document_name: 'Profile Photo',
+            document_type: 'Avatar',
+            file_url: avatarUrl
+          })
+          .eq('id', existingDoc.id);
+      }
+    } else {
+      await supabase
+        .from('employee_documents')
+        .insert([{
+          user_id: validUserId,
+          document_name: 'Profile Photo',
+          document_type: 'Avatar',
+          file_url: avatarUrl
+        }]);
+    }
+
+    // Also mirror in users.documents JSONB
+    const { data: uRow } = await supabase
+      .from('users')
+      .select('documents')
+      .eq('id', validUserId)
+      .maybeSingle();
+    const curDocs = Array.isArray(uRow?.documents) 
+      ? uRow.documents.filter((d: any) => d.type !== 'Avatar' && d.name !== 'Profile Photo') 
+      : [];
+    curDocs.push({ type: 'Avatar', name: 'Profile Photo', url: avatarUrl });
+    await supabase.from('users').update({ documents: curDocs }).eq('id', validUserId);
+
+    return true;
+  } catch (err) {
+    console.warn('Failed to sync avatar to cloud:', err);
+    return false;
+  }
+}
+
+export async function getEmployeeAvatarFromDb(userId: string, email?: string, phone?: string): Promise<string | undefined> {
+  if (!userId && !email && !phone) return undefined;
+  try {
+    const local = getSavedLocalAvatar(userId, email, phone);
     if (local) return local;
 
     if (!isLiveSupabaseConfigured()) return local;
 
-    // 1. Query employee_documents for cloud Avatar
-    const { data: docData } = await supabase
-      .from('employee_documents')
-      .select('file_url')
-      .eq('user_id', userId)
-      .or('document_type.eq.Avatar,document_type.eq.Profile Photo')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Resolve UUID if needed
+    let lookupId = userId;
+    const isUuid = userId && /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(userId);
+    if (!isUuid && (email || phone || userId)) {
+      const matchCriteria = [
+        userId ? `id.eq.${userId}` : null,
+        email ? `email.eq.${email}` : null,
+        phone ? `phone.eq.${phone}` : null,
+        userId && !userId.includes('@') ? `name.ilike.%${userId}%` : null
+      ].filter(Boolean).join(',');
 
-    if (docData?.file_url) {
-      saveLocalAvatar(userId, docData.file_url);
-      return docData.file_url;
+      const { data: uRow } = await supabase
+        .from('users')
+        .select('id, email, phone, documents')
+        .or(matchCriteria)
+        .maybeSingle();
+
+      if (uRow?.id) {
+        lookupId = uRow.id;
+        if (Array.isArray(uRow.documents)) {
+          const av = uRow.documents.find((d: any) => d.type === 'Avatar' || d.type === 'Profile Photo' || d.name === 'Profile Photo');
+          if (av?.url || av?.attachedFile || av?.file_url) {
+            const found = av.url || av.attachedFile || av.file_url;
+            saveLocalAvatar(uRow.id, found, [uRow.email, uRow.phone, email, phone]);
+            return found;
+          }
+        }
+      }
+    }
+
+    // 1. Query employee_documents for cloud Avatar
+    if (lookupId) {
+      const { data: docData } = await supabase
+        .from('employee_documents')
+        .select('file_url')
+        .eq('user_id', lookupId)
+        .or('document_type.eq.Avatar,document_type.eq.Profile Photo')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (docData?.file_url) {
+        saveLocalAvatar(lookupId, docData.file_url, [email, phone]);
+        return docData.file_url;
+      }
     }
 
     // 2. Fallback check users.documents jsonb
-    const { data: uData } = await supabase
-      .from('users')
-      .select('documents, email, phone')
-      .eq('id', userId)
-      .maybeSingle();
+    if (lookupId) {
+      const { data: uData } = await supabase
+        .from('users')
+        .select('documents, email, phone')
+        .eq('id', lookupId)
+        .maybeSingle();
 
-    if (uData?.documents && Array.isArray(uData.documents)) {
-      const av = uData.documents.find((d: any) => d.type === 'Avatar' || d.type === 'Profile Photo' || d.name === 'Profile Photo');
-      if (av?.url || av?.attachedFile || av?.file_url) {
-        const found = av.url || av.attachedFile || av.file_url;
-        saveLocalAvatar(userId, found, [uData.email, uData.phone]);
-        return found;
+      if (uData?.documents && Array.isArray(uData.documents)) {
+        const av = uData.documents.find((d: any) => d.type === 'Avatar' || d.type === 'Profile Photo' || d.name === 'Profile Photo');
+        if (av?.url || av?.attachedFile || av?.file_url) {
+          const found = av.url || av.attachedFile || av.file_url;
+          saveLocalAvatar(lookupId, found, [uData.email, uData.phone, email, phone]);
+          return found;
+        }
       }
     }
+
     return undefined;
   } catch (err) {
     console.error('Error fetching employee avatar from DB:', err);
-    return getSavedLocalAvatar(userId);
+    return getSavedLocalAvatar(userId, email, phone);
   }
 }
 
@@ -338,6 +448,10 @@ export function mapDbUserToUser(data: any, companyNameMap?: Record<string, strin
   const effectiveAvatar = data.avatar_url || avatarFromDocs || getSavedLocalAvatar(data.id, data.email, data.phone) || undefined;
   if (effectiveAvatar && data.id) {
     saveLocalAvatar(data.id, effectiveAvatar, [data.email, data.phone]);
+    // Auto-sync local avatar to cloud if live Supabase is configured
+    if (!avatarFromDocs && !data.avatar_url && isLiveSupabaseConfigured()) {
+      syncAvatarToCloud(data.id, effectiveAvatar);
+    }
   }
 
   return {
@@ -1415,18 +1529,11 @@ export async function recordPunchInDb(
           status: existing.status === 'Absent' ? status : (existing.status || status),
           company_id: existing.company_id || validCompanyId
         };
-        if (shiftType) updatePayload.shift_type = shiftType;
 
-        const { error: updateErr } = await supabase
+        await supabase
           .from('attendance_logs')
           .update(updatePayload)
           .eq('id', existing.id);
-
-        if (updateErr) {
-          // Retry without shift_type if column doesn't exist in Supabase schema yet
-          delete updatePayload.shift_type;
-          await supabase.from('attendance_logs').update(updatePayload).eq('id', existing.id);
-        }
       } else {
         const insertPayload: any = {
           user_id: validUserId,
@@ -1435,23 +1542,18 @@ export async function recordPunchInDb(
           clock_in_time: isoString,
           status: status
         };
-        if (shiftType) insertPayload.shift_type = shiftType;
 
         let { error: insertErr } = await supabase.from('attendance_logs').insert([insertPayload]);
 
         if (insertErr) {
           console.warn('Primary punch-in insert failed, retrying with core columns...', insertErr.message);
-          delete insertPayload.shift_type;
-          let { error: retryErr } = await supabase.from('attendance_logs').insert([insertPayload]);
-          if (retryErr) {
-            const fallbackPayload: any = {
-              user_id: validUserId,
-              date: dateStr,
-              clock_in_time: isoString
-            };
-            if (validCompanyId) fallbackPayload.company_id = validCompanyId;
-            await supabase.from('attendance_logs').insert([fallbackPayload]);
-          }
+          const fallbackPayload: any = {
+            user_id: validUserId,
+            date: dateStr,
+            clock_in_time: isoString
+          };
+          if (validCompanyId) fallbackPayload.company_id = validCompanyId;
+          await supabase.from('attendance_logs').insert([fallbackPayload]);
         }
       }
     } else if (type === 'break_start') {
