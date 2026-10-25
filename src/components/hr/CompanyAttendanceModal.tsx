@@ -328,12 +328,14 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
     navigate(`/hr/employee/${empId}`);
   };
 
-  // WhatsApp Message Helper with Contextual Warning Text & Color
+  // WhatsApp Message Helper with Contextual Warning Text (EN & AR) & Color
   const getWhatsAppDetails = (item: EmployeeStatusItem) => {
     const emp = item.employee;
     if (!emp.phone) {
       return { 
-        url: null, 
+        url: null,
+        urlEn: null,
+        urlAr: null,
         colorClass: 'bg-slate-100 dark:bg-white/5 text-slate-300 dark:text-gray-600 border border-slate-200/60 dark:border-white/5 cursor-not-allowed opacity-50', 
         title: `No phone number on record for ${emp.name}`,
         buttonLabel: 'No Phone'
@@ -347,13 +349,8 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       formattedPhone = `968${formattedPhone}`;
     }
 
-    const shiftStart = emp.nationality === 'Expat'
-      ? (company?.expatShiftStart || '08:30 AM')
-      : (company?.omaniShiftStart || '08:30 AM');
-
-    const companyHeader = company?.name ? `${company.name} (Osan Group)` : 'Osan Group';
-
-    let text = '';
+    let textEn = '';
+    let textAr = '';
     let colorClass = 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20';
     let title = `Message ${emp.name} on WhatsApp`;
     let buttonLabel = 'WhatsApp';
@@ -361,31 +358,49 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
     if (item.status === 'absent') {
       // Red styling for Absent
       colorClass = 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-600 dark:text-rose-400 border border-rose-500/30';
-      title = `Send Absence Notice / Warning to ${emp.name}`;
-      buttonLabel = 'Send Absence Notice';
-      text = `*${companyHeader} — Absence Notice*\n\nDear *${emp.name}*,\n\nYou have been marked as *ABSENT* today (*${todayFormatted}*) as no check-in was recorded on the Osan HR Attendance system.\n\nPlease reply immediately with your justification or submit an official leave request to avoid unauthorized absence deduction.\n\n— *${company?.name || 'HR Management'}*`;
+      title = `Send Absence Notice to ${emp.name}`;
+      buttonLabel = 'Absence Notice';
+
+      textEn = `Subject: Notice of Absence\n\nDear Employee,\nThis letter serves as a formal notice that you have been marked absent today (${todayFormatted}) with no check-in recorded on the attendance system.\n\nPlease provide your justification or submit an official leave request immediately to avoid unauthorized absence deduction.\n\nRegards,\nHR Officer`;
+
+      textAr = `الموضوع: إشعار غياب عن العمل\n\nعزيزي الموظف،\nيُعد هذا الخطاب إشعارًا رسميًا بتسجيلك غائبًا عن العمل اليوم (${todayFormatted}) لعدم تسجيل حضورك في النظام.\nنرجو تقديم مبرر الغياب أو تقديم طلب إجازة رسمي لتفادي الخصم من الراتب.\n\nمع التحية،\nمسؤول الموارد البشرية`;
     } else if (item.isLate) {
       // Yellow/Amber styling for Late
       colorClass = 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30';
       title = `Send Delay Warning to ${emp.name} (${item.lateMinutes} mins late)`;
-      buttonLabel = `${item.lateMinutes}m Late Notice`;
-      text = `*${companyHeader} — Attendance Delay Warning*\n\nDear *${emp.name}*,\n\nPlease note that you arrived *${item.lateMinutes} minutes late* today (*${todayFormatted}*).\n• Recorded Check-in: *${item.clockInTime}*\n• Scheduled Shift Start: *${shiftStart}*\n\nThis delay has been documented in the attendance system. Please ensure punctuality in accordance with company policy.\n\n— *${company?.name || 'HR Management'}*`;
+      buttonLabel = `${item.lateMinutes}m Late Warning`;
+
+      textEn = `Subject: Warning for Late Attendance\n\nDear Employee,\nThis letter serves as a formal warning regarding your repeated lateness to work. You are required to adhere to the official working hours and ensure punctual attendance.\nFurther violations may result in disciplinary action.\n\nRegards,\nHR Officer`;
+
+      textAr = `الموضوع: إنذار بسبب التأخر عن العمل\n\nعزيزي الموظف،\nيُعد هذا الخطاب إنذارًا رسميًا بسبب تأخرك عن العمل. نرجو الالتزام بمواعيد الدوام الرسمية والحضور في الوقت المحدد.\nوفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.\n\nمع التحية،\nمسؤول الموارد البشرية`;
     } else if (item.status === 'on_leave') {
       colorClass = 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20';
-      title = `Send Leave Confirmation to ${emp.name}`;
+      title = `Send Leave Notice to ${emp.name}`;
       buttonLabel = 'Leave Notice';
-      text = `*${companyHeader} — Leave Status*\n\nDear *${emp.name}*,\n\nThis is a confirmation that your *${item.leaveType}* is active until *${item.leaveEnd}*.\n\n— *${company?.name || 'HR Management'}*`;
+
+      textEn = `Subject: Leave Confirmation\n\nDear Employee,\nThis is a confirmation that your ${item.leaveType || 'Leave'} is active until ${item.leaveEnd || 'the scheduled date'}.\n\nRegards,\nHR Officer`;
+
+      textAr = `الموضوع: تأكيد الإجازة\n\nعزيزي الموظف،\nنؤكد لك أن إجازتك (${item.leaveType || 'إجازة رسمية'}) معتمدة وسارية حتى ${item.leaveEnd || 'التاريخ المحدد'}.\n\nمع التحية،\nمسؤول الموارد البشرية`;
     } else {
-      text = `*${companyHeader} HR*\n\nHello *${emp.name}*,\nOfficial message from *${company?.name || 'HR Management'}*.`;
+      textEn = `Subject: Official Communication\n\nDear Employee,\nOfficial message from HR Management.`;
+      textAr = `الموضوع: إشعار رسمي\n\nعزيزي الموظف،\nرسالة رسمية من إدارة الموارد البشرية.`;
     }
 
-    const encodedText = encodeURIComponent(text);
-    const url = formattedPhone 
-      ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
-      : `https://api.whatsapp.com/send?text=${encodedText}`;
+    const encodedEn = encodeURIComponent(textEn);
+    const encodedAr = encodeURIComponent(textAr);
+
+    const urlEn = formattedPhone 
+      ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedEn}`
+      : `https://api.whatsapp.com/send?text=${encodedEn}`;
+
+    const urlAr = formattedPhone 
+      ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedAr}`
+      : `https://api.whatsapp.com/send?text=${encodedAr}`;
 
     return {
-      url,
+      url: urlEn,
+      urlEn,
+      urlAr,
       colorClass,
       title,
       buttonLabel
@@ -747,17 +762,40 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                           {/* Actions */}
                           <td className="py-3 px-4 pr-5 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* WhatsApp Button with context color & warning notice */}
-                              {whatsappInfo.url ? (
-                                <a
-                                  href={whatsappInfo.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`p-1.5 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-center cursor-pointer ${whatsappInfo.colorClass}`}
-                                  title={whatsappInfo.title}
-                                >
-                                  <MessageSquare className="w-3.5 h-3.5" />
-                                </a>
+                              {/* WhatsApp Button with EN & AR options */}
+                              {whatsappInfo.urlEn && whatsappInfo.urlAr ? (
+                                <div className={`inline-flex items-center rounded-lg border p-0.5 shadow-2xs ${
+                                  item.isLate
+                                    ? 'border-amber-500/30 bg-amber-500/10'
+                                    : item.status === 'absent'
+                                    ? 'border-rose-500/30 bg-rose-500/10'
+                                    : 'border-emerald-500/30 bg-emerald-500/10'
+                                }`}>
+                                  <div className="px-1 py-0.5 text-slate-400 dark:text-gray-500">
+                                    <MessageSquare className={`w-3.5 h-3.5 ${
+                                      item.isLate ? 'text-amber-600 dark:text-amber-400' : item.status === 'absent' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                                    }`} />
+                                  </div>
+                                  <a
+                                    href={whatsappInfo.urlEn}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                                    title={`Send English message to ${emp.name}`}
+                                  >
+                                    EN
+                                  </a>
+                                  <span className="opacity-30 text-[9px] select-none">|</span>
+                                  <a
+                                    href={whatsappInfo.urlAr}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-1.5 py-0.5 rounded-md text-[10px] font-black text-emerald-600 dark:text-emerald-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                                    title={`إرسال رسالة بالعربية إلى ${emp.name}`}
+                                  >
+                                    AR
+                                  </a>
+                                </div>
                               ) : (
                                 <button
                                   type="button"
@@ -926,19 +964,48 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                     </div>
 
                     {/* Quick Action Links */}
-                    <div className="flex items-center justify-end gap-2 pt-1 border-t border-slate-100 dark:border-white/5">
-                      {/* WhatsApp Notice Button */}
-                      {whatsappInfo.url && (
-                        <a
-                          href={whatsappInfo.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all flex items-center gap-1.5 ${whatsappInfo.colorClass}`}
-                          title={whatsappInfo.title}
-                        >
-                          <MessageSquare className="w-3 h-3" />
-                          <span>{whatsappInfo.buttonLabel}</span>
-                        </a>
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-white/5">
+                      {/* WhatsApp Notice Option (EN & AR) */}
+                      {whatsappInfo.urlEn && whatsappInfo.urlAr ? (
+                        <div className={`inline-flex items-center rounded-lg border p-0.5 shadow-2xs ${
+                          item.isLate
+                            ? 'border-amber-500/30 bg-amber-500/10'
+                            : item.status === 'absent'
+                            ? 'border-rose-500/30 bg-rose-500/10'
+                            : 'border-emerald-500/30 bg-emerald-500/10'
+                        }`}>
+                          <div className="px-2 py-1 flex items-center gap-1.5 text-[11px] font-bold">
+                            <MessageSquare className={`w-3.5 h-3.5 ${
+                              item.isLate ? 'text-amber-600 dark:text-amber-400' : item.status === 'absent' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                            }`} />
+                            <span className={`text-[10px] uppercase font-bold hidden sm:inline ${
+                              item.isLate ? 'text-amber-700 dark:text-amber-300' : item.status === 'absent' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'
+                            }`}>
+                              {item.isLate ? 'Warning' : item.status === 'absent' ? 'Notice' : 'Notice'}
+                            </span>
+                          </div>
+                          <a
+                            href={whatsappInfo.urlEn}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded-md text-[11px] font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            title={`Send English message to ${emp.name}`}
+                          >
+                            EN
+                          </a>
+                          <span className="opacity-30 text-[10px] select-none">|</span>
+                          <a
+                            href={whatsappInfo.urlAr}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded-md text-[11px] font-black text-emerald-600 dark:text-emerald-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                            title={`إرسال رسالة بالعربية إلى ${emp.name}`}
+                          >
+                            AR
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 dark:text-gray-500 italic">No phone</span>
                       )}
 
                       {/* Profile Redirect Button */}

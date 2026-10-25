@@ -94,3 +94,50 @@ Thank you,
 
   window.open(whatsappUrl, '_blank');
 }
+
+export interface LateWarningNotice {
+  name: string;
+  phone?: string;
+  company?: string;
+  language: 'en' | 'ar';
+}
+
+export function getLateWarningWhatsAppText(notice: LateWarningNotice): string {
+  if (notice.language === 'ar') {
+    return `الموضوع: إنذار بسبب التأخر عن العمل
+
+عزيزي الموظف،
+يُعد هذا الخطاب إنذارًا رسميًا بسبب تأخرك عن العمل. نرجو الالتزام بمواعيد الدوام الرسمية والحضور في الوقت المحدد.
+وفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.
+
+مع التحية،
+مسؤول الموارد البشرية`;
+  }
+
+  return `Subject: Warning for Late Attendance
+
+Dear Employee,
+This letter serves as a formal warning regarding your repeated lateness to work. You are required to adhere to the official working hours and ensure punctual attendance.
+Further violations may result in disciplinary action.
+
+Regards,
+HR Officer`;
+}
+
+export function sendLateWarningWhatsAppNotice(notice: LateWarningNotice) {
+  const phoneRaw = notice.phone || '';
+  const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
+  let formattedPhone = digitsOnly.replace(/^0+/, '');
+  if (formattedPhone.length === 8) {
+    formattedPhone = `968${formattedPhone}`;
+  }
+
+  const messageText = getLateWarningWhatsAppText(notice);
+  const encodedText = encodeURIComponent(messageText);
+  const whatsappUrl = formattedPhone 
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
+
+  window.open(whatsappUrl, '_blank');
+}
+
