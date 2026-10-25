@@ -170,7 +170,7 @@ export function PayrollLedger() {
   const filteredData = useMemo(() => {
     return ledgerData.filter(d => {
       const matchCompany = selectedCompany === 'All' || d.company === selectedCompany;
-      const matchNationality = selectedNationality === 'All' || d.nationality === selectedNationality;
+      const matchNationality = selectedNationality === 'All' || (selectedNationality === 'OMAN' ? (d.nationality === 'OMAN' || d.nationality === 'Omani') : d.nationality === selectedNationality);
       const matchGender = selectedGender === 'All' || d.gender === selectedGender;
       return matchCompany && matchNationality && matchGender;
     });
@@ -492,7 +492,7 @@ export function PayrollLedger() {
             </select>
             <select value={selectedNationality} onChange={(e) => setSelectedNationality(e.target.value)} className="flex-1 sm:flex-none bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
               <option value="All" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">All Nationalities</option>
-              <option value="Omani" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Omani</option>
+              <option value="OMAN" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">OMAN</option>
               <option value="Expat" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Expat</option>
             </select>
             <select value={selectedGender} onChange={(e) => setSelectedGender(e.target.value)} className="flex-1 sm:flex-none bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 sm:px-4 py-2 text-slate-900 dark:text-white text-xs font-bold outline-none focus:border-primary">
@@ -645,8 +645,8 @@ export function PayrollLedger() {
                         </td>
                         <td className="py-3 px-3 sm:py-3.5 sm:px-4">
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${row.nationality === 'Omani' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'}`}>
-                              {row.nationality}
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${row.nationality === 'OMAN' || row.nationality === 'Omani' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'}`}>
+                              {row.nationality === 'Omani' ? 'OMAN' : row.nationality}
                             </span>
                             <span className="text-[11px] text-slate-500 dark:text-gray-400 font-medium">{row.gender}</span>
                           </div>
@@ -739,8 +739,8 @@ export function PayrollLedger() {
                   </div>
 
                   <div className="flex items-center gap-2 text-xs">
-                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${row.nationality === 'Omani' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'}`}>
-                      {row.nationality}
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${row.nationality === 'OMAN' || row.nationality === 'Omani' ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20' : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20'}`}>
+                      {row.nationality === 'Omani' ? 'OMAN' : row.nationality}
                     </span>
                     <span className="text-[11px] text-slate-500 dark:text-gray-400">{row.gender}</span>
                     <span className="ml-auto text-xs font-bold text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">

@@ -28,7 +28,7 @@ const MONTH_NAMES = [
 export function EmployeeAttendanceTimesheet({
   userId,
   userName,
-  nationality = 'Omani',
+  nationality = 'OMAN',
   joinDate = '2024-01-01',
   scheduledShiftStart = '08:30 AM',
   scheduledShiftEnd = '05:00 PM',
@@ -138,7 +138,7 @@ export function EmployeeAttendanceTimesheet({
       const dStr = String(dayNum).padStart(2, '0');
       const dateStr = `${selectedYear}-${mStr}-${dStr}`;
 
-      const isOmani = nationality === 'Omani';
+      const isOmani = nationality === 'OMAN' || nationality === 'Omani';
       const dayOfWeek = dateObj.getDay();
       // Omani weekend is Friday & Saturday; Expat weekend is Friday
       const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);

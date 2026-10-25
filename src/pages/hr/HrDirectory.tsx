@@ -97,7 +97,7 @@ export function HrDirectory() {
       empComp.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCompany = companyFilter === 'All' || empComp === companyFilter;
     const matchesGender = genderFilter === 'All' || emp.gender === genderFilter;
-    const matchesNationality = nationalityFilter === 'All' || emp.nationality === nationalityFilter;
+    const matchesNationality = nationalityFilter === 'All' || (nationalityFilter === 'OMAN' ? (emp.nationality === 'OMAN' || emp.nationality === 'Omani') : emp.nationality === nationalityFilter);
 
     return matchesSearch && matchesCompany && matchesGender && matchesNationality;
   });
@@ -209,7 +209,7 @@ export function HrDirectory() {
               className="w-full pl-9 pr-8 py-2 bg-white dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-primary appearance-none cursor-pointer shadow-xs transition-all hover:bg-slate-50 dark:hover:bg-white/10"
             >
               <option value="All" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">All Nationalities</option>
-              <option value="Omani" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Omani</option>
+              <option value="OMAN" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">OMAN</option>
               <option value="Expat" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Expat</option>
             </select>
           </div>
@@ -258,8 +258,8 @@ export function HrDirectory() {
                       </span>
                     </td>
                     <td className="py-3 px-3 sm:py-3.5 sm:px-4">
-                      <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-bold border shadow-xs ${emp.nationality === 'Omani' ? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
-                        {emp.nationality}
+                      <span className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[10px] sm:text-xs font-bold border shadow-xs ${emp.nationality === 'OMAN' || emp.nationality === 'Omani' ? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
+                        {emp.nationality === 'Omani' ? 'OMAN' : emp.nationality}
                       </span>
                     </td>
                     <td className="py-3 px-3 sm:py-3.5 sm:px-4">
@@ -361,8 +361,8 @@ export function HrDirectory() {
                 <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-gray-300">
                   {emp.role.replace('_', ' ')}
                 </span>
-                <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${emp.nationality === 'Omani' ? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
-                  {emp.nationality || 'General'}
+                <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold border ${emp.nationality === 'OMAN' || emp.nationality === 'Omani' ? 'bg-blue-500/10 border-blue-500/20 text-blue-700 dark:text-blue-400' : 'bg-amber-500/10 border-amber-500/20 text-amber-700 dark:text-amber-400'}`}>
+                  {emp.nationality === 'Omani' ? 'OMAN' : (emp.nationality || 'OMAN')}
                 </span>
               </div>
 

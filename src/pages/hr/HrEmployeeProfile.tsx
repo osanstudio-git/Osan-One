@@ -201,7 +201,7 @@ export function HrEmployeeProfile() {
     name: '',
     phone: '',
     email: '',
-    nationality: 'Omani' as Nationality,
+    nationality: 'OMAN' as Nationality,
     gender: 'Male' as 'Male' | 'Female',
     religion: 'Muslim' as 'Muslim' | 'Non-Muslim',
   });
@@ -212,7 +212,7 @@ export function HrEmployeeProfile() {
       name: employee.name || '',
       phone: employee.phone || '',
       email: employee.email || '',
-      nationality: employee.nationality || 'Omani',
+      nationality: (employee.nationality === 'Omani' ? 'OMAN' : (employee.nationality || 'OMAN')),
       gender: employee.gender || 'Male',
       religion: employee.religion || 'Muslim',
     });
@@ -596,7 +596,7 @@ export function HrEmployeeProfile() {
     const dStr = String(dayNum).padStart(2, '0');
     const dateStr = `${selectedYear}-${mStr}-${dStr}`;
     
-    const isOmani = employee?.nationality === 'Omani';
+    const isOmani = employee?.nationality === 'OMAN' || employee?.nationality === 'Omani';
     const dayOfWeek = dateObj.getDay();
     const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);
 
@@ -1028,8 +1028,8 @@ export function HrEmployeeProfile() {
                   companyName: employee.company || 'OSAN GROUP',
                   monthIndex: selectedMonth,
                   year: selectedYear,
-                  shiftStart: employee.nationality === 'Omani' ? '08:30 AM' : '08:30 AM',
-                  shiftEnd: employee.nationality === 'Omani' ? '05:00 PM' : '06:00 PM',
+                  shiftStart: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '08:30 AM' : '08:30 AM',
+                  shiftEnd: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '05:00 PM' : '06:00 PM',
                   dailyLogs: monthlyHeatmapData,
                 });
               }}
@@ -1108,7 +1108,7 @@ export function HrEmployeeProfile() {
                 <div>
                   <span className="text-slate-500 dark:text-gray-400 text-xs block mb-1">Nationality</span>
                   <span className="text-slate-900 dark:text-white font-semibold">
-                    {employee.nationality?.replace(/^Expat\s*[\(-]?\s*/i, '').replace(/\)$/, '').replace(/^Omani$/i, 'Oman') || 'Oman'}
+                    {employee.nationality?.replace(/^Expat\s*[\(-]?\s*/i, '').replace(/\)$/, '').replace(/^Omani$/i, 'OMAN') || 'OMAN'}
                   </span>
                 </div>
                 <div>
@@ -1813,8 +1813,8 @@ export function HrEmployeeProfile() {
                       companyName: employee.company || 'OSAN GROUP',
                       monthIndex: selectedMonth,
                       year: selectedYear,
-                      shiftStart: employee.nationality === 'Omani' ? '08:30 AM' : '08:30 AM',
-                      shiftEnd: employee.nationality === 'Omani' ? '05:00 PM' : '06:00 PM',
+                      shiftStart: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '08:30 AM' : '08:30 AM',
+                      shiftEnd: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '05:00 PM' : '06:00 PM',
                       dailyLogs: monthlyHeatmapData,
                     });
                   }}
@@ -2264,17 +2264,17 @@ export function HrEmployeeProfile() {
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Nationality Category</label>
                   <select
-                    value={personalForm.nationality?.startsWith('Expat') ? 'Expat' : 'Omani'}
+                    value={personalForm.nationality?.startsWith('Expat') ? 'Expat' : 'OMAN'}
                     onChange={(e) => {
                       const val = e.target.value;
                       setPersonalForm({ 
                         ...personalForm, 
-                        nationality: val === 'Omani' ? 'Omani' : (personalForm.nationality?.startsWith('Expat') ? personalForm.nationality : 'Expat')
+                        nationality: val === 'OMAN' ? 'OMAN' : (personalForm.nationality?.startsWith('Expat') ? personalForm.nationality : 'Expat')
                       });
                     }}
                     className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none"
                   >
-                    <option value="Omani">Omani</option>
+                    <option value="OMAN">OMAN</option>
                     <option value="Expat">Expat</option>
                   </select>
                 </div>

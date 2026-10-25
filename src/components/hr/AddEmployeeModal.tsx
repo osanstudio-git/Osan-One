@@ -18,8 +18,9 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
     companyPhone: '',
     role: 'Employee' as Role,
     company: companies[0]?.name || '',
-    nationality: 'Omani' as Nationality,
+    nationality: 'OMAN' as Nationality,
     countryOfOrigin: '',
+    dateOfBirth: '',
     gender: 'Male' as 'Male' | 'Female',
     religion: 'Muslim' as 'Muslim' | 'Non-Muslim',
     joinDate: new Date().toISOString().split('T')[0],
@@ -128,6 +129,7 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
         gender: formData.gender,
         religion: formData.religion,
         join_date: formData.joinDate,
+        date_of_birth: formData.dateOfBirth || undefined,
         base_salary: Number(formData.baseSalary) || 0,
         allowances: Number(formData.allowances) || 0,
         job_title: formData.jobTitle || 'Officer',
@@ -187,8 +189,9 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
         companyPhone: '',
         role: 'Employee',
         company: companies[0]?.name || '',
-        nationality: 'Omani',
+        nationality: 'OMAN',
         countryOfOrigin: '',
+        dateOfBirth: '',
         gender: 'Male',
         religion: 'Muslim',
         joinDate: new Date().toISOString().split('T')[0],
@@ -346,7 +349,7 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
           {/* SECTION A: Primary Assignment */}
           <div className="space-y-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-slate-200 dark:border-white/10 pb-1">Placement & Identity</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">Company Assignment *</label>
                 <select
@@ -370,6 +373,19 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="John Doe"
                   className="w-full bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary placeholder:text-slate-400 dark:placeholder:text-gray-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1 flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  <span>Date of Birth <span className="text-[10px] text-slate-400 font-normal">(Optional)</span></span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.dateOfBirth}
+                  onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
+                  className="w-full bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary transition-all"
                 />
               </div>
             </div>
@@ -551,14 +567,14 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-gray-400 mb-1">Nationality Category</label>
                 <select
-                  value={formData.nationality.startsWith('Expat') ? 'Expat' : 'Omani'}
+                  value={formData.nationality.startsWith('Expat') ? 'Expat' : 'OMAN'}
                   onChange={(e) => {
                     const val = e.target.value as Nationality;
                     setFormData({ ...formData, nationality: val });
                   }}
                   className="w-full bg-slate-100 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary appearance-none transition-all cursor-pointer font-semibold"
                 >
-                  <option value="Omani" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Omani</option>
+                  <option value="OMAN" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">OMAN</option>
                   <option value="Expat" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Expat</option>
                 </select>
               </div>

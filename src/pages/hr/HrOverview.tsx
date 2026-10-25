@@ -102,10 +102,10 @@ export function HrOverview() {
 
   // Compute live demographics from real employees array
   const demographicsData = [
-    { name: 'Omani Male', count: employees.filter(e => e.nationality === 'Omani' && e.gender === 'Male').length },
-    { name: 'Omani Female', count: employees.filter(e => e.nationality === 'Omani' && e.gender === 'Female').length },
-    { name: 'Expat Male', count: employees.filter(e => e.nationality === 'Expat' && e.gender === 'Male').length },
-    { name: 'Expat Female', count: employees.filter(e => e.nationality === 'Expat' && e.gender === 'Female').length },
+    { name: 'OMAN Male', count: employees.filter(e => (e.nationality === 'OMAN' || e.nationality === 'Omani') && e.gender === 'Male').length },
+    { name: 'OMAN Female', count: employees.filter(e => (e.nationality === 'OMAN' || e.nationality === 'Omani') && e.gender === 'Female').length },
+    { name: 'Expat Male', count: employees.filter(e => e.nationality?.startsWith('Expat') && e.gender === 'Male').length },
+    { name: 'Expat Female', count: employees.filter(e => e.nationality?.startsWith('Expat') && e.gender === 'Female').length },
   ];
 
   // Compute workforce distribution per company from real employees

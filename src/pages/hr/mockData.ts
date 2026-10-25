@@ -29,7 +29,7 @@ export const MOCK_COMPANIES: CompanyData[] = [
 
 export const MOCK_EMPLOYEES: User[] = Array.from({ length: 12 }).map((_, i) => {
   const gender = i % 2 === 0 ? 'Male' : 'Female' as 'Male' | 'Female';
-  const nationality = (i % 3 === 0 ? 'Expat' : 'Omani') as Nationality;
+  const nationality = (i % 3 === 0 ? 'Expat' : 'OMAN') as Nationality;
   const companyName = MOCK_COMPANIES[i % 8].name;
   const religion = i % 4 === 1 ? 'Non-Muslim' : 'Muslim' as 'Muslim' | 'Non-Muslim';
   

@@ -14,7 +14,7 @@ export const SEVERE_EARLY_MINUTES = 30;
  */
 export function isRestDay(date: Date, nationality: Nationality | string): boolean {
   const day = date.getDay(); // 0 = Sunday, 5 = Friday, 6 = Saturday
-  const isOmani = nationality === 'Omani';
+  const isOmani = nationality === 'OMAN' || nationality === 'Omani';
   
   if (isOmani) {
     return day === 5 || day === 6; // Friday & Saturday

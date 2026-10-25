@@ -242,7 +242,7 @@ export function EmployeeProfileModal({
                 <div>
                   <span className="text-[10px] text-slate-400 dark:text-gray-500 font-bold block">Nationality & Gender</span>
                   <span className="font-extrabold text-slate-800 dark:text-gray-200">
-                    {profile.nationality || 'Omani'} • {profile.gender || 'Male'}
+                    {(profile.nationality === 'Omani' ? 'OMAN' : (profile.nationality || 'OMAN'))} • {profile.gender || 'Male'}
                   </span>
                 </div>
               </div>

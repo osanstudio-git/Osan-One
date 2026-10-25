@@ -449,7 +449,7 @@ export function EmployeeDashboard() {
 
 
 
-  const isOmani = profile?.nationality === 'Omani';
+  const isOmani = profile?.nationality === 'OMAN' || profile?.nationality === 'Omani';
   const activeCompany = MOCK_COMPANIES.find(c => c.name === companyName) || MOCK_COMPANIES[0];
   
   let shiftStart = isOmani ? (activeCompany.omaniShiftStart || '08:30') : (activeCompany.expatShiftStart || '08:30');

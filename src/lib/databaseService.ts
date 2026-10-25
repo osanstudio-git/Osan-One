@@ -285,7 +285,7 @@ export function mapDbUserToUser(data: any, companyNameMap?: Record<string, strin
     role: role as Role,
     company_id: data.company_id || 'Company',
     company: companyName,
-    nationality: data.nationality || 'Omani',
+    nationality: (data.nationality === 'Omani' ? 'OMAN' : (data.nationality || 'OMAN')),
     gender: data.gender || 'Male',
     religion: data.religion || 'Muslim',
     status: data.status || 'Active',
@@ -522,11 +522,12 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     pin: employeeData.pin || '123456',
     role: employeeData.role || 'Employee',
     company_id: companyId,
-    nationality: employeeData.nationality || 'Omani',
+    nationality: employeeData.nationality || 'OMAN',
     gender: employeeData.gender || 'Male',
     religion: employeeData.religion || 'Muslim',
     status: employeeData.status || 'Active',
     join_date: employeeData.join_date || new Date().toISOString().split('T')[0],
+    date_of_birth: employeeData.date_of_birth || undefined,
     job_title: employeeData.job_title || 'Officer',
     department: employeeData.department || 'Operations',
     supervisor_name: employeeData.supervisor_name,
@@ -553,7 +554,7 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
   // If nationality enum error occurs (e.g. before SQL alter column migration), simplify to 'Expat'/'Omani'
   if (error && (error.message?.includes('user_nationality') || error.message?.includes('enum'))) {
     console.warn('Supabase nationality enum error. Retrying with simplified category...', error.message);
-    fullPayload.nationality = (fullPayload.nationality || 'Omani').startsWith('Expat') ? 'Expat' : 'Omani';
+    fullPayload.nationality = (fullPayload.nationality || 'OMAN').startsWith('Expat') ? 'Expat' : 'Omani';
     const retryEnumRes = await supabase.from('users').insert([fullPayload]).select().single();
     data = retryEnumRes.data;
     error = retryEnumRes.error;
@@ -575,6 +576,7 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
       religion: fullPayload.religion,
       status: fullPayload.status,
       join_date: fullPayload.join_date,
+      date_of_birth: fullPayload.date_of_birth,
       job_title: fullPayload.job_title,
       department: fullPayload.department,
       base_salary: fullPayload.base_salary,
@@ -616,6 +618,7 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     if (updates.email !== undefined) payload.email = updates.email;
     if (updates.phone !== undefined) payload.phone = updates.phone;
     if (updates.avatar_url !== undefined) payload.avatar_url = updates.avatar_url;
+    if (updates.date_of_birth !== undefined) payload.date_of_birth = updates.date_of_birth;
     if (updates.nationality !== undefined) {
       payload.nationality = updates.nationality;
     }

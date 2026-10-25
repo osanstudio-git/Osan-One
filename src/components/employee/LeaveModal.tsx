@@ -21,7 +21,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
   // Derive user details (fallbacks for mock stability)
   const gender = userProfile?.gender || 'Male';
   const religion = userProfile?.religion || 'Muslim';
-  const nationality = userProfile?.nationality || 'Omani';
+  const nationality = userProfile?.nationality || 'OMAN';
   const joinDate = userProfile?.join_date ? new Date(userProfile.join_date) : new Date('2024-01-01');
 
   // Verify months served for Annual Leave eligibility
@@ -33,7 +33,8 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
   }, [joinDate]);
 
   const isEligibleForYearly = useMemo(() => {
-    if (nationality !== 'Omani') return true; // Expats 1-2 years constraint handles differently, Omani has 6 months lock
+    const isOmani = nationality === 'OMAN' || nationality === 'Omani';
+    if (!isOmani) return true; // Expats 1-2 years constraint handles differently, Omani has 6 months lock
     return servedMonths >= 6;
   }, [nationality, servedMonths]);
 
@@ -48,7 +49,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
     while (current <= end) {
       if (leaveType === 'Yearly') {
         const dayOfWeek = current.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday
-        const isOmani = nationality === 'Omani';
+        const isOmani = nationality === 'OMAN' || nationality === 'Omani';
         if (isOmani) {
           // Omani: skip Friday (5) and Saturday (6)
           if (dayOfWeek !== 5 && dayOfWeek !== 6) {
@@ -278,7 +279,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, balances, userProfile }:
                       {requestDurationDays} Days
                       {leaveType === 'Yearly' && (
                         <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold mt-0.5">
-                          (excluding {nationality === 'Omani' ? 'Fri/Sat' : 'Fri'} weekends)
+                          (excluding {nationality === 'OMAN' || nationality === 'Omani' ? 'Fri/Sat' : 'Fri'} weekends)
                         </span>
                       )}
                     </span>
