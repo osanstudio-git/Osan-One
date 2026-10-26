@@ -825,16 +825,6 @@ export function HrLeaves() {
                         </div>
                       ) : (
                         <div className="inline-flex items-center gap-1.5">
-                          {leave.documentUrl && (
-                            <button
-                              onClick={() => setPreviewDoc(leave.documentUrl)}
-                              className="px-2.5 py-1.5 bg-blue-500/10 hover:bg-blue-500/20 text-[#1D70B8] dark:text-blue-400 rounded-lg text-xs font-bold border border-blue-500/30 flex items-center gap-1 cursor-pointer transition-all"
-                              title="Inspect attached document before action"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              <span className="hidden md:inline">Inspect Doc</span>
-                            </button>
-                          )}
                           <button
                             onClick={() => handleAction(leave.id, 'Approved')}
                             className="px-3 py-1.5 bg-[#1D70B8] hover:bg-[#155994] text-white rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
