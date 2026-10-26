@@ -355,21 +355,20 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
     .badge-holiday { background: #f3e8ff; color: #6b21a8; border-color: #e9d5ff; }
     .badge-weekend { background: #e2e8f0; color: #475569; }
 
-    /* Signatures Section */
-    /* Signatures Section */
+    /* Signatures Section: 3 Boxes in 1 Row */
     .sig-section {
       page-break-inside: avoid;
-      margin-top: 20px;
+      margin-top: 18px;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 12px;
     }
     .sig-box {
       position: relative;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
-      padding: 12px 14px;
-      min-height: 110px;
+      padding: 10px 12px;
+      min-height: 105px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -377,83 +376,108 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
       overflow: hidden;
     }
     .sig-title {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 800;
       text-transform: uppercase;
       color: #334155;
       border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 5px;
-      margin-bottom: 30px;
+      padding-bottom: 4px;
+      margin-bottom: 22px;
       letter-spacing: 0.3px;
     }
     .sig-line {
       border-top: 1px dashed #94a3b8;
-      padding-top: 5px;
-      font-size: 9.5px;
+      padding-top: 4px;
+      font-size: 9px;
       color: #64748b;
       font-weight: 700;
+      line-height: 1.35;
     }
 
-    /* Green Rubber Stamp Approved Styling (Distressed Double-border Official Look) */
+    /* 3rd Box: Official Seal & Stamp */
+    .stamp-seal-box {
+      border: 1.5px dashed #cbd5e1;
+      background: #fafafa;
+    }
+    .seal-inner-area {
+      font-size: 8px;
+      font-weight: 800;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: center;
+      line-height: 1.4;
+      padding: 6px 0;
+    }
+    .seal-inner-area strong {
+      color: #64748b;
+      display: block;
+      margin-top: 2px;
+    }
+
+    /* Green Rubber Stamp Approved Styling (Authentic Ink Watermark Touch with Background Text Visible) */
     .hr-stamp-wrapper {
       display: none;
       position: absolute;
       top: 50%;
       left: 50%;
-      transform: translate(-50%, -46%) rotate(-6deg);
+      transform: translate(-50%, -46%) rotate(-7deg);
       pointer-events: none;
       z-index: 10;
+      mix-blend-mode: multiply;
+      opacity: 0.90;
     }
     .hr-stamp-wrapper.stamped {
       display: block;
     }
     .rubber-stamp {
       display: inline-block;
-      padding: 3px;
-      border: 3.5px solid #16a34a;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.95);
-      box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.25), inset 0 0 8px rgba(22, 163, 74, 0.08);
-      filter: drop-shadow(0 2px 4px rgba(22, 163, 74, 0.15));
+      padding: 2.5px;
+      border: 3px solid #15803d;
+      border-radius: 9px;
+      background: transparent;
+      box-shadow: inset 0 0 0 1px rgba(21, 128, 61, 0.35), 0 0 0 1px rgba(21, 128, 61, 0.2);
     }
     .rubber-stamp-inner {
-      border: 1.5px solid #16a34a;
-      border-radius: 8px;
-      padding: 4px 18px;
+      border: 1.5px solid #15803d;
+      border-radius: 6px;
+      padding: 2px 10px;
       text-align: center;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      background: transparent;
     }
     .stamp-text-approved {
       font-family: Impact, "Arial Black", "Trebuchet MS", sans-serif;
-      font-size: 26px;
+      font-size: 21px;
       font-weight: 900;
-      color: #16a34a;
-      letter-spacing: 3.5px;
+      color: #15803d;
+      letter-spacing: 2.5px;
       line-height: 1;
       text-transform: uppercase;
       margin: 1px 0;
+      text-shadow: 0 0 0.5px rgba(21, 128, 61, 0.7);
     }
     .stamp-text-sub {
-      font-size: 8px;
+      font-size: 7px;
       font-weight: 900;
       color: #15803d;
-      letter-spacing: 1.5px;
+      letter-spacing: 1px;
       text-transform: uppercase;
-      border-top: 1.5px solid #16a34a;
-      padding-top: 2px;
-      margin-top: 2px;
+      border-top: 1.5px solid #15803d;
+      padding-top: 1.5px;
+      margin-top: 1.5px;
       width: 100%;
     }
     .stamp-text-meta {
-      font-size: 7.5px;
+      font-size: 6.5px;
       font-weight: 800;
-      color: #16a34a;
-      letter-spacing: 0.8px;
+      color: #15803d;
+      letter-spacing: 0.6px;
       text-transform: uppercase;
-      margin-top: 2px;
+      margin-top: 1.5px;
     }
     .stamp-box {
       border: 2px dashed #cbd5e1;
@@ -656,12 +680,13 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
       </tbody>
     </table>
 
-    <!-- Official Certification & Signatures Section -->
+    <!-- Official Certification & Signatures Section (3 Boxes in 1 Row) -->
     <div class="sig-section">
+      <!-- 1. Acknowledged by HR Department -->
       <div class="sig-box" id="hrAckBox">
         <div class="sig-title">1. Acknowledged by HR Department</div>
         
-        <!-- Official Green Stamp Overlay -->
+        <!-- Official Green Stamp Watermark Overlay (Transparent Real Ink Effect) -->
         <div id="hrStampOverlay" class="hr-stamp-wrapper ${isHrAcknowledged ? 'stamped' : ''}">
           <div class="rubber-stamp">
             <div class="rubber-stamp-inner">
@@ -673,11 +698,12 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
         </div>
 
         <div class="sig-line">
-          HR Officer Signature: <strong id="hrSignerText">${effectiveAckBy}</strong><br>
+          HR Officer: <strong id="hrSignerText">${effectiveAckBy}</strong><br>
           Date: <span id="hrDateDisplay">${todayDateFormatted}</span>
         </div>
       </div>
 
+      <!-- 2. Head of Dept / GM Approval -->
       <div class="sig-box">
         <div class="sig-title">2. Head of Dept / GM Approval</div>
         <div class="sig-line">
@@ -685,13 +711,14 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
           Date: ________________________
         </div>
       </div>
-    </div>
 
-    <!-- Official Seal Stamp Box -->
-    <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
-      <div class="stamp-box" style="width: 260px; height: 75px;">
-        OFFICIAL COMPANY SEAL & STAMP AREA<br>
-        ${companyName || 'OSAN GROUP LLC'}
+      <!-- 3. Official Company Seal & Stamp -->
+      <div class="sig-box stamp-seal-box">
+        <div class="sig-title" style="color: #64748b; border-bottom-color: #cbd5e1;">3. Official Company Seal</div>
+        <div class="seal-inner-area">
+          OFFICIAL COMPANY SEAL &amp; STAMP AREA<br>
+          <strong>${companyName || 'OSAN STUDIO'}</strong>
+        </div>
       </div>
     </div>
 
