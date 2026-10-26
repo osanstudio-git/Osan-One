@@ -37,7 +37,7 @@ export function EmployeeDashboard() {
     try {
       invalidateEmployeeCache();
       invalidateCompanyCache();
-      
+
       // Check for Service Worker update safely without deleting Workbox precache
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
@@ -407,7 +407,7 @@ export function EmployeeDashboard() {
         const cloudAvatar = await getEmployeeAvatarFromDb(profile.id);
         const localAvatar = getSavedLocalAvatar(profile.id, profile.email, profile.phone);
         const effectiveAvatar = cloudAvatar || localAvatar || profile.avatar_url;
-        
+
         updateCurrentUserProfile({
           ...(effectiveAvatar && profile.avatar_url !== effectiveAvatar ? { avatar_url: effectiveAvatar } : {}),
           ...(userData.gender ? { gender: userData.gender } : {}),
@@ -1136,11 +1136,10 @@ export function EmployeeDashboard() {
                                   </label>
                                 </div>
                               ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
-                                <label className={`px-2.5 py-1 rounded-lg font-extrabold text-[11px] border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs ${
-                                  l.status === 'Approved'
+                                <label className={`px-2.5 py-1 rounded-lg font-extrabold text-[11px] border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs ${l.status === 'Approved'
                                     ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 ring-2 ring-emerald-500/10'
                                     : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                                }`} title="Upload Doctor / Hospital Sick Leave Certificate">
+                                  }`} title="Upload Doctor / Hospital Sick Leave Certificate">
                                   <UploadCloud className="w-3.5 h-3.5" />
                                   <span>+ Upload Medical Report</span>
                                   <input
