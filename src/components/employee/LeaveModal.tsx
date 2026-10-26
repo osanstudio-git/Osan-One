@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, ChevronDown, ShieldAlert } from 'lucide-react';
 import type { LeaveType } from '../../types';
+import { supabase } from '../../lib/supabase';
 
 interface LeaveModalProps {
   isOpen: boolean;
@@ -18,8 +19,20 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Derive user details (fallbacks for mock stability)
-  const gender = userProfile?.gender || 'Male';
+  // Derive user details with robust case-insensitive gender detection
+  const initialGender = useMemo<'Male' | 'Female'>(() => {
+    const raw = (userProfile?.gender || '').trim().toLowerCase();
+    if (raw === 'female' || raw === 'f' || raw === 'woman' || raw === 'girl') return 'Female';
+    if (raw === 'male' || raw === 'm' || raw === 'man' || raw === 'boy') return 'Male';
+    return userProfile?.gender === 'Female' ? 'Female' : 'Male';
+  }, [userProfile?.gender]);
+
+  const [gender, setGender] = useState<'Male' | 'Female'>(initialGender);
+
+  useEffect(() => {
+    setGender(initialGender);
+  }, [initialGender]);
+
   const religion = userProfile?.religion || 'Muslim';
   const nationality = userProfile?.nationality || 'OMAN';
   const joinDate = userProfile?.join_date ? new Date(userProfile.join_date) : new Date('2024-01-01');
@@ -134,6 +147,10 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
 
     setIsSubmitting(true);
     try {
+      if (userProfile?.id && gender !== userProfile?.gender) {
+        // Automatically persist gender update to user profile
+        supabase.from('users').update({ gender }).eq('id', userProfile.id).then();
+      }
       await onSubmit({ leaveType, startDate, endDate, durationDays: requestDurationDays, notes });
       onClose();
     } catch (error) {
@@ -185,7 +202,44 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
 
               {/* Leave Type Select */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">Leave Category *</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">Leave Category *</label>
+                  
+                  {/* Gender Selector / Indicator */}
+                  <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-white/10 p-0.5 rounded-xl border border-slate-200 dark:border-white/10 text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGender('Female');
+                        if (leaveType === 'Paternity') setLeaveType('Maternity');
+                      }}
+                      className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                        gender === 'Female'
+                          ? 'bg-rose-500 text-white shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
+                      }`}
+                    >
+                      <span>👩 Female</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGender('Male');
+                        if (leaveType === 'Maternity' || leaveType === 'Mourning_Muslim' || leaveType === 'Mourning_NonMuslim') {
+                          setLeaveType('Yearly');
+                        }
+                      }}
+                      className={`px-2 py-0.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                        gender === 'Male'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-500 hover:text-slate-800 dark:text-gray-400 dark:hover:text-white'
+                      }`}
+                    >
+                      <span>👨 Male</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="relative">
                   <select
                     value={leaveType}
@@ -195,10 +249,12 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                     <option value="Yearly" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Yearly Leave (30 Days)</option>
                     <option value="Sick" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Sick Leave (Paid Scale)</option>
                     
-                    {/* Gender and Religion constraints */}
+                    {/* FEMALE ONLY LEAVES */}
                     {gender === 'Female' && (
                       <option value="Maternity" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Maternity Leave (98 Days)</option>
                     )}
+
+                    {/* MALE ONLY LEAVES */}
                     {gender === 'Male' && (
                       <option value="Paternity" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Paternity Leave (7 Days)</option>
                     )}
@@ -207,10 +263,14 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                     
                     <option value="Bereavement_Immediate" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Bereavement - Immediate Family (3 Days)</option>
                     <option value="Bereavement_Extended" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Bereavement - Extended Family (2 Days)</option>
-                    <option value="Bereavement_Spouse" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Bereavement - Spouse (10 Days)</option>
+                    
+                    {/* Spouse Bereavement: Males get 10 Days, Muslim Females get 130 Days Iddah Mourning */}
+                    {gender === 'Male' && (
+                      <option value="Bereavement_Spouse" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Bereavement - Spouse (10 Days)</option>
+                    )}
                     
                     {gender === 'Female' && religion === 'Muslim' && (
-                      <option value="Mourning_Muslim" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Mourning Leave - Muslim Female (130 Days)</option>
+                      <option value="Mourning_Muslim" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Mourning Leave - Muslim Female / Iddah (130 Days)</option>
                     )}
                     {gender === 'Female' && religion === 'Non-Muslim' && (
                       <option value="Mourning_NonMuslim" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Mourning Leave - Non-Muslim Female (14 Days)</option>

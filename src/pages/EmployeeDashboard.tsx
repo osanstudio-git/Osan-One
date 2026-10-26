@@ -390,7 +390,7 @@ export function EmployeeDashboard() {
 
       // Query live balances safely from users table without nonexistent avatar_url column
       const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(profile.id);
-      let query = supabase.from('users').select('id, leave_balance_yearly, leave_balance_sick, leave_balance_maternity, documents');
+      let query = supabase.from('users').select('id, name, gender, religion, nationality, leave_balance_yearly, leave_balance_sick, leave_balance_maternity, documents');
       if (isUuid) {
         query = query.eq('id', profile.id);
       } else if (profile.email) {
@@ -409,9 +409,13 @@ export function EmployeeDashboard() {
         const cloudAvatar = await getEmployeeAvatarFromDb(profile.id);
         const localAvatar = getSavedLocalAvatar(profile.id, profile.email, profile.phone);
         const effectiveAvatar = cloudAvatar || localAvatar || profile.avatar_url;
-        if (effectiveAvatar && profile.avatar_url !== effectiveAvatar) {
-          updateCurrentUserProfile({ avatar_url: effectiveAvatar });
-        }
+        
+        updateCurrentUserProfile({
+          ...(effectiveAvatar && profile.avatar_url !== effectiveAvatar ? { avatar_url: effectiveAvatar } : {}),
+          ...(userData.gender ? { gender: userData.gender } : {}),
+          ...(userData.religion ? { religion: userData.religion } : {}),
+          ...(userData.nationality ? { nationality: userData.nationality } : {})
+        });
 
         // Also sync local demo profile so any other components read the latest balances
         const saved = localStorage.getItem('osan_demo_profile');
@@ -420,6 +424,9 @@ export function EmployeeDashboard() {
             const parsed = JSON.parse(saved);
             parsed.leave_balances = updated;
             if (effectiveAvatar) parsed.avatar_url = effectiveAvatar;
+            if (userData.gender) parsed.gender = userData.gender;
+            if (userData.religion) parsed.religion = userData.religion;
+            if (userData.nationality) parsed.nationality = userData.nationality;
             localStorage.setItem('osan_demo_profile', JSON.stringify(parsed));
           } catch (e) { }
         }

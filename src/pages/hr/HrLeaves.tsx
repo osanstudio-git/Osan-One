@@ -75,7 +75,7 @@ export function HrLeaves() {
     const fetchEmployees = async () => {
       const { data } = await supabase
         .from('users')
-        .select('id, name, email, phone, role, job_title, department')
+        .select('id, name, email, phone, role, job_title, department, gender, religion')
         .order('name');
       if (data) setEmployeesList(data);
     };
@@ -1263,24 +1263,52 @@ export function HrLeaves() {
               </div>
 
               {/* Leave Category */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
-                  Leave Category *
-                </label>
-                <select
-                  value={recordForm.leaveType}
-                  onChange={(e) => setRecordForm({ ...recordForm, leaveType: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
-                >
-                  <option value="Yearly">Yearly / Annual Leave (Paid)</option>
-                  <option value="Sick">Sick / Medical Leave</option>
-                  <option value="Maternity">Maternity Leave (98 Days)</option>
-                  <option value="Paternity">Paternity Leave (7 Days)</option>
-                  <option value="Marriage">Marriage Leave (3 Days)</option>
-                  <option value="Bereavement_Immediate">Bereavement Leave</option>
-                  <option value="Unpaid">Unpaid Leave</option>
-                </select>
-              </div>
+              {(() => {
+                const selectedEmp = employeesList.find(e => e.id === recordForm.userId);
+                const isEmpFemale = ((selectedEmp?.gender || '').toLowerCase() === 'female');
+                const isEmpMale = ((selectedEmp?.gender || '').toLowerCase() === 'male');
+
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
+                        Leave Category *
+                      </label>
+                      {selectedEmp && (
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isEmpFemale 
+                            ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400' 
+                            : 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                        }`}>
+                          {isEmpFemale ? '👩 Female Employee' : '👨 Male Employee'}
+                        </span>
+                      )}
+                    </div>
+                    <select
+                      value={recordForm.leaveType}
+                      onChange={(e) => setRecordForm({ ...recordForm, leaveType: e.target.value })}
+                      className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50 cursor-pointer"
+                    >
+                      <option value="Yearly">Yearly / Annual Leave (Paid)</option>
+                      <option value="Sick">Sick / Medical Leave</option>
+                      
+                      {/* Female Only: Maternity */}
+                      {(!selectedEmp || isEmpFemale) && (
+                        <option value="Maternity">Maternity Leave (98 Days)</option>
+                      )}
+                      
+                      {/* Male Only: Paternity */}
+                      {(!selectedEmp || isEmpMale) && (
+                        <option value="Paternity">Paternity Leave (7 Days)</option>
+                      )}
+                      
+                      <option value="Marriage">Marriage Leave (3 Days)</option>
+                      <option value="Bereavement_Immediate">Bereavement Leave</option>
+                      <option value="Unpaid">Unpaid Leave</option>
+                    </select>
+                  </div>
+                );
+              })()}
 
               {/* Optional Medical Certificate / Document Upload */}
               <div className="space-y-1.5">
