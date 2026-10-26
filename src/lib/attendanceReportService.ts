@@ -24,6 +24,9 @@ export interface AttendanceReportOptions {
   year: number;
   shiftStart?: string;
   shiftEnd?: string;
+  isHrAcknowledged?: boolean;
+  acknowledgedBy?: string;
+  acknowledgedDate?: string;
   dailyLogs: Array<{
     dayNum: number;
     dateStr: string;
@@ -56,8 +59,14 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
     companyName,
     monthIndex,
     year,
-    dailyLogs
+    dailyLogs,
+    isHrAcknowledged = true,
+    acknowledgedBy = 'Eklas Said Al Nairi',
+    acknowledgedDate
   } = options;
+
+  const todayDateFormatted = acknowledgedDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const effectiveAckBy = acknowledgedBy || 'Eklas Said Al Nairi';
 
   const monthName = MONTH_NAMES[monthIndex];
   const refCode = `OSAN-ATT-${year}${String(monthIndex + 1).padStart(2, '0')}-${employee.id.substring(0, 6).toUpperCase()}`;
@@ -347,38 +356,104 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
     .badge-weekend { background: #e2e8f0; color: #475569; }
 
     /* Signatures Section */
+    /* Signatures Section */
     .sig-section {
       page-break-inside: avoid;
       margin-top: 20px;
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 14px;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
     }
     .sig-box {
+      position: relative;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
-      padding: 12px;
-      min-height: 100px;
+      padding: 12px 14px;
+      min-height: 110px;
       display: flex;
-      flex-col;
+      flex-direction: column;
       justify-content: space-between;
       background: #ffffff;
+      overflow: hidden;
     }
     .sig-title {
       font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
-      color: #475569;
+      color: #334155;
       border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 4px;
-      margin-bottom: 40px;
+      padding-bottom: 5px;
+      margin-bottom: 30px;
+      letter-spacing: 0.3px;
     }
     .sig-line {
       border-top: 1px dashed #94a3b8;
-      padding-top: 4px;
+      padding-top: 5px;
       font-size: 9.5px;
       color: #64748b;
       font-weight: 700;
+    }
+
+    /* Green Rubber Stamp Approved Styling (Distressed Double-border Official Look) */
+    .hr-stamp-wrapper {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -46%) rotate(-6deg);
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hr-stamp-wrapper.stamped {
+      display: block;
+    }
+    .rubber-stamp {
+      display: inline-block;
+      padding: 3px;
+      border: 3.5px solid #16a34a;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 0 0 1px rgba(22, 163, 74, 0.25), inset 0 0 8px rgba(22, 163, 74, 0.08);
+      filter: drop-shadow(0 2px 4px rgba(22, 163, 74, 0.15));
+    }
+    .rubber-stamp-inner {
+      border: 1.5px solid #16a34a;
+      border-radius: 8px;
+      padding: 4px 18px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .stamp-text-approved {
+      font-family: Impact, "Arial Black", "Trebuchet MS", sans-serif;
+      font-size: 26px;
+      font-weight: 900;
+      color: #16a34a;
+      letter-spacing: 3.5px;
+      line-height: 1;
+      text-transform: uppercase;
+      margin: 1px 0;
+    }
+    .stamp-text-sub {
+      font-size: 8px;
+      font-weight: 900;
+      color: #15803d;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      border-top: 1.5px solid #16a34a;
+      padding-top: 2px;
+      margin-top: 2px;
+      width: 100%;
+    }
+    .stamp-text-meta {
+      font-size: 7.5px;
+      font-weight: 800;
+      color: #16a34a;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-top: 2px;
     }
     .stamp-box {
       border: 2px dashed #cbd5e1;
@@ -446,10 +521,19 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
 
   <!-- Top Action Bar (Hidden on print) -->
   <div class="print-bar no-print">
-    <div>
-      <strong>Monthly Attendance Sheet: ${employee.name}</strong> (${monthName} ${year})
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <strong style="font-size: 13px;">Monthly Attendance Sheet: ${employee.name}</strong>
+      <span style="opacity: 0.75; font-size: 11px;">(${monthName} ${year})</span>
     </div>
-    <div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button 
+        id="stampToggleBtn" 
+        class="stamp-toggle-btn" 
+        onclick="toggleHrStamp()"
+        style="background: ${isHrAcknowledged ? '#15803d' : '#0284c7'}; color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; font-weight: 800; font-size: 11.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
+      >
+        <span>${isHrAcknowledged ? '✓ HR Stamped (Click to Remove)' : '✓ Acknowledge & Stamp HR'}</span>
+      </button>
       <button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
     </div>
   </div>
@@ -574,24 +658,28 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
 
     <!-- Official Certification & Signatures Section -->
     <div class="sig-section">
-      <div class="sig-box">
-        <div class="sig-title">1. Employee Acknowledgment</div>
+      <div class="sig-box" id="hrAckBox">
+        <div class="sig-title">1. Acknowledged by HR Department</div>
+        
+        <!-- Official Green Stamp Overlay -->
+        <div id="hrStampOverlay" class="hr-stamp-wrapper ${isHrAcknowledged ? 'stamped' : ''}">
+          <div class="rubber-stamp">
+            <div class="rubber-stamp-inner">
+              <div class="stamp-text-approved">APPROVED</div>
+              <div class="stamp-text-sub">HR &bull; LABOUR COMPLIANCE</div>
+              <div class="stamp-text-meta">${todayDateFormatted} &bull; ${effectiveAckBy.toUpperCase()}</div>
+            </div>
+          </div>
+        </div>
+
         <div class="sig-line">
-          Signature: <strong>${employee.name}</strong><br>
-          Date: ________________________
+          HR Officer Signature: <strong id="hrSignerText">${effectiveAckBy}</strong><br>
+          Date: <span id="hrDateDisplay">${todayDateFormatted}</span>
         </div>
       </div>
 
       <div class="sig-box">
-        <div class="sig-title">2. Certified by HR Department</div>
-        <div class="sig-line">
-          HR Officer Signature<br>
-          Date: ________________________
-        </div>
-      </div>
-
-      <div class="sig-box">
-        <div class="sig-title">3. Head of Dept / GM Approval</div>
+        <div class="sig-title">2. Head of Dept / GM Approval</div>
         <div class="sig-line">
           Approved for Payroll<br>
           Date: ________________________
@@ -615,11 +703,27 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
   </div>
 
   <script>
+    function toggleHrStamp() {
+      const stamp = document.getElementById('hrStampOverlay');
+      const btn = document.getElementById('stampToggleBtn');
+      if (!stamp || !btn) return;
+      const isStamped = stamp.classList.contains('stamped');
+      if (isStamped) {
+        stamp.classList.remove('stamped');
+        btn.style.background = '#0284c7';
+        btn.innerHTML = '<span>✓ Acknowledge & Stamp HR</span>';
+      } else {
+        stamp.classList.add('stamped');
+        btn.style.background = '#15803d';
+        btn.innerHTML = '<span>✓ HR Stamped (Click to Remove)</span>';
+      }
+    }
+
     window.onload = function() {
-      // Automatically prompt print dialog after page assets render
+      // Prompt print dialog after page renders
       setTimeout(function() {
         window.print();
-      }, 350);
+      }, 400);
     };
   </script>
 </body>

@@ -1043,6 +1043,8 @@ export function HrEmployeeProfile() {
                   shiftStart: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '08:30 AM' : '08:30 AM',
                   shiftEnd: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '05:00 PM' : '06:00 PM',
                   dailyLogs: monthlyHeatmapData,
+                  isHrAcknowledged: true,
+                  acknowledgedBy: 'Eklas Said Al Nairi',
                 });
               }}
               className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-2.5 bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-800/40 rounded-xl text-xs font-bold transition-colors text-emerald-700 dark:text-emerald-300 shadow-xs cursor-pointer active:scale-95 whitespace-nowrap"
@@ -1828,6 +1830,8 @@ export function HrEmployeeProfile() {
                       shiftStart: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '08:30 AM' : '08:30 AM',
                       shiftEnd: (employee.nationality === 'OMAN' || employee.nationality === 'Omani') ? '05:00 PM' : '06:00 PM',
                       dailyLogs: monthlyHeatmapData,
+                      isHrAcknowledged: true,
+                      acknowledgedBy: 'Eklas Said Al Nairi',
                     });
                   }}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer ml-1 sm:ml-2"
