@@ -363,6 +363,28 @@ BEGIN
   END IF;
 END $$;
 
+-- ---------------------------------------------------------------------
+-- 12. PUBLIC HOLIDAYS TABLE
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public_holidays (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title VARCHAR(255) NOT NULL,
+  holiday_date VARCHAR(50) NOT NULL,
+  category VARCHAR(50) NOT NULL DEFAULT 'National',
+  is_paid_off BOOLEAN NOT NULL DEFAULT true,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public_holidays ENABLE ROW LEVEL SECURITY;
+
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow full manage access to public_holidays') THEN
+    CREATE POLICY "Allow full manage access to public_holidays" ON public_holidays FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
+
 -- Reload Supabase PostgREST Schema Cache
 NOTIFY pgrst, 'reload schema';
 

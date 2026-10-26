@@ -1947,18 +1947,32 @@ export async function getPublicHolidaysFromDb(): Promise<any[]> {
   }
 
   try {
-    const { data, error } = await supabase.from('public_holidays').select('*').order('date', { ascending: true });
-    if (error || !data || data.length === 0) {
+    const { data, error } = await supabase.from('public_holidays').select('*').order('holiday_date', { ascending: true });
+    if (error) {
+      console.error('Supabase public_holidays select error:', error.message);
       return [];
     }
-    return data.map(h => ({
-      id: h.id,
-      name: h.name,
-      date: h.date,
-      daysCount: h.days_count || 1,
-      type: h.type || 'National',
-      notes: h.notes || ''
-    }));
+    if (!data || data.length === 0) {
+      return [];
+    }
+    return data.map(h => {
+      let daysCount = 1;
+      const notesStr = h.notes || '';
+      const match = notesStr.match(/\[(\d+)\s*Days?\]/i);
+      if (match) {
+        daysCount = parseInt(match[1], 10);
+      } else if (h.days_count) {
+        daysCount = h.days_count;
+      }
+      return {
+        id: h.id,
+        name: h.title || h.name || '',
+        date: h.holiday_date || h.date || '',
+        daysCount,
+        type: h.category || h.type || 'National',
+        notes: notesStr.replace(/\[\d+\s*Days?\]\s*/i, '').trim()
+      };
+    });
   } catch (err) {
     console.error('Failed to fetch public holidays from Supabase:', err);
     return [];
@@ -1969,19 +1983,30 @@ export async function createPublicHolidayInDb(holiday: { name: string; date: str
   if (!isLiveSupabaseConfigured()) return null;
 
   try {
+    const notesWithDays = holiday.daysCount > 1 
+      ? `[${holiday.daysCount} Days] ${holiday.notes || ''}`.trim()
+      : (holiday.notes || '');
+
     const payload = {
-      name: holiday.name,
-      date: holiday.date,
-      days_count: holiday.daysCount,
-      type: holiday.type,
-      notes: holiday.notes || ''
+      title: holiday.name,
+      holiday_date: holiday.date,
+      category: holiday.type,
+      is_paid_off: true,
+      notes: notesWithDays
     };
     const { data, error } = await supabase.from('public_holidays').insert([payload]).select().single();
     if (error) {
       console.error('Error inserting public holiday in Supabase:', error.message);
       return null;
     }
-    return data;
+    return {
+      id: data.id,
+      name: data.title,
+      date: data.holiday_date,
+      daysCount: holiday.daysCount,
+      type: data.category,
+      notes: holiday.notes || ''
+    };
   } catch (err) {
     console.error('Failed to create public holiday in Supabase:', err);
     return null;

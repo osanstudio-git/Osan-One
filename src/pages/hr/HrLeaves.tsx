@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { LayoutGrid, List, CheckCircle2, XCircle, Clock, Search, Calendar, Plus, Trash2, Globe, Check, X, FileText, MessageSquare, UserCheck, UploadCloud } from 'lucide-react';
 import { getLeaveRequestsFromDb, updateLeaveRequestStatusInDb, recordEmployeeLeaveByHrInDb, attachMedicalReportToLeaveInDb } from '../../lib/databaseService';
-import { getPublicHolidays, addPublicHoliday, deletePublicHoliday, type PublicHoliday } from '../../lib/holidayService';
+import { getPublicHolidays, syncPublicHolidaysFromDb, addPublicHoliday, deletePublicHoliday, type PublicHoliday } from '../../lib/holidayService';
 import { getLeaveApprovalWhatsAppUrl, getLeaveRejectionWhatsAppUrl } from '../../lib/whatsappService';
 import { supabase } from '../../lib/supabase';
 
@@ -40,7 +40,7 @@ export function HrLeaves() {
   } | null>(null);
 
   // Holidays state
-  const [holidays, setHolidays] = useState<PublicHoliday[]>([]);
+  const [holidays, setHolidays] = useState<PublicHoliday[]>(() => getPublicHolidays());
   const [holidayViewMode, setHolidayViewMode] = useState<'table' | 'grid'>(() => {
     if (typeof window !== 'undefined') {
       return window.innerWidth < 1024 ? 'grid' : 'table';
@@ -56,6 +56,27 @@ export function HrLeaves() {
     notes: ''
   });
 
+  // Holiday Date & Month Formatter Helpers
+  const formatHolidayDate = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 3) return dateStr;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const date = new Date(y, m, d);
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const getHolidayMonthName = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length < 2) return '';
+    const mIndex = parseInt(parts[1], 10) - 1;
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return MONTHS[mIndex] || '';
+  };
+
   const loadLeaves = async () => {
     setLoading(true);
     try {
@@ -70,7 +91,11 @@ export function HrLeaves() {
 
   useEffect(() => {
     loadLeaves();
-    setHolidays(getPublicHolidays());
+    
+    // Sync public holidays from live database in real time
+    syncPublicHolidaysFromDb().then(data => {
+      if (data && data.length > 0) setHolidays(data);
+    });
 
     const fetchEmployees = async () => {
       const { data } = await supabase
@@ -82,23 +107,34 @@ export function HrLeaves() {
     fetchEmployees();
 
     // Subscribe to live leave requests via Supabase Realtime
-    const channel = supabase
+    const leaveChannel = supabase
       .channel('hr-leaves-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'leave_requests' }, () => {
         loadLeaves();
       })
       .subscribe();
 
+    // Subscribe to live public holidays via Supabase Realtime
+    const holidayChannel = supabase
+      .channel('hr-public-holidays-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'public_holidays' }, async () => {
+        const live = await syncPublicHolidaysFromDb();
+        setHolidays(live);
+      })
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(leaveChannel);
+      supabase.removeChannel(holidayChannel);
     };
   }, []);
 
-  const handleAddHoliday = (e: React.FormEvent) => {
+  const handleAddHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!holidayForm.name.trim() || !holidayForm.date) return;
-    addPublicHoliday(holidayForm);
-    setHolidays(getPublicHolidays());
+    await addPublicHoliday(holidayForm);
+    const live = await syncPublicHolidaysFromDb();
+    setHolidays(live);
     setIsHolidayModalOpen(false);
     setHolidayForm({
       name: '',
@@ -109,9 +145,10 @@ export function HrLeaves() {
     });
   };
 
-  const handleDeleteHoliday = (id: string) => {
-    const updated = deletePublicHoliday(id);
-    setHolidays(updated);
+  const handleDeleteHoliday = async (id: string) => {
+    await deletePublicHoliday(id);
+    const live = await syncPublicHolidaysFromDb();
+    setHolidays(live);
   };
 
   const handleAction = async (id: string, status: 'Approved' | 'Rejected') => {
@@ -243,7 +280,7 @@ export function HrLeaves() {
       </div>
 
       {activeSection === 'requests' && (
-        <>
+        <div className="space-y-6">
           {/* Header Info */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-white/5 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm">
             <div className="flex items-start justify-between gap-2 w-full sm:w-auto">
@@ -331,8 +368,6 @@ export function HrLeaves() {
               </div>
             </div>
           </div>
-        </>
-      )}
 
       {/* Filter Tabs & Search Bar */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4">
@@ -822,6 +857,8 @@ export function HrLeaves() {
           </div>
         </div>
       )}
+    </div>
+  )}
 
       {/* 2. OFFICIAL PUBLIC & COMPANY HOLIDAYS VIEW */}
       {activeSection === 'holidays' && (
@@ -904,8 +941,15 @@ export function HrLeaves() {
                           <td className="py-3 px-3 sm:py-3.5 sm:px-4 pl-4 sm:pl-6 font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
                             {h.name}
                           </td>
-                          <td className="py-3 px-3 sm:py-3.5 sm:px-4 font-mono font-bold text-primary">
-                            {h.date}
+                          <td className="py-3 px-3 sm:py-3.5 sm:px-4">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-slate-900 dark:text-white">
+                                {formatHolidayDate(h.date)}
+                              </span>
+                              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20">
+                                {getHolidayMonthName(h.date)}
+                              </span>
+                            </div>
                           </td>
                           <td className="py-3 px-3 sm:py-3.5 sm:px-4 font-semibold text-slate-700 dark:text-gray-300">
                             {h.daysCount} Day{h.daysCount > 1 ? 's' : ''} (Paid)
@@ -950,10 +994,13 @@ export function HrLeaves() {
                         <h4 className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-primary transition-colors">
                           {h.name}
                         </h4>
-                        <div className="flex items-center gap-2 mt-1 text-xs">
-                          <span className="font-mono font-bold text-primary flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5" />
-                            {h.date}
+                        <div className="flex flex-wrap items-center gap-2 mt-2 text-xs">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-500/20 shadow-2xs">
+                            <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>{formatHolidayDate(h.date)}</span>
+                            <span className="text-[10px] font-black uppercase px-1.5 py-0.5 bg-emerald-600/15 rounded">
+                              {getHolidayMonthName(h.date)}
+                            </span>
                           </span>
                           <span className="text-slate-300 dark:text-gray-600">•</span>
                           <span className="font-semibold text-slate-600 dark:text-gray-300">

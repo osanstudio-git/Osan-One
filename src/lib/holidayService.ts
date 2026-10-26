@@ -39,25 +39,50 @@ export function savePublicHolidays(holidays: PublicHoliday[]) {
   }
 }
 
-import { createPublicHolidayInDb, deletePublicHolidayInDb } from './databaseService';
+import { createPublicHolidayInDb, deletePublicHolidayInDb, getPublicHolidaysFromDb } from './databaseService';
 
-export function addPublicHoliday(holiday: Omit<PublicHoliday, 'id'>): PublicHoliday {
-  const list = getPublicHolidays();
-  const newHoliday: PublicHoliday = {
-    ...holiday,
-    id: `hol-${Date.now()}`
-  };
-  const updated = [...list, newHoliday].sort((a, b) => a.date.localeCompare(b.date));
-  savePublicHolidays(updated);
-  createPublicHolidayInDb(holiday).catch(err => console.error(err));
-  return newHoliday;
+export async function syncPublicHolidaysFromDb(): Promise<PublicHoliday[]> {
+  try {
+    const dbHolidays = await getPublicHolidaysFromDb();
+    if (dbHolidays && dbHolidays.length > 0) {
+      savePublicHolidays(dbHolidays);
+      return dbHolidays;
+    }
+  } catch (err) {
+    console.error('Failed to sync public holidays from DB:', err);
+  }
+  return getPublicHolidays();
 }
 
-export function deletePublicHoliday(id: string): PublicHoliday[] {
+export async function addPublicHoliday(holiday: Omit<PublicHoliday, 'id'>): Promise<PublicHoliday> {
+  const tempId = `hol-${Date.now()}`;
+  const tempHoliday: PublicHoliday = { ...holiday, id: tempId };
+  const list = getPublicHolidays();
+  const updated = [...list, tempHoliday].sort((a, b) => a.date.localeCompare(b.date));
+  savePublicHolidays(updated);
+
+  try {
+    const dbResult = await createPublicHolidayInDb(holiday);
+    if (dbResult && dbResult.id) {
+      const refreshed = updated.map(h => h.id === tempId ? { ...h, id: dbResult.id } : h);
+      savePublicHolidays(refreshed);
+      return { ...holiday, id: dbResult.id };
+    }
+  } catch (err) {
+    console.error('Failed to save holiday to DB:', err);
+  }
+  return tempHoliday;
+}
+
+export async function deletePublicHoliday(id: string): Promise<PublicHoliday[]> {
   const list = getPublicHolidays();
   const updated = list.filter(h => h.id !== id);
   savePublicHolidays(updated);
-  deletePublicHolidayInDb(id).catch(err => console.error(err));
+  try {
+    await deletePublicHolidayInDb(id);
+  } catch (err) {
+    console.error('Failed to delete holiday from DB:', err);
+  }
   return updated;
 }
 
