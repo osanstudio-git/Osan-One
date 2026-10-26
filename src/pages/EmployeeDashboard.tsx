@@ -1075,11 +1075,10 @@ export function EmployeeDashboard() {
                           {/* Top Row: Type & Status */}
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold whitespace-nowrap ${
-                                l.leaveType === 'Sick'
-                                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                                  : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400 border border-blue-500/20'
-                              }`}>
+                              <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold whitespace-nowrap ${l.leaveType === 'Sick'
+                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400 border border-blue-500/20'
+                                }`}>
                                 {l.leaveType} Leave
                               </span>
                               <span className="text-[11px] text-slate-400 font-mono whitespace-nowrap">
@@ -1088,13 +1087,12 @@ export function EmployeeDashboard() {
                             </div>
 
                             {/* Status in one line */}
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
-                              l.status === 'Approved'
-                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                : l.status === 'Rejected'
-                                  ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
-                                  : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                            }`}>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 ${l.status === 'Approved'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : l.status === 'Rejected'
+                                ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                              }`}>
                               {l.status === 'Approved' ? <CheckCircle2 className="w-3.5 h-3.5" /> : l.status === 'Rejected' ? <XCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
                               <span className="whitespace-nowrap">{l.status === 'Approved' ? t('approved') : l.status === 'Rejected' ? t('rejected') : t('pending')}</span>
                             </span>
@@ -1147,11 +1145,10 @@ export function EmployeeDashboard() {
                                 </label>
                               </div>
                             ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
-                              <label className={`px-3 py-1.5 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer shadow-2xs ${
-                                l.status === 'Approved'
-                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
-                                  : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                              }`}>
+                              <label className={`px-3 py-1.5 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer shadow-2xs ${l.status === 'Approved'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                }`}>
                                 <UploadCloud className="w-3.5 h-3.5" />
                                 <span>+ Upload Medical Report</span>
                                 <input
@@ -1195,11 +1192,10 @@ export function EmployeeDashboard() {
                               {/* Leave Type + note */}
                               <td className="py-3.5 px-4 whitespace-nowrap">
                                 <div className="flex flex-col gap-0.5">
-                                  <span className={`px-2.5 py-0.5 rounded-lg text-xs font-extrabold w-fit whitespace-nowrap ${
-                                    l.leaveType === 'Sick'
-                                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                      : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400'
-                                  }`}>
+                                  <span className={`px-2.5 py-0.5 rounded-lg text-xs font-extrabold w-fit whitespace-nowrap ${l.leaveType === 'Sick'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                    : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400'
+                                    }`}>
                                     {l.leaveType} Leave
                                   </span>
                                   {l.notes && (
@@ -1222,13 +1218,12 @@ export function EmployeeDashboard() {
 
                               {/* Status: 1 line, never breaks! */}
                               <td className="py-3.5 px-4 whitespace-nowrap">
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap ${
-                                  l.status === 'Approved'
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                    : l.status === 'Rejected'
-                                      ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
-                                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                                }`}>
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap ${l.status === 'Approved'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                  : l.status === 'Rejected'
+                                    ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                  }`}>
                                   {l.status === 'Approved' ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : l.status === 'Rejected' ? <XCircle className="w-3.5 h-3.5 shrink-0" /> : <Clock className="w-3.5 h-3.5 shrink-0" />}
                                   <span className="whitespace-nowrap">{l.status === 'Approved' ? t('approved') : l.status === 'Rejected' ? t('rejected') : t('pending')}</span>
                                 </span>
@@ -1259,11 +1254,10 @@ export function EmployeeDashboard() {
                                     </label>
                                   </div>
                                 ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
-                                  <label className={`px-3 py-1 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs whitespace-nowrap ${
-                                    l.status === 'Approved'
-                                      ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 ring-2 ring-emerald-500/10'
-                                      : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                                  }`} title="Upload Doctor / Hospital Sick Leave Certificate">
+                                  <label className={`px-3 py-1 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs whitespace-nowrap ${l.status === 'Approved'
+                                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 ring-2 ring-emerald-500/10'
+                                    : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                    }`} title="Upload Doctor / Hospital Sick Leave Certificate">
                                     <UploadCloud className="w-3.5 h-3.5" />
                                     <span>+ Upload Medical Report</span>
                                     <input
