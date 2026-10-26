@@ -37,10 +37,8 @@ export function EmployeeDashboard() {
     try {
       invalidateEmployeeCache();
       invalidateCompanyCache();
-      if (typeof window !== 'undefined' && 'caches' in window) {
-        const cacheKeys = await caches.keys();
-        await Promise.all(cacheKeys.map(k => caches.delete(k)));
-      }
+      
+      // Check for Service Worker update safely without deleting Workbox precache
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const reg of registrations) {

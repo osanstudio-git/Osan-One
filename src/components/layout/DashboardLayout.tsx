@@ -30,13 +30,7 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
       invalidateEmployeeCache();
       invalidateCompanyCache();
 
-      // Clear Service Worker Caches
-      if (typeof window !== 'undefined' && 'caches' in window) {
-        const cacheKeys = await caches.keys();
-        await Promise.all(cacheKeys.map(k => caches.delete(k)));
-      }
-
-      // Update Service Worker registration
+      // Update Service Worker registration safely without deleting Workbox precache
       if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
         const registrations = await navigator.serviceWorker.getRegistrations();
         for (const reg of registrations) {
