@@ -77,6 +77,28 @@ export function HrLeaves() {
     return MONTHS[mIndex] || '';
   };
 
+  const formatLeaveDuration = (startStr: string, endStr: string, durationDays?: number) => {
+    if (!startStr || !endStr) return { dateText: '--', monthBadge: '', count: 1 };
+    
+    const count = durationDays && durationDays > 0 
+      ? durationDays 
+      : Math.max(1, Math.ceil((new Date(endStr).getTime() - new Date(startStr).getTime()) / (1000 * 60 * 60 * 24)) + 1);
+
+    const formattedStart = formatHolidayDate(startStr);
+    const formattedEnd = formatHolidayDate(endStr);
+    const startMonth = getHolidayMonthName(startStr);
+    const endMonth = getHolidayMonthName(endStr);
+    const monthBadge = startMonth === endMonth || !endMonth ? startMonth : `${startMonth} - ${endMonth}`;
+
+    const dateText = startStr === endStr ? formattedStart : `${formattedStart} → ${formattedEnd}`;
+
+    return {
+      dateText,
+      monthBadge,
+      count
+    };
+  };
+
   const loadLeaves = async () => {
     setLoading(true);
     try {
@@ -477,18 +499,36 @@ export function HrLeaves() {
                   </span>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-100 dark:border-white/5 text-xs text-slate-600 dark:text-gray-300 mb-4 space-y-1">
-                  <div>Requested Dates:</div>
-                  <div className="font-bold text-slate-900 dark:text-white text-sm">
-                    {leave.start} <span className="text-slate-400 font-normal">to</span> {leave.end}
-                  </div>
-                </div>
+                {(() => {
+                  const info = formatLeaveDuration(leave.start, leave.end, leave.durationDays);
+                  return (
+                    <>
+                      <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-100 dark:border-white/5 text-xs text-slate-600 dark:text-gray-300 mb-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 text-[11px] font-medium">Requested Period:</span>
+                          {info.monthBadge && (
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-500/10 text-[#1D70B8] dark:text-blue-400 border border-blue-500/20">
+                              {info.monthBadge}
+                            </span>
+                          )}
+                        </div>
+                        <div className="font-bold text-slate-900 dark:text-white text-sm font-mono">
+                          {info.dateText}
+                        </div>
+                        <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400 flex items-center gap-1 pt-0.5">
+                          <Clock className="w-3 h-3 text-slate-400" />
+                          <span>{info.count} {info.count === 1 ? 'Day' : 'Days'} Taken</span>
+                        </div>
+                      </div>
 
-                {/* Balances */}
-                <div className="flex items-center justify-between text-xs font-semibold bg-slate-50/50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-100 dark:border-white/5">
-                  <span className="text-slate-500 dark:text-gray-400">Yearly Balance: <strong className="text-[#1D70B8]">{leave.balances?.yearly ?? 30} days</strong></span>
-                  <span className="text-slate-500 dark:text-gray-400">Sick Used: <strong className="text-amber-600">{(leave as any).sickDaysUsed ?? leave.balances?.sickUsed ?? 0} days</strong></span>
-                </div>
+                      {/* Balances */}
+                      <div className="flex items-center justify-between text-xs font-semibold bg-slate-50/50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-100 dark:border-white/5">
+                        <span className="text-slate-500 dark:text-gray-400">Yearly Balance: <strong className="text-[#1D70B8]">{leave.balances?.yearly ?? 30} days</strong></span>
+                        <span className="text-slate-500 dark:text-gray-400">Duration: <strong className="text-slate-800 dark:text-slate-200">{info.count}d</strong></span>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 {leave.documentUrl ? (
                   <div className="mt-3 flex items-center gap-1.5">
@@ -662,7 +702,7 @@ export function HrLeaves() {
                   <th className="p-4 pl-6">Employee Name</th>
                   <th className="p-4">Leave Type</th>
                   <th className="p-4">Duration</th>
-                  <th className="p-4">Yearly Balance / Sick Used</th>
+                  <th className="p-4">Yearly Balance</th>
                   <th className="p-4">Document</th>
                   <th className="p-4">Status</th>
                   <th className="p-4 text-right pr-6">Actions</th>
@@ -683,11 +723,31 @@ export function HrLeaves() {
                         {leave.type} Leave
                       </span>
                     </td>
-                    <td className="p-4 text-slate-700 dark:text-gray-300 font-mono">
-                      {leave.start} → {leave.end}
+                    <td className="p-4">
+                      {(() => {
+                        const info = formatLeaveDuration(leave.start, leave.end, leave.durationDays);
+                        return (
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white font-mono">
+                                {info.dateText}
+                              </span>
+                              {info.monthBadge && (
+                                <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-blue-500/10 text-[#1D70B8] dark:text-blue-400 border border-blue-500/20">
+                                  {info.monthBadge}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] font-bold text-slate-500 dark:text-gray-400 flex items-center gap-1">
+                              <Clock className="w-3 h-3 text-slate-400" />
+                              <span>{info.count} {info.count === 1 ? 'Day' : 'Days'} Taken</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
-                    <td className="p-4 text-slate-600 dark:text-gray-400">
-                      Yearly: <strong className="text-[#1D70B8]">{leave.balances?.yearly ?? 30}d</strong> | Sick Used: <strong className="text-amber-600">{(leave as any).sickDaysUsed ?? leave.balances?.sickUsed ?? 0}d</strong>
+                    <td className="p-4 text-slate-700 dark:text-gray-300 font-medium">
+                      <strong className="text-[#1D70B8] text-sm">{leave.balances?.yearly ?? 30}d</strong> <span className="text-xs text-slate-400">remaining</span>
                     </td>
                     <td className="p-4">
                       {leave.documentUrl ? (
