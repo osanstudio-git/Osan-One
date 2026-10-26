@@ -9,6 +9,11 @@ import type { CompanyData } from '../../pages/hr/mockData';
 import type { User } from '../../types';
 import { getEmployees } from '../../lib/databaseService';
 import { supabase } from '../../lib/supabase';
+import { 
+  getLateWarningWhatsAppText, 
+  getLateReminderWhatsAppText, 
+  getAbsentWarningWhatsAppText 
+} from '../../lib/whatsappService';
 
 interface CompanyAttendanceModalProps {
   isOpen: boolean;
@@ -23,6 +28,8 @@ interface EmployeeStatusItem {
   status: 'active' | 'absent' | 'on_leave' | 'clocked_out';
   isLate?: boolean;
   lateMinutes?: number;
+  monthlyLateCount?: number;
+  isLateWarning?: boolean;
   clockInTime: string | null;
   clockOutTime: string | null;
   workedMinutes: number;
@@ -35,6 +42,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<User[]>([]);
   const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+  const [monthAttendanceLogs, setMonthAttendanceLogs] = useState<any[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFilter, setSelectedFilter] = useState<AttendanceCategory>('all');
@@ -81,6 +89,8 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       const empIds = compEmps.map(e => e.id);
 
       if (empIds.length > 0) {
+        const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+
         // 2. Query today's attendance logs from Supabase ordered by time
         const { data: logsData } = await supabase
           .from('attendance_logs')
@@ -89,7 +99,16 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
           .eq('date', todayStr)
           .order('clock_in_time', { ascending: true });
 
+        // Query month's logs up to today to count late occurrences per employee
+        const { data: monthLogsData } = await supabase
+          .from('attendance_logs')
+          .select('id, user_id, date, status, clock_in_time')
+          .in('user_id', empIds)
+          .gte('date', startOfMonth)
+          .lte('date', todayStr);
+
         setAttendanceLogs(logsData || []);
+        setMonthAttendanceLogs(monthLogsData || []);
 
         // 3. Query active approved leaves covering today
         const { data: leavesData } = await supabase
@@ -103,6 +122,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
         setLeaveRequests(leavesData || []);
       } else {
         setAttendanceLogs([]);
+        setMonthAttendanceLogs([]);
         setLeaveRequests([]);
       }
     } catch (err) {
@@ -135,6 +155,35 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
 
   // Compute live status items for every employee
   const employeeStatusList: EmployeeStatusItem[] = useMemo(() => {
+    // Pre-calculate month late counts for each user
+    const monthlyLateByUser = new Map<string, number>();
+    const lateDatesByUser = new Map<string, Set<string>>();
+
+    monthAttendanceLogs.forEach(l => {
+      const isLateStatus = (l.status || '').toLowerCase().includes('late');
+      let isLateEntry = isLateStatus;
+      if (!isLateEntry && l.clock_in_time) {
+        const emp = employees.find(e => e.id === l.user_id);
+        if (emp) {
+          const shiftStartStr = emp.nationality === 'Expat'
+            ? (company?.expatShiftStart || '08:30')
+            : (company?.omaniShiftStart || '08:30');
+          const [sH, sM] = shiftStartStr.split(':').map(Number);
+          const shiftStartMins = (sH || 8) * 60 + (sM || 30);
+          const inDate = new Date(l.clock_in_time);
+          const inMins = inDate.getHours() * 60 + inDate.getMinutes();
+          if (inMins > shiftStartMins) isLateEntry = true;
+        }
+      }
+      if (isLateEntry && l.date) {
+        const dates = lateDatesByUser.get(l.user_id) || new Set<string>();
+        dates.add(l.date);
+        lateDatesByUser.set(l.user_id, dates);
+      }
+    });
+
+    lateDatesByUser.forEach((dates, uid) => monthlyLateByUser.set(uid, dates.size));
+
     // Group all logs by employee id to accurately calculate cumulative worked minutes
     const logsByUser = new Map<string, any[]>();
     attendanceLogs.forEach(l => {
@@ -212,12 +261,19 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
           isLate = true;
         }
 
+        const rawLateCount = monthlyLateByUser.get(emp.id) || 0;
+        const monthlyLateCount = isLate ? Math.max(rawLateCount, 1) : rawLateCount;
+        // Only trigger formal warning color after 3 times late in this month (> 3)
+        const isLateWarning = isLate && monthlyLateCount > 3;
+
         if (isCurrentlyActive) {
           return {
             employee: emp,
             status: 'active',
             isLate,
             lateMinutes,
+            monthlyLateCount,
+            isLateWarning,
             clockInTime: inFormatted,
             clockOutTime: null,
             workedMinutes: workedMins,
@@ -229,6 +285,8 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
             status: 'clocked_out',
             isLate,
             lateMinutes,
+            monthlyLateCount,
+            isLateWarning,
             clockInTime: inFormatted,
             clockOutTime: outFormatted,
             workedMinutes: workedMins,
@@ -259,7 +317,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
         workedMinutes: 0
       };
     });
-  }, [employees, attendanceLogs, leaveRequests, currentTime, company]);
+  }, [employees, attendanceLogs, monthAttendanceLogs, leaveRequests, currentTime, company]);
 
   // Status counts
   const counts = useMemo(() => {
@@ -361,18 +419,46 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
       title = `Send Absence Notice to ${emp.name}`;
       buttonLabel = 'Absence Notice';
 
-      textEn = `Subject: Warning for Absence Without Prior Notice\n\nDear Employee,\nThis letter serves as a formal warning regarding your absence from work without prior notice or approval. You are required to notify your supervisor in advance of any absence, except in emergencies.\nFurther violations may result in disciplinary action.\n\nRegards,\nHR Officer`;
-
-      textAr = `الموضوع: إنذار بسبب الغياب دون إشعار مسبق\n\nعزيزي الموظف،\nيُعد هذا الخطاب إنذارًا رسميًا بسبب تغيبك عن العمل دون إشعار مسبق أو موافقة. نرجو إبلاغ المسؤول المباشر مسبقًا في حال عدم التمكن من الحضور، باستثناء الحالات الطارئة.\nوفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.\n\nمع التحية،\nمسؤول الموارد البشرية`;
+      textEn = getAbsentWarningWhatsAppText({ name: emp.name, language: 'en' });
+      textAr = getAbsentWarningWhatsAppText({ name: emp.name, language: 'ar' });
     } else if (item.isLate) {
-      // Yellow/Amber styling for Late
-      colorClass = 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30';
-      title = `Send Delay Warning to ${emp.name} (${item.lateMinutes} mins late)`;
-      buttonLabel = `${item.lateMinutes}m Late Warning`;
+      if (item.isLateWarning) {
+        // Yellow/Amber warning styling only after 3 times late in month (> 3)
+        colorClass = 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border border-amber-500/30';
+        title = `Send Delay Warning to ${emp.name} (Late #${item.monthlyLateCount} - Exceeds 3-time allowance)`;
+        buttonLabel = `${item.lateMinutes}m Late Warning (#${item.monthlyLateCount})`;
 
-      textEn = `Subject: Warning for Late Attendance\n\nDear Employee,\nThis letter serves as a formal warning regarding your repeated lateness to work. You are required to adhere to the official working hours and ensure punctual attendance.\nFurther violations may result in disciplinary action.\n\nRegards,\nHR Officer`;
+        textEn = getLateWarningWhatsAppText({ 
+          name: emp.name, 
+          lateMinutes: item.lateMinutes, 
+          occurrence: item.monthlyLateCount, 
+          language: 'en' 
+        });
+        textAr = getLateWarningWhatsAppText({ 
+          name: emp.name, 
+          lateMinutes: item.lateMinutes, 
+          occurrence: item.monthlyLateCount, 
+          language: 'ar' 
+        });
+      } else {
+        // Calm neutral reminder for late arrival within 3-time allowance
+        colorClass = 'bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10';
+        title = `Send Shift Reminder to ${emp.name} (Late occurrence #${item.monthlyLateCount || 1} of 3 allowance)`;
+        buttonLabel = `${item.lateMinutes}m Late (${item.monthlyLateCount || 1}/3)`;
 
-      textAr = `الموضوع: إنذار بسبب التأخر عن العمل\n\nعزيزي الموظف،\nيُعد هذا الخطاب إنذارًا رسميًا بسبب تأخرك عن العمل. نرجو الالتزام بمواعيد الدوام الرسمية والحضور في الوقت المحدد.\nوفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.\n\nمع التحية،\nمسؤول الموارد البشرية`;
+        textEn = getLateReminderWhatsAppText({ 
+          name: emp.name, 
+          lateMinutes: item.lateMinutes, 
+          occurrence: item.monthlyLateCount || 1, 
+          language: 'en' 
+        });
+        textAr = getLateReminderWhatsAppText({ 
+          name: emp.name, 
+          lateMinutes: item.lateMinutes, 
+          occurrence: item.monthlyLateCount || 1, 
+          language: 'ar' 
+        });
+      }
     } else if (item.status === 'on_leave') {
       colorClass = 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20';
       title = `Send Leave Notice to ${emp.name}`;
@@ -681,9 +767,15 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                                   Active Now
                                 </span>
                                 {item.isLate && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                                    ⚠️ {item.lateMinutes}m Late
-                                  </span>
+                                  item.isLateWarning ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30" title={`Late arrival #${item.monthlyLateCount} this month (Exceeds 3-time allowance)`}>
+                                      ⚠️ {item.lateMinutes}m Late (#{item.monthlyLateCount} Warning)
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-white/10" title={`Late arrival #${item.monthlyLateCount} this month (Within 3-time allowance)`}>
+                                      ⏱ {item.lateMinutes}m Late ({item.monthlyLateCount}/3)
+                                    </span>
+                                  )
                                 )}
                               </div>
                             )}
@@ -694,9 +786,15 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                                   Clocked Out
                                 </span>
                                 {item.isLate && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                                    ⚠️ {item.lateMinutes}m Late
-                                  </span>
+                                  item.isLateWarning ? (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30" title={`Late arrival #${item.monthlyLateCount} this month (Exceeds 3-time allowance)`}>
+                                      ⚠️ {item.lateMinutes}m Late (#{item.monthlyLateCount} Warning)
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-white/10" title={`Late arrival #${item.monthlyLateCount} this month (Within 3-time allowance)`}>
+                                      ⏱ {item.lateMinutes}m Late ({item.monthlyLateCount}/3)
+                                    </span>
+                                  )
                                 )}
                               </div>
                             )}
@@ -765,15 +863,23 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                               {/* WhatsApp Button with EN & AR options */}
                               {whatsappInfo.urlEn && whatsappInfo.urlAr ? (
                                 <div className={`inline-flex items-center rounded-lg border p-0.5 shadow-2xs ${
-                                  item.isLate
+                                  item.isLate && item.isLateWarning
                                     ? 'border-amber-500/30 bg-amber-500/10'
                                     : item.status === 'absent'
                                     ? 'border-rose-500/30 bg-rose-500/10'
+                                    : item.isLate
+                                    ? 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
                                     : 'border-emerald-500/30 bg-emerald-500/10'
                                 }`}>
                                   <div className="px-1 py-0.5 text-slate-400 dark:text-gray-500">
                                     <MessageSquare className={`w-3.5 h-3.5 ${
-                                      item.isLate ? 'text-amber-600 dark:text-amber-400' : item.status === 'absent' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                                      item.isLate && item.isLateWarning 
+                                        ? 'text-amber-600 dark:text-amber-400' 
+                                        : item.status === 'absent' 
+                                        ? 'text-rose-600 dark:text-rose-400' 
+                                        : item.isLate
+                                        ? 'text-slate-500 dark:text-gray-400'
+                                        : 'text-emerald-600 dark:text-emerald-400'
                                     }`} />
                                   </div>
                                   <a
@@ -781,7 +887,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                                    title={`Send English message to ${emp.name}`}
+                                    title={whatsappInfo.title}
                                   >
                                     EN
                                   </a>
@@ -791,7 +897,7 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="px-1.5 py-0.5 rounded-md text-[10px] font-black text-emerald-600 dark:text-emerald-400 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
-                                    title={`إرسال رسالة بالعربية إلى ${emp.name}`}
+                                    title={whatsappInfo.title}
                                   >
                                     AR
                                   </a>
@@ -883,18 +989,37 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                               Active Now
                             </span>
                             {item.isLate && (
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                                ⚠️ {item.lateMinutes}m Late
-                              </span>
+                              item.isLateWarning ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30" title={`Late arrival #${item.monthlyLateCount} this month (Exceeds 3-time allowance)`}>
+                                  ⚠️ {item.lateMinutes}m Late (#{item.monthlyLateCount} Warning)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-white/10" title={`Late arrival #${item.monthlyLateCount} this month (Within 3-time allowance)`}>
+                                  ⏱ {item.lateMinutes}m Late ({item.monthlyLateCount}/3)
+                                </span>
+                              )
                             )}
                           </>
                         )}
 
                         {item.status === 'clocked_out' && (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
-                            Clocked Out
-                          </span>
+                          <>
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                              Clocked Out
+                            </span>
+                            {item.isLate && (
+                              item.isLateWarning ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30" title={`Late arrival #${item.monthlyLateCount} this month (Exceeds 3-time allowance)`}>
+                                  ⚠️ {item.lateMinutes}m Late (#{item.monthlyLateCount} Warning)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-white/10" title={`Late arrival #${item.monthlyLateCount} this month (Within 3-time allowance)`}>
+                                  ⏱ {item.lateMinutes}m Late ({item.monthlyLateCount}/3)
+                                </span>
+                              )
+                            )}
+                          </>
                         )}
 
                         {item.status === 'on_leave' && (
@@ -968,20 +1093,34 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
                       {/* WhatsApp Notice Option (EN & AR) */}
                       {whatsappInfo.urlEn && whatsappInfo.urlAr ? (
                         <div className={`inline-flex items-center rounded-lg border p-0.5 shadow-2xs ${
-                          item.isLate
+                          item.isLate && item.isLateWarning
                             ? 'border-amber-500/30 bg-amber-500/10'
                             : item.status === 'absent'
                             ? 'border-rose-500/30 bg-rose-500/10'
+                            : item.isLate
+                            ? 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
                             : 'border-emerald-500/30 bg-emerald-500/10'
                         }`}>
                           <div className="px-2 py-1 flex items-center gap-1.5 text-[11px] font-bold">
                             <MessageSquare className={`w-3.5 h-3.5 ${
-                              item.isLate ? 'text-amber-600 dark:text-amber-400' : item.status === 'absent' ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                              item.isLate && item.isLateWarning
+                                ? 'text-amber-600 dark:text-amber-400' 
+                                : item.status === 'absent' 
+                                ? 'text-rose-600 dark:text-rose-400' 
+                                : item.isLate
+                                ? 'text-slate-500 dark:text-gray-400'
+                                : 'text-emerald-600 dark:text-emerald-400'
                             }`} />
                             <span className={`text-[10px] uppercase font-bold hidden sm:inline ${
-                              item.isLate ? 'text-amber-700 dark:text-amber-300' : item.status === 'absent' ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-300'
+                              item.isLate && item.isLateWarning
+                                ? 'text-amber-700 dark:text-amber-300' 
+                                : item.status === 'absent' 
+                                ? 'text-rose-700 dark:text-rose-300' 
+                                : item.isLate
+                                ? 'text-slate-600 dark:text-gray-300'
+                                : 'text-emerald-700 dark:text-emerald-300'
                             }`}>
-                              {item.isLate ? 'Warning' : item.status === 'absent' ? 'Notice' : 'Notice'}
+                              {item.isLate ? (item.isLateWarning ? 'Warning' : 'Reminder') : item.status === 'absent' ? 'Notice' : 'Notice'}
                             </span>
                           </div>
                           <a

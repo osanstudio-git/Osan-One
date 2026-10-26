@@ -50,50 +50,50 @@ function App() {
         <BrowserRouter>
           <AuthProvider>
             <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30">
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/login" element={<Login />} />
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/login" element={<Login />} />
 
-                {/* Employee Routes */}
-                <Route element={<ProtectedRoute allowedRoles={['Employee']} />}>
-                  <Route path="/dashboard" element={<EmployeeDashboard />} />
-                </Route>
-
-                {/* HR Routes */}
-                <Route element={<ProtectedRoute allowedRoles={['HR']} />}>
-                  <Route path="/hr" element={<DashboardLayout title="HR Portal" links={hrLinks} />}>
-                    <Route index element={<Navigate to="overview" replace />} />
-                    <Route path="overview" element={<HrOverview />} />
-                    <Route path="exceptions" element={<HrExceptions />} />
-                    <Route path="companies" element={<HrCompanies />} />
-                    <Route path="directory" element={<HrDirectory />} />
-                    <Route path="employee/:id" element={<HrEmployeeProfile />} />
-                    <Route path="leaves" element={<HrLeaves />} />
-                    <Route path="reports" element={<HrReports />} />
-                    <Route path="office" element={<HrOffice />} />
+                  {/* Employee Routes */}
+                  <Route element={<ProtectedRoute allowedRoles={['Employee']} />}>
+                    <Route path="/dashboard" element={<EmployeeDashboard />} />
                   </Route>
-                </Route>
 
-                {/* CEO Routes */}
-                <Route element={<ProtectedRoute allowedRoles={['CEO']} />}>
-                  <Route path="/ceo" element={<CeoDashboard />} />
-                </Route>
+                  {/* HR Routes */}
+                  <Route element={<ProtectedRoute allowedRoles={['HR']} />}>
+                    <Route path="/hr" element={<DashboardLayout title="HR Portal" links={hrLinks} />}>
+                      <Route index element={<Navigate to="overview" replace />} />
+                      <Route path="overview" element={<HrOverview />} />
+                      <Route path="exceptions" element={<HrExceptions />} />
+                      <Route path="companies" element={<HrCompanies />} />
+                      <Route path="directory" element={<HrDirectory />} />
+                      <Route path="employee/:id" element={<HrEmployeeProfile />} />
+                      <Route path="leaves" element={<HrLeaves />} />
+                      <Route path="reports" element={<HrReports />} />
+                      <Route path="office" element={<HrOffice />} />
+                    </Route>
+                  </Route>
 
-                {/* Accountant Routes */}
-                <Route element={<ProtectedRoute allowedRoles={['Accountant']} />}>
-                  <Route path="/accountant" element={<AccountantDashboard />} />
-                </Route>
+                  {/* CEO Routes */}
+                  <Route element={<ProtectedRoute allowedRoles={['CEO']} />}>
+                    <Route path="/ceo" element={<CeoDashboard />} />
+                  </Route>
 
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+                  {/* Accountant Routes */}
+                  <Route element={<ProtectedRoute allowedRoles={['Accountant']} />}>
+                    <Route path="/accountant" element={<AccountantDashboard />} />
+                  </Route>
 
-            <InstallPrompt />
-            <OfflineBanner />
-          </div>
-        </AuthProvider>
-      </BrowserRouter>
+                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
+
+              <InstallPrompt />
+              <OfflineBanner />
+            </div>
+          </AuthProvider>
+        </BrowserRouter>
       </LanguageProvider>
     </ThemeProvider>
   );

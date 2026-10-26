@@ -21,7 +21,12 @@ import {
 } from '../../lib/databaseService';
 import { supabase } from '../../lib/supabase';
 import { isDatePublicHoliday } from '../../lib/holidayService';
-import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
+import { 
+  sendEmployeeWhatsAppInvite,
+  getLateWarningWhatsAppUrl,
+  getLateReminderWhatsAppUrl,
+  getAbsentWarningWhatsAppUrl
+} from '../../lib/whatsappService';
 import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
 import { compressAndResizeAvatar } from '../../lib/imageUtils';
 import type { User as UserType, Nationality } from '../../types';
@@ -595,6 +600,7 @@ export function HrEmployeeProfile() {
   const todayStr = `${nowObj.getFullYear()}-${String(nowObj.getMonth() + 1).padStart(2, '0')}-${String(nowObj.getDate()).padStart(2, '0')}`;
 
   // Generate heatmap & real shift log items for selected month & year
+  let monthlyLateCounter = 0;
   const monthlyHeatmapData = Array.from({ length: daysInSelectedMonth }).map((_, i) => {
     const dayNum = i + 1;
     const dateObj = new Date(selectedYear, selectedMonth, dayNum);
@@ -714,6 +720,26 @@ export function HrEmployeeProfile() {
       shiftDurationText = '--:--';
     }
 
+    let lateOccurrence = 0;
+    let lateMinutes = 0;
+    if (status === 'late') {
+      monthlyLateCounter++;
+      lateOccurrence = monthlyLateCounter;
+      if (realLog?.late_minutes) {
+        lateMinutes = Number(realLog.late_minutes);
+      } else if (realLog?.clock_in_time) {
+        const inDate = new Date(realLog.clock_in_time);
+        const scheduledTime = new Date(realLog.clock_in_time);
+        scheduledTime.setHours(8, 30, 0, 0);
+        if (inDate.getTime() > scheduledTime.getTime()) {
+          lateMinutes = Math.round((inDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
+        }
+      }
+      if (!lateMinutes) lateMinutes = 15;
+    }
+
+    const isLateWarning = status === 'late' && lateOccurrence > 3;
+
     return {
       dayNum,
       date: dateObj,
@@ -723,7 +749,10 @@ export function HrEmployeeProfile() {
       clockOutText,
       shiftDurationText,
       totalMinutesWorked,
-      holidayName: publicHoliday?.name
+      holidayName: publicHoliday?.name,
+      lateOccurrence,
+      isLateWarning,
+      lateMinutes
     };
   });
 
@@ -735,10 +764,10 @@ export function HrEmployeeProfile() {
     totalHours: (monthlyHeatmapData.filter(d => d.status === 'present' || d.status === 'late').length) * 8
   };
 
-  const getHeatmapColor = (status: string) => {
+  const getHeatmapColor = (status: string, isLateWarning?: boolean) => {
     switch (status) {
       case 'present': return 'bg-emerald-500/80 hover:bg-emerald-400 text-white';
-      case 'late': return 'bg-amber-500/80 hover:bg-amber-400 text-white';
+      case 'late': return isLateWarning ? 'bg-amber-500/80 hover:bg-amber-400 text-white shadow-xs' : 'bg-slate-400/80 hover:bg-slate-300 text-white';
       case 'absent': return 'bg-red-500/80 hover:bg-red-400 text-white';
       case 'holiday': return 'bg-purple-600/90 hover:bg-purple-500 text-white font-bold shadow-xs';
       case 'weekend': return 'bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10';
@@ -1852,9 +1881,17 @@ export function HrEmployeeProfile() {
                 <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
               </div>
               <div className="bg-white dark:bg-white/5 p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
-                <div className="text-slate-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Late Warnings</div>
-                <div className="text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">{monthlyStats.late}</div>
-                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">{MONTH_NAMES[selectedMonth]} {selectedYear}</div>
+                <div className="text-slate-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">
+                  {monthlyStats.late > 3 ? 'Late Warnings' : 'Late Days'}
+                </div>
+                <div className={`text-2xl sm:text-3xl font-bold ${monthlyStats.late > 3 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-200'}`}>
+                  {monthlyStats.late}
+                </div>
+                <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">
+                  {monthlyStats.late > 3 
+                    ? `${monthlyStats.late - 3} warnings (exceeds 3 allowance)` 
+                    : `${monthlyStats.late}/3 grace limit (no warning)`}
+                </div>
               </div>
               <div className="bg-white dark:bg-white/5 p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
                 <div className="text-slate-500 dark:text-gray-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1">Absences</div>
@@ -1893,8 +1930,8 @@ export function HrEmployeeProfile() {
                         <div
                           key={i}
                           onClick={() => setSelectedCalendarDate(isSelectedDate ? null : data.dateStr)}
-                          title={`${data.dateStr}: ${data.status.toUpperCase()} (Click to filter log feed)`}
-                          className={`aspect-square rounded-lg border flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${getHeatmapColor(data.status)} ${
+                          title={`${data.dateStr}: ${data.status.toUpperCase()}${data.isLateWarning ? ` (Late Warning #${data.lateOccurrence})` : data.status === 'late' ? ` (Late ${data.lateOccurrence}/3)` : ''} (Click to filter log feed)`}
+                          className={`aspect-square rounded-lg border flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${getHeatmapColor(data.status, data.isLateWarning)} ${
                             isSelectedDate ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-110' : ''
                           }`}
                         >
@@ -1908,7 +1945,8 @@ export function HrEmployeeProfile() {
                 {/* Heatmap Status Legend */}
                 <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between text-[10px] font-semibold text-slate-500 dark:text-gray-400">
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Present</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Late</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Late (1-3)</span>
+                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Late Warning (&gt;3)</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Absent</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span> Public Holiday</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Leave</span>
@@ -1940,14 +1978,15 @@ export function HrEmployeeProfile() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[500px]">
+                  <table className="w-full text-left border-collapse min-w-[620px]">
                     <thead className="bg-slate-50 dark:bg-white/5 border-b border-slate-200 dark:border-white/10 text-xs font-semibold text-slate-500 dark:text-gray-400 uppercase">
                       <tr>
                         <th className="p-4 pl-6">Date</th>
                         <th className="p-4">Punch In</th>
                         <th className="p-4">Punch Out</th>
                         <th className="p-4">Shift Hours</th>
-                        <th className="p-4 pr-6 text-right">Status</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4 pr-6 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
@@ -1955,6 +1994,75 @@ export function HrEmployeeProfile() {
                         .filter(d => (!selectedCalendarDate || d.dateStr === selectedCalendarDate) && d.status !== 'weekend')
                         .map((log) => {
                           const formattedDate = log.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+                          // Contextual WhatsApp URLs for Late (reminder vs warning) & Absent
+                          let whatsappUrls: { en: string; ar: string; type: 'late-warning' | 'late-reminder' | 'absent' } | null = null;
+                          if (log.status === 'absent') {
+                            whatsappUrls = {
+                              type: 'absent',
+                              en: getAbsentWarningWhatsAppUrl({
+                                name: employee?.name || 'Employee',
+                                phone: employee?.phone,
+                                company: employee?.company,
+                                date: formattedDate,
+                                language: 'en'
+                              }),
+                              ar: getAbsentWarningWhatsAppUrl({
+                                name: employee?.name || 'Employee',
+                                phone: employee?.phone,
+                                company: employee?.company,
+                                date: formattedDate,
+                                language: 'ar'
+                              })
+                            };
+                          } else if (log.status === 'late') {
+                            if (log.isLateWarning) {
+                              whatsappUrls = {
+                                type: 'late-warning',
+                                en: getLateWarningWhatsAppUrl({
+                                  name: employee?.name || 'Employee',
+                                  phone: employee?.phone,
+                                  company: employee?.company,
+                                  date: formattedDate,
+                                  occurrence: log.lateOccurrence,
+                                  lateMinutes: log.lateMinutes || undefined,
+                                  language: 'en'
+                                }),
+                                ar: getLateWarningWhatsAppUrl({
+                                  name: employee?.name || 'Employee',
+                                  phone: employee?.phone,
+                                  company: employee?.company,
+                                  date: formattedDate,
+                                  occurrence: log.lateOccurrence,
+                                  lateMinutes: log.lateMinutes || undefined,
+                                  language: 'ar'
+                                })
+                              };
+                            } else {
+                              whatsappUrls = {
+                                type: 'late-reminder',
+                                en: getLateReminderWhatsAppUrl({
+                                  name: employee?.name || 'Employee',
+                                  phone: employee?.phone,
+                                  company: employee?.company,
+                                  date: formattedDate,
+                                  occurrence: log.lateOccurrence,
+                                  lateMinutes: log.lateMinutes || undefined,
+                                  language: 'en'
+                                }),
+                                ar: getLateReminderWhatsAppUrl({
+                                  name: employee?.name || 'Employee',
+                                  phone: employee?.phone,
+                                  company: employee?.company,
+                                  date: formattedDate,
+                                  occurrence: log.lateOccurrence,
+                                  lateMinutes: log.lateMinutes || undefined,
+                                  language: 'ar'
+                                })
+                              };
+                            }
+                          }
+
                           return (
                             <tr key={log.dateStr} className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${selectedCalendarDate === log.dateStr ? 'bg-primary/5 dark:bg-primary/10' : ''}`}>
                               <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">
@@ -1969,16 +2077,100 @@ export function HrEmployeeProfile() {
                               <td className="p-4 text-slate-600 dark:text-gray-300 font-semibold font-mono">
                                 {log.shiftDurationText}
                               </td>
+                              <td className="p-4">
+                                {log.status === 'present' ? (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                    Present
+                                  </span>
+                                ) : log.status === 'late' ? (
+                                  log.isLateWarning ? (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30" title={`Late arrival #${log.lateOccurrence} this month (Exceeds 3-time allowance)`}>
+                                      ⚠️ Late Warning (#{log.lateOccurrence})
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-gray-300 border border-slate-200 dark:border-white/10" title={`Late arrival #${log.lateOccurrence} this month (Within 3-time allowance)`}>
+                                      ⏱ Late ({log.lateOccurrence}/3)
+                                    </span>
+                                  )
+                                ) : log.status === 'absent' ? (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20">
+                                    Absent
+                                  </span>
+                                ) : log.status === 'holiday' ? (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                    {log.holidayName || 'Public Holiday'}
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                                    Approved Leave
+                                  </span>
+                                )}
+                              </td>
                               <td className="p-4 pr-6 text-right">
-                                <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                                  log.status === 'present' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
-                                  log.status === 'late' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
-                                  log.status === 'absent' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
-                                  log.status === 'holiday' ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20' :
-                                  'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                                }`}>
-                                  {log.status === 'present' ? 'Present' : log.status === 'late' ? 'Late Warning' : log.status === 'absent' ? 'Absent' : log.status === 'holiday' ? (log.holidayName || 'Public Holiday') : 'Approved Leave'}
-                                </span>
+                                {whatsappUrls ? (
+                                  employee?.phone ? (
+                                    <div className={`inline-flex items-center rounded-lg border p-0.5 shadow-2xs ${
+                                      whatsappUrls.type === 'late-warning'
+                                        ? 'border-amber-500/30 bg-amber-500/10'
+                                        : whatsappUrls.type === 'absent'
+                                        ? 'border-rose-500/30 bg-rose-500/10'
+                                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
+                                    }`}>
+                                      <div className="px-1 py-0.5">
+                                        <MessageSquare className={`w-3.5 h-3.5 ${
+                                          whatsappUrls.type === 'late-warning'
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : whatsappUrls.type === 'absent'
+                                            ? 'text-rose-600 dark:text-rose-400'
+                                            : 'text-slate-500 dark:text-gray-400'
+                                        }`} />
+                                      </div>
+                                      <a
+                                        href={whatsappUrls.en}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                                        title={
+                                          whatsappUrls.type === 'late-warning'
+                                            ? `Send WhatsApp Late Warning (#${log.lateOccurrence}) in English`
+                                            : whatsappUrls.type === 'absent'
+                                            ? `Send WhatsApp Absence Notice for ${formattedDate} in English`
+                                            : `Send WhatsApp Shift Punctuality Reminder (${log.lateOccurrence}/3) in English`
+                                        }
+                                      >
+                                        EN
+                                      </a>
+                                      <span className="text-[10px] text-slate-300 dark:text-white/20">|</span>
+                                      <a
+                                        href={whatsappUrls.ar}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${
+                                          whatsappUrls.type === 'late-warning'
+                                            ? 'text-amber-700 dark:text-amber-300'
+                                            : whatsappUrls.type === 'absent'
+                                            ? 'text-rose-700 dark:text-rose-300'
+                                            : 'text-emerald-600 dark:text-emerald-400'
+                                        }`}
+                                        title={
+                                          whatsappUrls.type === 'late-warning'
+                                            ? `إرسال إنذار تأخير رسمي عبر الواتساب بالعربية`
+                                            : whatsappUrls.type === 'absent'
+                                            ? `إرسال إشعار غياب عبر الواتساب بالعربية`
+                                            : `إرسال تذكير بمواعيد الدوام عبر الواتساب بالعربية`
+                                        }
+                                      >
+                                        AR
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-slate-400 dark:text-gray-500 font-medium italic" title="No phone number on record">
+                                      No phone
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-slate-300 dark:text-gray-600 font-mono">—</span>
+                                )}
                               </td>
                             </tr>
                           );

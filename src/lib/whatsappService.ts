@@ -99,32 +99,42 @@ export interface LateWarningNotice {
   name: string;
   phone?: string;
   company?: string;
+  date?: string;
+  occurrence?: number;
+  lateMinutes?: number;
   language: 'en' | 'ar';
 }
 
 export function getLateWarningWhatsAppText(notice: LateWarningNotice): string {
-  if (notice.language === 'ar') {
-    return `الموضوع: إنذار بسبب التأخر عن العمل
+  const occTextEn = notice.occurrence ? ` (Occurrence #${notice.occurrence} this month)` : '';
+  const occTextAr = notice.occurrence ? ` (المرة رقم ${notice.occurrence} هذا الشهر)` : '';
+  const dateTextEn = notice.date ? ` on ${notice.date}` : '';
+  const dateTextAr = notice.date ? ` بتاريخ ${notice.date}` : '';
+  const minsTextEn = notice.lateMinutes ? ` (${notice.lateMinutes} mins late)` : '';
+  const minsTextAr = notice.lateMinutes ? ` (تأخر ${notice.lateMinutes} دقيقة)` : '';
 
-عزيزي الموظف،
-يُعد هذا الخطاب إنذارًا رسميًا بسبب تأخرك عن العمل. نرجو الالتزام بمواعيد الدوام الرسمية والحضور في الوقت المحدد.
-وفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.
+  if (notice.language === 'ar') {
+    return `الموضوع: إنذار رسمي بسبب تكرار التأخر عن العمل${occTextAr}
+
+عزيزي\\ة الموظف\\ة: ${notice.name}،
+يُعد هذا الخطاب إنذارًا رسميًا بسبب تكرار تأخرك عن العمل${dateTextAr}${minsTextAr}، حيث تم تجاوز الحد المسموح به شهريًا (3 مرات).
+نرجو الالتزام التام بمواعيد الدوام الرسمية والحضور في الوقت المحدد، حيث إن استمرار تكرار التأخير قد يترتب عليه اتخاذ الإجراءات التأديبية والخصومات المقررة قانونًا.
 
 مع التحية،
-مسؤول الموارد البشرية`;
+إدارة الموارد البشرية`;
   }
 
-  return `Subject: Warning for Late Attendance
+  return `Subject: Official Warning for Repeated Late Attendance${occTextEn}
 
-Dear Employee,
-This letter serves as a formal warning regarding your repeated lateness to work. You are required to adhere to the official working hours and ensure punctual attendance.
-Further violations may result in disciplinary action.
+Dear ${notice.name},
+This letter serves as an official formal warning regarding your repeated lateness to work${dateTextEn}${minsTextEn}, having exceeded the monthly 3-time allowance.
+You are strictly required to adhere to official working hours and ensure punctual attendance. Further violations may result in disciplinary action and statutory salary deductions under Omani Labor Law.
 
 Regards,
-HR Officer`;
+HR Department`;
 }
 
-export function sendLateWarningWhatsAppNotice(notice: LateWarningNotice) {
+export function getLateWarningWhatsAppUrl(notice: LateWarningNotice): string {
   const phoneRaw = notice.phone || '';
   const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
   let formattedPhone = digitsOnly.replace(/^0+/, '');
@@ -134,43 +144,102 @@ export function sendLateWarningWhatsAppNotice(notice: LateWarningNotice) {
 
   const messageText = getLateWarningWhatsAppText(notice);
   const encodedText = encodeURIComponent(messageText);
-  const whatsappUrl = formattedPhone 
+  return formattedPhone 
     ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
     : `https://api.whatsapp.com/send?text=${encodedText}`;
+}
 
-  window.open(whatsappUrl, '_blank');
+export function sendLateWarningWhatsAppNotice(notice: LateWarningNotice) {
+  const url = getLateWarningWhatsAppUrl(notice);
+  window.open(url, '_blank');
+}
+
+export interface LateReminderNotice {
+  name: string;
+  phone?: string;
+  company?: string;
+  date?: string;
+  occurrence?: number;
+  lateMinutes?: number;
+  language: 'en' | 'ar';
+}
+
+export function getLateReminderWhatsAppText(notice: LateReminderNotice): string {
+  const dateTextEn = notice.date ? ` on ${notice.date}` : '';
+  const dateTextAr = notice.date ? ` بتاريخ ${notice.date}` : '';
+  const minsTextEn = notice.lateMinutes ? ` (${notice.lateMinutes}m)` : '';
+  const minsTextAr = notice.lateMinutes ? ` (${notice.lateMinutes} دقيقة)` : '';
+  const occTextEn = notice.occurrence ? ` (${notice.occurrence} of 3 allowed per month)` : '';
+  const occTextAr = notice.occurrence ? ` (${notice.occurrence} من أصل 3 مرات مسموح بها شهريًا)` : '';
+
+  if (notice.language === 'ar') {
+    return `الموضوع: تذكير بمواعيد الدوام الرسمي
+
+عزيزي\\ة الموظف\\ة: ${notice.name}،
+نود تذكيركم بلطف بأهمية الالتزام بمواعيد الحضور وبدء الدوام الرسمي. يُرجى العلم بأنه تم تسجيل تأخر${dateTextAr}${minsTextAr}${occTextAr}. نرجو الحرص على الحضور في الموعد المحدد.
+
+مع أطيب التحيات،
+إدارة الموارد البشرية`;
+  }
+
+  return `Subject: Shift Punctuality Reminder
+
+Dear ${notice.name},
+This is a friendly reminder regarding your official shift timing. A late arrival was recorded${dateTextEn}${minsTextEn}${occTextEn}. Please ensure timely arrival for your scheduled shifts.
+
+Best regards,
+HR Department`;
+}
+
+export function getLateReminderWhatsAppUrl(notice: LateReminderNotice): string {
+  const phoneRaw = notice.phone || '';
+  const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
+  let formattedPhone = digitsOnly.replace(/^0+/, '');
+  if (formattedPhone.length === 8) {
+    formattedPhone = `968${formattedPhone}`;
+  }
+
+  const messageText = getLateReminderWhatsAppText(notice);
+  const encodedText = encodeURIComponent(messageText);
+  return formattedPhone 
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
 }
 
 export interface AbsentWarningNotice {
   name: string;
   phone?: string;
   company?: string;
+  date?: string;
   language: 'en' | 'ar';
 }
 
 export function getAbsentWarningWhatsAppText(notice: AbsentWarningNotice): string {
-  if (notice.language === 'ar') {
-    return `الموضوع: إنذار بسبب الغياب دون إشعار مسبق
+  const dateTextEn = notice.date ? ` on ${notice.date}` : '';
+  const dateTextAr = notice.date ? ` بتاريخ ${notice.date}` : '';
 
-عزيزي الموظف،
-يُعد هذا الخطاب إنذارًا رسميًا بسبب تغيبك عن العمل دون إشعار مسبق أو موافقة. نرجو إبلاغ المسؤول المباشر مسبقًا في حال عدم التمكن من الحضور، باستثناء الحالات الطارئة.
-وفي حال تكرار المخالفة، قد يتم اتخاذ الإجراءات التأديبية اللازمة.
+  if (notice.language === 'ar') {
+    return `الموضوع: إنذار رسمي بسبب الغياب دون إشعار مسبق
+
+عزيزي\\ة الموظف\\ة: ${notice.name}،
+يُعد هذا الخطاب إنذارًا رسميًا بسبب تغيبك عن العمل${dateTextAr} دون إشعار مسبق أو إجازة معتمدة.
+نرجو التواصل مع إدارة الموارد البشرية وتقديم ما يبرر الغياب فورًا، لتجنب اتخاذ الإجراءات التأديبية والخصومات المقررة بموجب قانون العمل العُماني.
 
 مع التحية،
-مسؤول الموارد البشرية`;
+إدارة الموارد البشرية`;
   }
 
-  return `Subject: Warning for Absence Without Prior Notice
+  return `Subject: Official Warning for Absence Without Prior Notice
 
-Dear Employee,
-This letter serves as a formal warning regarding your absence from work without prior notice or approval. You are required to notify your supervisor in advance of any absence, except in emergencies.
-Further violations may result in disciplinary action.
+Dear ${notice.name},
+This letter serves as a formal warning regarding your absence from work${dateTextEn} without prior notice or approved leave.
+You are required to contact HR and submit your justification immediately to avoid disciplinary action and payroll deductions under Omani Labor Law.
 
 Regards,
-HR Officer`;
+HR Department`;
 }
 
-export function sendAbsentWarningWhatsAppNotice(notice: AbsentWarningNotice) {
+export function getAbsentWarningWhatsAppUrl(notice: AbsentWarningNotice): string {
   const phoneRaw = notice.phone || '';
   const digitsOnly = phoneRaw.replace(/[^0-9]/g, '');
   let formattedPhone = digitsOnly.replace(/^0+/, '');
@@ -180,11 +249,14 @@ export function sendAbsentWarningWhatsAppNotice(notice: AbsentWarningNotice) {
 
   const messageText = getAbsentWarningWhatsAppText(notice);
   const encodedText = encodeURIComponent(messageText);
-  const whatsappUrl = formattedPhone 
+  return formattedPhone 
     ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
     : `https://api.whatsapp.com/send?text=${encodedText}`;
+}
 
-  window.open(whatsappUrl, '_blank');
+export function sendAbsentWarningWhatsAppNotice(notice: AbsentWarningNotice) {
+  const url = getAbsentWarningWhatsAppUrl(notice);
+  window.open(url, '_blank');
 }
 
 export interface LeaveApprovalNotice {
