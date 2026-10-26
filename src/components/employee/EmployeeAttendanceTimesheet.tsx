@@ -25,6 +25,9 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+// Feature flag: set to true when user requests to show the download sheet button in employee portal
+const SHOW_DOWNLOAD_REPORT_IN_EMPLOYEE_PORTAL = false;
+
 export function EmployeeAttendanceTimesheet({
   userId,
   userName,
@@ -380,33 +383,36 @@ export function EmployeeAttendanceTimesheet({
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              generateMonthlyAttendanceReport({
-                employee: {
-                  id: userId,
-                  name: userName || 'Employee',
-                  phone: phone || '',
-                  nationality,
-                  join_date: joinDate,
-                  avatar_url: avatarUrl,
-                },
-                companyName: companyName || 'OSAN GROUP',
-                monthIndex: selectedMonth,
-                year: selectedYear,
-                shiftStart: scheduledShiftStart,
-                shiftEnd: scheduledShiftEnd,
-                dailyLogs: monthlyHeatmapData,
-              });
-            }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-            title={`Download / Print ${MONTH_NAMES[selectedMonth]} ${selectedYear} Attendance Sheet`}
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Download Sheet</span>
-            <span className="sm:hidden">PDF</span>
-          </button>
+          {/* Download Sheet button hidden per user request (switch flag to true to re-enable) */}
+          {SHOW_DOWNLOAD_REPORT_IN_EMPLOYEE_PORTAL && (
+            <button
+              type="button"
+              onClick={() => {
+                generateMonthlyAttendanceReport({
+                  employee: {
+                    id: userId,
+                    name: userName || 'Employee',
+                    phone: phone || '',
+                    nationality,
+                    join_date: joinDate,
+                    avatar_url: avatarUrl,
+                  },
+                  companyName: companyName || 'OSAN GROUP',
+                  monthIndex: selectedMonth,
+                  year: selectedYear,
+                  shiftStart: scheduledShiftStart,
+                  shiftEnd: scheduledShiftEnd,
+                  dailyLogs: monthlyHeatmapData,
+                });
+              }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              title={`Download / Print ${MONTH_NAMES[selectedMonth]} ${selectedYear} Attendance Sheet`}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Download Sheet</span>
+              <span className="sm:hidden">PDF</span>
+            </button>
+          )}
         </div>
       </div>
 
