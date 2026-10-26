@@ -957,7 +957,7 @@ export function EmployeeDashboard() {
       {/* MY LEAVES & BALANCES EXPANDED MODAL */}
       {isLeavesModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10 animate-in fade-in zoom-in-95 duration-200">
             {/* Modal Header */}
             <div className="flex items-center justify-between p-5 sm:p-6 border-b border-slate-100 dark:border-white/5">
               <div>
@@ -1067,81 +1067,74 @@ export function EmployeeDashboard() {
                     {t('noLeavesYet')}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10">
-                    <table className="w-full text-left rtl:text-right text-xs">
-                      <thead className="bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-white/10">
-                        <tr>
-                          <th className="p-3 pl-4">{t('appliedOn')}</th>
-                          <th className="p-3">{t('leaveType')}</th>
-                          <th className="p-3">{t('dates')}</th>
-                          <th className="p-3">{t('status')}</th>
-                          <th className="p-3 pr-4 text-right rtl:text-left">Medical Report / Document</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
-                        {myLeaves.map((l) => (
-                          <tr key={l.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                            <td className="p-3 pl-4 text-slate-500 dark:text-gray-400 font-mono text-[11px]">
-                              {l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : '-'}
-                            </td>
-                            <td className="p-3 font-bold text-slate-900 dark:text-white">
-                              <span className={`px-2 py-0.5 rounded-lg text-[11px] font-extrabold ${l.leaveType === 'Sick'
-                                ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400'
-                                }`}>
+                  <>
+                    {/* 1. Mobile Cards Layout (< md screens) */}
+                    <div className="block md:hidden space-y-3">
+                      {myLeaves.map((l) => (
+                        <div key={l.id} className="p-4 rounded-2xl bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/80 dark:border-white/10 space-y-3 shadow-xs">
+                          {/* Top Row: Type & Status */}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2.5 py-1 rounded-lg text-xs font-extrabold whitespace-nowrap ${
+                                l.leaveType === 'Sick'
+                                  ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                  : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400 border border-blue-500/20'
+                              }`}>
                                 {l.leaveType} Leave
                               </span>
-                              {l.notes && (
-                                <p className="text-[10px] text-slate-500 dark:text-gray-400 font-normal italic mt-0.5 truncate max-w-[200px]" title={l.notes}>
-                                  "{l.notes}"
-                                </p>
-                              )}
-                            </td>
-                            <td className="p-3 text-slate-700 dark:text-gray-300 font-mono text-[11px]">
-                              {l.startDate} <span className="text-slate-400">➔</span> {l.endDate}
-                              <span className="ml-1.5 font-bold text-slate-900 dark:text-white">({l.durationDays}d)</span>
-                            </td>
-                            <td className="p-3">
-                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-extrabold inline-flex items-center gap-1 ${l.status === 'Approved'
+                              <span className="text-[11px] text-slate-400 font-mono whitespace-nowrap">
+                                {l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : ''}
+                              </span>
+                            </div>
+
+                            {/* Status in one line */}
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                              l.status === 'Approved'
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                                 : l.status === 'Rejected'
                                   ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
                                   : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                                }`}>
-                                {l.status === 'Approved' ? <CheckCircle2 className="w-3 h-3" /> : l.status === 'Rejected' ? <XCircle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                                <span>{l.status === 'Approved' ? t('approved') : l.status === 'Rejected' ? t('rejected') : t('pending')}</span>
-                              </span>
-                            </td>
-                            <td className="p-3 pr-4 text-right rtl:text-left">
-                              {l.documentUrl ? (
-                                <div className="inline-flex items-center gap-1.5 justify-end">
-                                  <button
-                                    onClick={() => setPreviewDocUrl(l.documentUrl)}
-                                    className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 font-bold text-[11px] border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1 cursor-pointer transition-colors"
-                                  >
-                                    <FileText className="w-3 h-3" />
-                                    <span>View Report</span>
-                                  </button>
-                                  <label className="p-1 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Replace / Update medical report">
-                                    <UploadCloud className="w-3.5 h-3.5" />
-                                    <input
-                                      type="file"
-                                      className="hidden"
-                                      accept="image/*,.pdf"
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        if (f) handleUploadMedicalDoc(l.id, f);
-                                      }}
-                                    />
-                                  </label>
-                                </div>
-                              ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
-                                <label className={`px-2.5 py-1 rounded-lg font-extrabold text-[11px] border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs ${l.status === 'Approved'
-                                    ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 ring-2 ring-emerald-500/10'
-                                    : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30'
-                                  }`} title="Upload Doctor / Hospital Sick Leave Certificate">
-                                  <UploadCloud className="w-3.5 h-3.5" />
-                                  <span>+ Upload Medical Report</span>
+                            }`}>
+                              {l.status === 'Approved' ? <CheckCircle2 className="w-3.5 h-3.5" /> : l.status === 'Rejected' ? <XCircle className="w-3.5 h-3.5" /> : <Clock className="w-3.5 h-3.5" />}
+                              <span className="whitespace-nowrap">{l.status === 'Approved' ? t('approved') : l.status === 'Rejected' ? t('rejected') : t('pending')}</span>
+                            </span>
+                          </div>
+
+                          {/* Date Range & Duration */}
+                          <div className="flex items-center justify-between text-xs bg-white dark:bg-white/5 p-2.5 rounded-xl border border-slate-200/60 dark:border-white/5 font-mono">
+                            <div className="flex items-center gap-1.5 text-slate-700 dark:text-gray-200">
+                              <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+                              <span className="whitespace-nowrap font-semibold">{l.startDate}</span>
+                              <span className="text-slate-400">➔</span>
+                              <span className="whitespace-nowrap font-semibold">{l.endDate}</span>
+                            </div>
+                            <span className="font-extrabold text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 text-slate-900 dark:text-white shrink-0">
+                              {l.durationDays}d
+                            </span>
+                          </div>
+
+                          {/* Reason note if provided */}
+                          {l.notes && (
+                            <div className="text-xs text-slate-600 dark:text-gray-300 italic bg-amber-500/5 dark:bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/10">
+                              <span className="font-semibold text-slate-400 not-italic mr-1.5">Note:</span>
+                              "{l.notes}"
+                            </div>
+                          )}
+
+                          {/* Action Button: Medical Report */}
+                          <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/5">
+                            <span className="text-[11px] font-semibold text-slate-400">Medical Document</span>
+                            {l.documentUrl ? (
+                              <div className="inline-flex items-center gap-2">
+                                <button
+                                  onClick={() => setPreviewDocUrl(l.documentUrl)}
+                                  className="px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 text-[#1D70B8] dark:text-blue-400 font-bold text-xs border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1.5 cursor-pointer"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  <span>View Report</span>
+                                </button>
+                                <label className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer" title="Replace / Update">
+                                  <UploadCloud className="w-4 h-4" />
                                   <input
                                     type="file"
                                     className="hidden"
@@ -1152,15 +1145,147 @@ export function EmployeeDashboard() {
                                     }}
                                   />
                                 </label>
-                              ) : (
-                                <span className="text-slate-400 text-[11px] italic">None</span>
-                              )}
-                            </td>
+                              </div>
+                            ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
+                              <label className={`px-3 py-1.5 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer shadow-2xs ${
+                                l.status === 'Approved'
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                  : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                              }`}>
+                                <UploadCloud className="w-3.5 h-3.5" />
+                                <span>+ Upload Medical Report</span>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  accept="image/*,.pdf"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (f) handleUploadMedicalDoc(l.id, f);
+                                  }}
+                                />
+                              </label>
+                            ) : (
+                              <span className="text-slate-400 text-xs italic">Not required</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* 2. Desktop Structured Table (>= md screens) */}
+                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200 dark:border-white/10 shadow-xs">
+                      <table className="w-full text-left rtl:text-right text-xs">
+                        <thead className="bg-slate-50 dark:bg-white/5 text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider border-b border-slate-200 dark:border-white/10">
+                          <tr>
+                            <th className="py-3 px-4 whitespace-nowrap">{t('appliedOn')}</th>
+                            <th className="py-3 px-4 whitespace-nowrap">{t('leaveType')}</th>
+                            <th className="py-3 px-4 whitespace-nowrap">{t('dates')}</th>
+                            <th className="py-3 px-4 whitespace-nowrap">{t('status')}</th>
+                            <th className="py-3 px-4 text-right rtl:text-left whitespace-nowrap">Medical Report / Document</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-white/5 font-medium">
+                          {myLeaves.map((l) => (
+                            <tr key={l.id} className="hover:bg-slate-50/70 dark:hover:bg-white/5 transition-colors">
+                              {/* Applied On: 1 line */}
+                              <td className="py-3.5 px-4 text-slate-500 dark:text-gray-400 font-mono text-xs whitespace-nowrap">
+                                {l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-GB') : '-'}
+                              </td>
+
+                              {/* Leave Type + note */}
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <div className="flex flex-col gap-0.5">
+                                  <span className={`px-2.5 py-0.5 rounded-lg text-xs font-extrabold w-fit whitespace-nowrap ${
+                                    l.leaveType === 'Sick'
+                                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                      : 'bg-blue-500/10 text-[#1D70B8] dark:text-blue-400'
+                                  }`}>
+                                    {l.leaveType} Leave
+                                  </span>
+                                  {l.notes && (
+                                    <p className="text-[11px] text-slate-500 dark:text-gray-400 italic truncate max-w-[200px]" title={l.notes}>
+                                      "{l.notes}"
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Dates: 1 line, never breaks! */}
+                              <td className="py-3.5 px-4 font-mono text-xs text-slate-700 dark:text-gray-300 whitespace-nowrap">
+                                <span className="font-semibold">{l.startDate}</span>
+                                <span className="text-slate-400 mx-1.5">➔</span>
+                                <span className="font-semibold">{l.endDate}</span>
+                                <span className="ml-2 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-white/10 font-bold text-slate-900 dark:text-white text-[11px]">
+                                  {l.durationDays}d
+                                </span>
+                              </td>
+
+                              {/* Status: 1 line, never breaks! */}
+                              <td className="py-3.5 px-4 whitespace-nowrap">
+                                <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 whitespace-nowrap ${
+                                  l.status === 'Approved'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                    : l.status === 'Rejected'
+                                      ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                }`}>
+                                  {l.status === 'Approved' ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> : l.status === 'Rejected' ? <XCircle className="w-3.5 h-3.5 shrink-0" /> : <Clock className="w-3.5 h-3.5 shrink-0" />}
+                                  <span className="whitespace-nowrap">{l.status === 'Approved' ? t('approved') : l.status === 'Rejected' ? t('rejected') : t('pending')}</span>
+                                </span>
+                              </td>
+
+                              {/* Medical Report / Document: 1 line */}
+                              <td className="py-3.5 px-4 text-right rtl:text-left whitespace-nowrap">
+                                {l.documentUrl ? (
+                                  <div className="inline-flex items-center gap-2 justify-end">
+                                    <button
+                                      onClick={() => setPreviewDocUrl(l.documentUrl)}
+                                      className="px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 font-bold text-xs border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                                    >
+                                      <FileText className="w-3.5 h-3.5" />
+                                      <span>View Report</span>
+                                    </button>
+                                    <label className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Replace / Update medical report">
+                                      <UploadCloud className="w-3.5 h-3.5" />
+                                      <input
+                                        type="file"
+                                        className="hidden"
+                                        accept="image/*,.pdf"
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0];
+                                          if (f) handleUploadMedicalDoc(l.id, f);
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
+                                  <label className={`px-3 py-1 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs whitespace-nowrap ${
+                                    l.status === 'Approved'
+                                      ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 ring-2 ring-emerald-500/10'
+                                      : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                                  }`} title="Upload Doctor / Hospital Sick Leave Certificate">
+                                    <UploadCloud className="w-3.5 h-3.5" />
+                                    <span>+ Upload Medical Report</span>
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      accept="image/*,.pdf"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        if (f) handleUploadMedicalDoc(l.id, f);
+                                      }}
+                                    />
+                                  </label>
+                                ) : (
+                                  <span className="text-slate-400 text-xs italic">None</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
