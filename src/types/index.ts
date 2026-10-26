@@ -40,6 +40,7 @@ export interface Company {
 export interface LeaveBalances {
   yearly: number;
   sick: number;
+  sickUsed?: number;
   pregnancy: number; // maternity balance
 }
 

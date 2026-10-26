@@ -540,9 +540,7 @@ export function EmployeeDashboard() {
   }, [myLeaves]);
 
   const yearlyRemaining = liveBalances.yearly;
-  const sickRemaining = liveBalances.sick;
   const yearlyTotal = Math.max(30, yearlyRemaining + approvedYearlyDays);
-  const sickTotal = Math.max(14, sickRemaining + approvedSickDays);
 
   const [isPipActive, setIsPipActive] = useState(false);
 
@@ -1010,12 +1008,12 @@ export function EmployeeDashboard() {
                   </div>
                   <div className="my-2">
                     <div className="text-3xl font-extrabold text-amber-600 dark:text-amber-400">
-                      {sickRemaining} <span className="text-sm font-semibold text-slate-500 dark:text-gray-400">{t('days')} {t('remaining')}</span>
+                      {approvedSickDays} <span className="text-sm font-semibold text-slate-500 dark:text-gray-400">{t('days')} {t('used')}</span>
                     </div>
                   </div>
                   <div className="text-[11px] text-slate-500 dark:text-gray-400 font-medium flex items-center justify-between border-t border-amber-200/40 dark:border-amber-900/30 pt-2 mt-1">
-                    <span>{t('used')}: <strong>{approvedSickDays}d</strong></span>
-                    <span>{t('total')}: <strong>{sickTotal}d</strong></span>
+                    <span>{t('sickLeave')} {t('used')}</span>
+                    <span className="font-bold text-amber-600 dark:text-amber-400">{approvedSickDays} {t('days')}</span>
                   </div>
                 </div>
 

@@ -1197,6 +1197,16 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
       return [];
     }
 
+    const userSickDaysUsed: Record<string, number> = {};
+    (data || []).forEach(r => {
+      if (r.status === 'Approved' && (r.leave_type || '').toLowerCase().includes('sick')) {
+        const s = new Date(r.start_date);
+        const e = new Date(r.end_date);
+        const days = r.duration_days || Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        userSickDaysUsed[r.user_id] = (userSickDaysUsed[r.user_id] || 0) + days;
+      }
+    });
+
     return data.map(r => {
       const u = userMap[r.user_id] || {};
       const start = new Date(r.start_date);
@@ -1216,8 +1226,9 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
         status: r.status || 'Pending',
         balances: {
           yearly: u.leave_balance_yearly ?? 30,
-          sick: u.leave_balance_sick ?? 14,
+          sickUsed: userSickDaysUsed[r.user_id] || 0,
         },
+        sickDaysUsed: userSickDaysUsed[r.user_id] || 0,
         documentUrl: r.document_url,
         notes: (r as any).rejection_reason || (r as any).reason || (r as any).notes || null,
         createdAt: r.created_at

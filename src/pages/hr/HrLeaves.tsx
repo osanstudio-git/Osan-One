@@ -487,7 +487,7 @@ export function HrLeaves() {
                 {/* Balances */}
                 <div className="flex items-center justify-between text-xs font-semibold bg-slate-50/50 dark:bg-white/5 p-2.5 rounded-xl border border-slate-100 dark:border-white/5">
                   <span className="text-slate-500 dark:text-gray-400">Yearly Balance: <strong className="text-[#1D70B8]">{leave.balances?.yearly ?? 30} days</strong></span>
-                  <span className="text-slate-500 dark:text-gray-400">Sick Balance: <strong className="text-amber-600">{leave.balances?.sick ?? 14} days</strong></span>
+                  <span className="text-slate-500 dark:text-gray-400">Sick Used: <strong className="text-amber-600">{(leave as any).sickDaysUsed ?? leave.balances?.sickUsed ?? 0} days</strong></span>
                 </div>
 
                 {leave.documentUrl ? (
@@ -662,7 +662,7 @@ export function HrLeaves() {
                   <th className="p-4 pl-6">Employee Name</th>
                   <th className="p-4">Leave Type</th>
                   <th className="p-4">Duration</th>
-                  <th className="p-4">Yearly / Sick Balance</th>
+                  <th className="p-4">Yearly Balance / Sick Used</th>
                   <th className="p-4">Document</th>
                   <th className="p-4">Status</th>
                   <th className="p-4 text-right pr-6">Actions</th>
@@ -687,7 +687,7 @@ export function HrLeaves() {
                       {leave.start} → {leave.end}
                     </td>
                     <td className="p-4 text-slate-600 dark:text-gray-400">
-                      Yearly: <strong className="text-[#1D70B8]">{leave.balances?.yearly ?? 30}d</strong> | Sick: <strong className="text-amber-600">{leave.balances?.sick ?? 14}d</strong>
+                      Yearly: <strong className="text-[#1D70B8]">{leave.balances?.yearly ?? 30}d</strong> | Sick Used: <strong className="text-amber-600">{(leave as any).sickDaysUsed ?? leave.balances?.sickUsed ?? 0}d</strong>
                     </td>
                     <td className="p-4">
                       {leave.documentUrl ? (

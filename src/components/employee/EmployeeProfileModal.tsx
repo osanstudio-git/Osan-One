@@ -3,6 +3,7 @@ import { X, User as UserIcon, Calendar, ShieldCheck, Clock, MapPin, Mail, Phone,
 import type { User } from '../../types';
 import { compressAndResizeAvatar } from '../../lib/imageUtils';
 import { updateEmployeeInDb, getSavedLocalAvatar, getEmployeeAvatarFromDb, syncAvatarToCloud, saveLocalAvatar } from '../../lib/databaseService';
+import { supabase } from '../../lib/supabase';
 
 interface EmployeeProfileModalProps {
   isOpen: boolean;
@@ -44,7 +45,35 @@ export function EmployeeProfileModal({
         }
       });
     }
+
+    if (profile.id) {
+      supabase
+        .from('leave_requests')
+        .select('start_date, end_date, duration_days, leave_type, status')
+        .eq('user_id', profile.id)
+        .eq('status', 'Approved')
+        .then(
+          ({ data }: { data: any[] | null }) => {
+            if (data) {
+              const count = data
+                .filter((r: any) => (r.leave_type || '').toLowerCase().includes('sick'))
+                .reduce((sum: number, r: any) => {
+                  const s = new Date(r.start_date);
+                  const e = new Date(r.end_date);
+                  const days = r.duration_days || Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+                  return sum + days;
+                }, 0);
+              setUsedSickDays(count);
+            }
+          },
+          (err: any) => {
+            console.error(err);
+          }
+        );
+    }
   }, [profile?.id, profile?.avatar_url, profile?.email, profile?.phone, isOpen]);
+
+  const [usedSickDays, setUsedSickDays] = useState<number>(0);
 
   if (!isOpen || !profile) return null;
 
@@ -280,7 +309,7 @@ export function EmployeeProfileModal({
               <div className="p-3 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-900/40 text-center">
                 <span className="text-[10px] font-bold text-amber-900 dark:text-amber-300 uppercase block">Sick Leave</span>
                 <span className="text-xl font-extrabold text-amber-600 dark:text-amber-400 mt-1 block">
-                  {profile.leave_balances?.sick ?? 14} <span className="text-xs font-normal">days</span>
+                  {usedSickDays} <span className="text-xs font-normal">days used</span>
                 </span>
               </div>
               <div className="p-3 bg-emerald-50/60 dark:bg-emerald-950/20 rounded-xl border border-emerald-200/60 dark:border-emerald-900/40 text-center">

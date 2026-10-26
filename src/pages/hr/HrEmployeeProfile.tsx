@@ -776,7 +776,18 @@ export function HrEmployeeProfile() {
     }
   };
 
-  const userLeaves = MOCK_LEAVES.filter(l => l.employee === employee?.name);
+  const userLeaves = dbLeaves.length > 0
+    ? dbLeaves.filter(l => l.user_id === employee?.id || l.user_id === id || l.employee === employee?.name)
+    : MOCK_LEAVES.filter(l => l.employee === employee?.name);
+
+  const approvedSickDays = userLeaves
+    .filter(l => (l.status === 'Approved' || !l.status) && (l.type || l.leaveType || l.leave_type || '').toLowerCase().includes('sick'))
+    .reduce((sum, l) => {
+      const s = l.start_date || l.start;
+      const e = l.end_date || l.end;
+      const duration = l.durationDays || l.duration_days || (s && e ? Math.max(1, Math.ceil((new Date(e).getTime() - new Date(s).getTime()) / (1000 * 60 * 60 * 24)) + 1) : 0);
+      return sum + duration;
+    }, 0);
 
   const getDocStatusBadge = (expiryDate?: string) => {
     if (!expiryDate) return <span className="text-slate-400 dark:text-gray-400 text-xs font-medium">No Expiry</span>;
@@ -1706,11 +1717,11 @@ export function HrEmployeeProfile() {
 
               <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
                 <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center mb-3 sm:mb-4 border-4 border-amber-500">
-                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.sick}</span>
-                  <span className="text-[9px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Days Available</span>
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{approvedSickDays}</span>
+                  <span className="text-[9px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Days Used</span>
                 </div>
                 <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white mb-1">Sick Leave</h4>
-                <p className="text-xs text-slate-500 dark:text-gray-400">Paid scale rules applied</p>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Total sick days taken this year</p>
               </div>
 
               <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">

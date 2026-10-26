@@ -115,13 +115,14 @@ export interface MockLeave {
   start: string;
   end: string;
   status: string;
-  balances: { yearly: number; sick: number; };
+  balances: { yearly: number; sick?: number; sickUsed?: number; };
+  sickDaysUsed?: number;
   documentUrl?: string;
 }
 
 export const MOCK_LEAVES: MockLeave[] = [
-  { id: '1', employee: 'Employee 4', type: 'Yearly', start: '2026-07-10', end: '2026-07-14', status: 'Pending', balances: { yearly: 15, sick: 14 } },
-  { id: '2', employee: 'Employee 7', type: 'Sick', start: '2026-07-05', end: '2026-07-06', status: 'Pending', balances: { yearly: 30, sick: 12 } },
+  { id: '1', employee: 'Employee 4', type: 'Yearly', start: '2026-07-10', end: '2026-07-14', status: 'Pending', balances: { yearly: 15, sickUsed: 0 }, sickDaysUsed: 0 },
+  { id: '2', employee: 'Employee 7', type: 'Sick', start: '2026-07-05', end: '2026-07-06', status: 'Pending', balances: { yearly: 30, sickUsed: 2 }, sickDaysUsed: 2 },
 ];
 
 export const MOCK_EXCEPTIONS = [
