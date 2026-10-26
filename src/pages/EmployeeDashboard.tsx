@@ -814,7 +814,7 @@ export function EmployeeDashboard() {
                 }`}
             >
               <Clock className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Live Punch</span>
+              <span>{t('livePunch')}</span>
             </button>
             <button
               type="button"
@@ -825,7 +825,7 @@ export function EmployeeDashboard() {
                 }`}
             >
               <Calendar className="w-3.5 h-3.5 text-primary" />
-              <span>My Timesheet</span>
+              <span>{t('myTimesheet')}</span>
             </button>
           </div>
 
@@ -841,7 +841,7 @@ export function EmployeeDashboard() {
             title="Live Sync: Refresh attendance and cloud profile data"
           >
             <RefreshCw className={`w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Data'}</span>
+            <span className="hidden sm:inline">{isSyncing ? t('syncing') : t('syncData')}</span>
           </button>
 
           {('documentPictureInPicture' in window) && (

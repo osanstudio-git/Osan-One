@@ -8,6 +8,8 @@ import { supabase } from '../../lib/supabase';
 import { isDatePublicHoliday } from '../../lib/holidayService';
 import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
 
+import { useLanguage } from '../../contexts/LanguageContext';
+
 interface EmployeeAttendanceTimesheetProps {
   userId: string;
   userName?: string;
@@ -20,10 +22,18 @@ interface EmployeeAttendanceTimesheetProps {
   phone?: string;
 }
 
-const MONTH_NAMES = [
+const MONTH_NAMES_EN = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
+
+const MONTH_NAMES_AR = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'
+];
+
+const CALENDAR_DAYS_EN = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const CALENDAR_DAYS_AR = ['أح', 'إث', 'ث', 'أر', 'خم', 'جم', 'سب'];
 
 // Feature flag: set to true when user requests to show the download sheet button in employee portal
 const SHOW_DOWNLOAD_REPORT_IN_EMPLOYEE_PORTAL = false;
@@ -39,6 +49,7 @@ export function EmployeeAttendanceTimesheet({
   companyName = 'OSAN GROUP',
   phone
 }: EmployeeAttendanceTimesheetProps) {
+  const { t, language } = useLanguage();
   const today = new Date();
   const [selectedYear, setSelectedYear] = useState<number>(today.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(today.getMonth());
@@ -335,6 +346,36 @@ export function EmployeeAttendanceTimesheet({
     });
   }, [monthlyHeatmapData, selectedCalendarDate]);
 
+  const isArabic = language === 'ar';
+  const currentMonthName = (isArabic ? MONTH_NAMES_AR : MONTH_NAMES_EN)[selectedMonth];
+  const currentMonthShortName = isArabic ? currentMonthName : currentMonthName.substring(0, 3);
+  const calendarDays = isArabic ? CALENDAR_DAYS_AR : CALENDAR_DAYS_EN;
+
+  const formatPunchText = (txt: string) => {
+    if (!txt || txt === '--:--') return '--:--';
+    if (!isArabic) return txt;
+    if (txt === 'No Punch Record') return t('noPunchRecord');
+    if (txt.includes('Leave (Sick)')) return t('leaveSick');
+    if (txt.includes('Leave')) return t('approvedLeave');
+    if (txt === 'OFF (Paid)') return 'عطلة رسمية (مدفوعة)';
+    if (txt === 'Weekend Off') return t('weekend');
+    if (txt === 'Active Shift') return 'وردية نشطة';
+    if (txt === 'Scheduled Shift') return t('scheduled');
+    if (txt === 'Not Checked In Yet') return 'لم يسجل دخول بعد';
+    return txt;
+  };
+
+  const formatShiftDurationText = (txt: string) => {
+    if (!txt || txt === '--:--') return '--:--';
+    if (!isArabic) return txt;
+    if (txt === '0m') return `0 ${t('minutes')}`;
+    if (txt === 'Paid Holiday') return t('holiday');
+    if (txt === 'Approved Leave') return t('approvedLeave');
+    if (txt === 'Off') return t('off');
+    if (txt === 'In Progress') return 'قيد العمل';
+    return txt.replace('h', ` ${t('hours')} `).replace('m', ` ${t('minutes')}`);
+  };
+
   return (
     <div className="w-full max-w-5xl space-y-6 animate-in fade-in duration-300">
       
@@ -346,12 +387,12 @@ export function EmployeeAttendanceTimesheet({
           </div>
           <div>
             <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              {MONTH_NAMES[selectedMonth]} {selectedYear}
+              {currentMonthName} {selectedYear}
             </h2>
             <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
               {(companyName || '').toLowerCase().includes('asas') 
-                ? `${userName ? `${userName} • ` : ''}Sun–Wed: 08:00–17:00 / 12:00–20:00 • Thu: 08:00–15:00`
-                : `${userName ? `${userName} • ` : ''}Scheduled: ${scheduledShiftStart} – ${scheduledShiftEnd}`}
+                ? `${userName ? `${userName} • ` : ''}${isArabic ? 'الأحد–الأربعاء: 08:00–17:00 / 12:00–20:00 • الخميس: 08:00–15:00' : 'Sun–Wed: 08:00–17:00 / 12:00–20:00 • Thu: 08:00–15:00'}`
+                : `${userName ? `${userName} • ` : ''}${t('scheduledHours')}: ${scheduledShiftStart} – ${scheduledShiftEnd}`}
             </p>
           </div>
         </div>
@@ -361,25 +402,25 @@ export function EmployeeAttendanceTimesheet({
             onClick={handleCurrentMonth}
             className="px-3 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 text-slate-700 dark:text-gray-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
           >
-            Today
+            {t('today')}
           </button>
           <div className="flex items-center bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200 dark:border-white/10">
             <button
               onClick={handlePrevMonth}
               className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-gray-300 transition-all cursor-pointer"
-              title="Previous Month"
+              title={t('prevMonth')}
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronLeft className={`w-4 h-4 ${isArabic ? 'rotate-180' : ''}`} />
             </button>
             <span className="px-2 text-xs font-bold text-slate-700 dark:text-gray-300">
-              {MONTH_NAMES[selectedMonth].substring(0, 3)}
+              {currentMonthShortName}
             </span>
             <button
               onClick={handleNextMonth}
               className="p-1.5 hover:bg-white dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-gray-300 transition-all cursor-pointer"
-              title="Next Month"
+              title={t('nextMonth')}
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className={`w-4 h-4 ${isArabic ? 'rotate-180' : ''}`} />
             </button>
           </div>
 
@@ -406,10 +447,10 @@ export function EmployeeAttendanceTimesheet({
                 });
               }}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-              title={`Download / Print ${MONTH_NAMES[selectedMonth]} ${selectedYear} Attendance Sheet`}
+              title={isArabic ? `تحميل / طباعة كشف دوام ${currentMonthName} ${selectedYear}` : `Download / Print ${MONTH_NAMES_EN[selectedMonth]} ${selectedYear} Attendance Sheet`}
             >
               <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Download Sheet</span>
+              <span className="hidden sm:inline">{isArabic ? 'تحميل الكشف' : 'Download Sheet'}</span>
               <span className="sm:hidden">PDF</span>
             </button>
           )}
@@ -424,9 +465,9 @@ export function EmployeeAttendanceTimesheet({
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Worked Hours</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('workedHours')}</span>
             <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              {monthlyStats.totalHours}h {monthlyStats.remMinutes > 0 ? `${monthlyStats.remMinutes}m` : ''}
+              {monthlyStats.totalHours}{t('hours')} {monthlyStats.remMinutes > 0 ? `${monthlyStats.remMinutes}${t('minutes')}` : ''}
             </span>
           </div>
         </div>
@@ -437,9 +478,9 @@ export function EmployeeAttendanceTimesheet({
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Days Present</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('daysPresent')}</span>
             <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-              {monthlyStats.presentDays} <span className="text-xs font-normal text-slate-400">days</span>
+              {monthlyStats.presentDays} <span className="text-xs font-normal text-slate-400">{t('days')}</span>
             </span>
           </div>
         </div>
@@ -450,9 +491,9 @@ export function EmployeeAttendanceTimesheet({
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Late Arrivals</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('lateArrivals')}</span>
             <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400">
-              {monthlyStats.lateDays} <span className="text-xs font-normal text-slate-400">times</span>
+              {monthlyStats.lateDays} <span className="text-xs font-normal text-slate-400">{t('times')}</span>
             </span>
           </div>
         </div>
@@ -463,9 +504,9 @@ export function EmployeeAttendanceTimesheet({
             <AlertCircle className="w-5 h-5" />
           </div>
           <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Absences</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t('absences')}</span>
             <span className="text-xl sm:text-2xl font-black text-rose-600 dark:text-rose-400">
-              {monthlyStats.absentDays} <span className="text-xs font-normal text-slate-400">days</span>
+              {monthlyStats.absentDays} <span className="text-xs font-normal text-slate-400">{t('days')}</span>
             </span>
           </div>
         </div>
@@ -474,26 +515,26 @@ export function EmployeeAttendanceTimesheet({
       {/* Main Two Column Layout (Heatmap Grid + Attendance Feed Table) */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
-        {/* Left Column: Monthly Heatmap Grid (Matching Screenshot 2) */}
+        {/* Left Column: Monthly Heatmap Grid */}
         <div className="xl:col-span-1 bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                {MONTH_NAMES[selectedMonth]} {selectedYear} Heatmap Grid
+                {isArabic ? `${t('heatmapGrid')} — ${currentMonthName} ${selectedYear}` : `${currentMonthName} ${selectedYear} ${t('heatmapGrid')}`}
               </h3>
               {selectedCalendarDate && (
                 <button
                   onClick={() => setSelectedCalendarDate(null)}
                   className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  <FilterX className="w-3 h-3" /> Clear
+                  <FilterX className="w-3 h-3" /> {t('clear')}
                 </button>
               )}
             </div>
 
             {/* Calendar Grid */}
             <div className="grid grid-cols-7 gap-1.5 mb-4">
-              {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+              {calendarDays.map((day, idx) => (
                 <div key={`${day}-${idx}`} className="text-center text-[11px] font-black text-slate-400 dark:text-gray-500 mb-1">
                   {day}
                 </div>
@@ -512,7 +553,7 @@ export function EmployeeAttendanceTimesheet({
                     key={i}
                     type="button"
                     onClick={() => setSelectedCalendarDate(isSelected ? null : data.dateStr)}
-                    title={`${data.dateStr}: ${data.status.toUpperCase()} (Click to inspect day)`}
+                    title={isArabic ? `${data.dateStr}: ${data.status} (اضغط للتفاصيل)` : `${data.dateStr}: ${data.status.toUpperCase()} (Click to inspect day)`}
                     className={`aspect-square rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${getHeatmapColor(data.status)} ${
                       isSelected ? 'ring-3 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-105 z-10' : ''
                     }`}
@@ -526,29 +567,29 @@ export function EmployeeAttendanceTimesheet({
 
           {/* Heatmap Legend */}
           <div className="pt-4 border-t border-slate-100 dark:border-white/5 grid grid-cols-3 gap-2 text-[10px] font-bold text-slate-600 dark:text-gray-400">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" /> Present</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" /> Late</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" /> Absent</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-600 shrink-0" /> Holiday</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" /> Leave</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" /> Off</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" /> {t('present')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" /> {t('late')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" /> {t('absent')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-600 shrink-0" /> {t('holiday')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" /> {t('leave')}</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" /> {t('off')}</span>
           </div>
         </div>
 
-        {/* Right Column: Attendance Log Feed Table (Matching Screenshot 2) */}
+        {/* Right Column: Attendance Log Feed Table */}
         <div className="xl:col-span-2 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm overflow-hidden flex flex-col">
           <div className="p-5 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
             <div>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                Attendance Log Feed — {MONTH_NAMES[selectedMonth]} {selectedYear}
+                {t('attendanceLogFeed')} — {currentMonthName} {selectedYear}
               </h3>
               {selectedCalendarDate ? (
                 <p className="text-xs font-bold text-primary mt-0.5">
-                  Filtered for selected date: {new Date(selectedCalendarDate).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
+                  {t('filteredForDate')}: {new Date(selectedCalendarDate).toLocaleDateString(isArabic ? 'ar-OM' : 'en-GB', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })}
                 </p>
               ) : (
                 <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                  Showing recorded shifts and attendance statuses for this month
+                  {t('showingShiftsForMonth')}
                 </p>
               )}
             </div>
@@ -558,20 +599,20 @@ export function EmployeeAttendanceTimesheet({
                 onClick={() => setSelectedCalendarDate(null)}
                 className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 text-slate-700 dark:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
-                Clear Filter
+                {t('clearFilter')}
               </button>
             )}
           </div>
 
           <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse min-w-[550px]">
+            <table className="w-full text-start border-collapse min-w-[550px]">
               <thead className="bg-slate-50/80 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 text-[11px] font-bold text-slate-400 dark:text-gray-500 uppercase tracking-wider">
                 <tr>
-                  <th className="py-3.5 px-4 pl-6">Date</th>
-                  <th className="py-3.5 px-4">Punch In</th>
-                  <th className="py-3.5 px-4">Punch Out</th>
-                  <th className="py-3.5 px-4">Shift Hours</th>
-                  <th className="py-3.5 px-4 pr-6 text-right">Status</th>
+                  <th className="py-3.5 px-4 ltr:pl-6 rtl:pr-6 text-start">{t('dateCol')}</th>
+                  <th className="py-3.5 px-4 text-start">{t('punchInCol')}</th>
+                  <th className="py-3.5 px-4 text-start">{t('punchOutCol')}</th>
+                  <th className="py-3.5 px-4 text-start">{t('shiftHoursCol')}</th>
+                  <th className="py-3.5 px-4 ltr:pr-6 rtl:pl-6 text-end">{t('statusCol')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5 text-xs">
@@ -580,23 +621,24 @@ export function EmployeeAttendanceTimesheet({
                     <td colSpan={5} className="py-12 text-center text-slate-400">
                       <div className="flex items-center justify-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                        <span>Loading your monthly attendance logs...</span>
+                        <span>{t('loadingMonthlyLogs')}</span>
                       </div>
                     </td>
                   </tr>
                 ) : filteredFeedData.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-12 text-center text-slate-400 font-medium">
-                      No attendance activity recorded for this period.
+                      {t('noActivityRecorded')}
                     </td>
                   </tr>
                 ) : (
                   filteredFeedData.map((log) => {
-                    const formattedDate = log.date.toLocaleDateString('en-GB', { 
+                    const formattedDate = log.date.toLocaleDateString(isArabic ? 'ar-OM' : 'en-GB', { 
                       day: '2-digit', 
                       month: 'short', 
                       year: 'numeric' 
                     });
+                    const weekdayName = log.date.toLocaleDateString(isArabic ? 'ar-OM' : 'en-GB', { weekday: 'short' });
                     const isSelectedRow = selectedCalendarDate === log.dateStr;
 
                     return (
@@ -606,60 +648,60 @@ export function EmployeeAttendanceTimesheet({
                           isSelectedRow ? 'bg-primary/5 dark:bg-primary/10' : ''
                         }`}
                       >
-                        <td className="py-3.5 px-4 pl-6 font-bold text-slate-900 dark:text-white">
+                        <td className="py-3.5 px-4 ltr:pl-6 rtl:pr-6 font-bold text-slate-900 dark:text-white">
                           <div>{formattedDate}</div>
                           <span className="text-[10px] text-slate-400 font-normal">
-                            {log.date.toLocaleDateString('en-GB', { weekday: 'short' })}
+                            {weekdayName}
                           </span>
                         </td>
                         <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 dark:text-gray-300">
-                          {log.clockInText}
+                          {formatPunchText(log.clockInText)}
                         </td>
                         <td className="py-3.5 px-4 font-mono font-semibold text-slate-700 dark:text-gray-300">
-                          {log.clockOutText}
+                          {formatPunchText(log.clockOutText)}
                         </td>
                         <td className="py-3.5 px-4 font-mono font-bold text-slate-800 dark:text-gray-200">
-                          {log.shiftDurationText}
+                          {formatShiftDurationText(log.shiftDurationText)}
                         </td>
-                        <td className="py-3.5 px-4 pr-6 text-right">
+                        <td className="py-3.5 px-4 ltr:pr-6 rtl:pl-6 text-end">
                           {log.status === 'present' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              On Time
+                              {t('onTime')}
                             </span>
                           )}
                           {log.status === 'late' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                              Late Warning {log.lateMinutes > 0 ? `(${log.lateMinutes}m)` : ''}
+                              {t('lateWarning')} {log.lateMinutes > 0 ? `(${log.lateMinutes}${t('minutes')})` : ''}
                             </span>
                           )}
                           {log.status === 'absent' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                              Absent
+                              {t('absent')}
                             </span>
                           )}
                           {log.status === 'holiday' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
                               <Sparkles className="w-3 h-3 text-purple-500" />
-                              Holiday
+                              {t('holiday')}
                             </span>
                           )}
                           {log.status === 'leave' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-blue-500/15 text-blue-700 dark:text-blue-300 border border-blue-500/30">
                               <Palmtree className="w-3 h-3 text-blue-500" />
-                              Approved Leave
+                              {t('approvedLeave')}
                             </span>
                           )}
                           {log.status === 'weekend' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-gray-400">
-                              Weekend
+                              {t('weekend')}
                             </span>
                           )}
                           {log.status === 'upcoming' && (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-gray-400 border border-slate-200/80 dark:border-white/10">
-                              Scheduled
+                              {t('scheduled')}
                             </span>
                           )}
                         </td>
