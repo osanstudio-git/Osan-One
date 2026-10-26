@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, ChevronDown, ShieldAlert } from 'lucide-react';
+import { X, Calendar, ChevronDown, ShieldAlert, UploadCloud, FileText, CheckCircle2, Trash2 } from 'lucide-react';
 import type { LeaveType } from '../../types';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 interface LeaveModalProps {
   isOpen: boolean;
@@ -12,10 +13,15 @@ interface LeaveModalProps {
 }
 
 export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModalProps) {
+  const { t, language } = useLanguage();
+  const isArabic = language === 'ar';
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [leaveType, setLeaveType] = useState<LeaveType>('Yearly');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
+  const [medicalFile, setMedicalFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Derive user details based on registered employee profile in database
@@ -139,13 +145,29 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
 
     setIsSubmitting(true);
     try {
-      await onSubmit({ leaveType, startDate, endDate, durationDays: requestDurationDays, notes });
+      await onSubmit({
+        leaveType,
+        startDate,
+        endDate,
+        durationDays: requestDurationDays,
+        notes,
+        file: leaveType === 'Sick' ? (medicalFile || undefined) : undefined,
+      });
+      setMedicalFile(null);
+      setStartDate('');
+      setEndDate('');
+      setNotes('');
       onClose();
     } catch (error) {
       console.error(error);
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleClose = () => {
+    setMedicalFile(null);
+    onClose();
   };
 
   return (
@@ -156,7 +178,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
           
@@ -168,10 +190,17 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
           >
             <div className="p-6 border-b border-slate-200 dark:border-white/10 flex justify-between items-center bg-slate-50 dark:bg-white/5">
               <div>
-                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">Request Leave</h2>
-                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mt-0.5">Omani Labor Law Compliance System</p>
+                <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+                  {t('newLeaveRequest') || 'Request Leave'}
+                </h2>
+                <p className="text-xs font-semibold text-slate-500 dark:text-gray-400 mt-0.5">
+                  {t('omaniComplianceSubtitle') || 'Omani Labor Law Compliance System'}
+                </p>
               </div>
-              <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer">
+              <button 
+                onClick={handleClose} 
+                className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -270,12 +299,14 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
               {requestDurationDays > 0 && (
                 <div className="p-4 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-200 dark:border-white/10 space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="font-semibold text-slate-600 dark:text-gray-400">Total Requested Duration:</span>
+                    <span className="font-semibold text-slate-600 dark:text-gray-400">
+                      {isArabic ? 'إجمالي المدة المطلوبة:' : 'Total Requested Duration:'}
+                    </span>
                     <span className="font-extrabold text-slate-900 dark:text-white text-right">
-                      {requestDurationDays} Days
+                      {requestDurationDays} {t('days')}
                       {leaveType === 'Yearly' && (
                         <span className="text-[10px] text-emerald-600 dark:text-emerald-400 block font-bold mt-0.5">
-                          (excluding {nationality === 'OMAN' || nationality === 'Omani' ? 'Fri/Sat' : 'Fri'} weekends)
+                          ({isArabic ? 'باستثناء عطلات نهاية الأسبوع' : `excluding ${nationality === 'OMAN' || nationality === 'Omani' ? 'Fri/Sat' : 'Fri'} weekends`})
                         </span>
                       )}
                     </span>
@@ -288,15 +319,115 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                 </div>
               )}
 
+              {/* Optional Medical Report Upload when Sick Leave is selected */}
+              {leaveType === 'Sick' && (
+                <div className="space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>{t('medicalReportOptional')}</span>
+                    </label>
+                    <span className="text-[10px] font-semibold text-slate-400 dark:text-gray-500 bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-full">
+                      {isArabic ? 'اختياري' : 'Optional'}
+                    </span>
+                  </div>
+
+                  {!medicalFile ? (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="group relative border-2 border-dashed border-slate-300 dark:border-white/15 hover:border-emerald-500/60 dark:hover:border-emerald-500/60 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-slate-50/60 dark:bg-slate-950/40 hover:bg-emerald-500/5"
+                    >
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".pdf,image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) {
+                            if (f.size > 5 * 1024 * 1024) {
+                              alert(isArabic ? 'حجم الملف يجب ألا يتجاوز 5 ميجابايت' : 'File size should not exceed 5MB');
+                              return;
+                            }
+                            setMedicalFile(f);
+                          }
+                        }}
+                      />
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
+                        <UploadCloud className="w-5 h-5" />
+                      </div>
+                      <p className="text-xs font-bold text-slate-800 dark:text-gray-200">
+                        {t('clickToUpload')}
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">
+                        {t('uploadMedicalReportDesc')}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between p-3.5 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl">
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                          <CheckCircle2 className="w-5 h-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            {medicalFile.name}
+                          </p>
+                          <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
+                            {(medicalFile.size / 1024).toFixed(0)} KB • {isArabic ? 'جاهز للإرفاق' : 'Ready to attach'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                        >
+                          {t('changeFile')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMedicalFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = '';
+                          }}
+                          className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
+                          title={t('removeFile')}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0];
+                            if (f) {
+                              if (f.size > 5 * 1024 * 1024) {
+                                alert(isArabic ? 'حجم الملف يجب ألا يتجاوز 5 ميجابايت' : 'File size should not exceed 5MB');
+                                return;
+                              }
+                              setMedicalFile(f);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Reason / Notes Field */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-700 dark:text-gray-300 uppercase tracking-wider">
-                  Reason / Notes (Optional)
+                  {isArabic ? 'السبب / الملاحظات (اختياري)' : 'Reason / Notes (Optional)'}
                 </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="State the reason or purpose for your leave request..."
+                  placeholder={isArabic ? 'اذكر سبب أو ملاحظات طلب الإجازة...' : 'State the reason or purpose for your leave request...'}
                   rows={2}
                   className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-white/10 rounded-2xl py-2.5 px-4 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-xs resize-none placeholder:text-slate-400"
                 />
@@ -308,7 +439,9 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                 disabled={isSubmitting || (leaveType === 'Yearly' && !isEligibleForYearly)}
                 className="w-full bg-primary hover:bg-emerald-600 disabled:opacity-50 text-white font-extrabold py-3.5 rounded-2xl transition-all shadow-lg shadow-primary/20 mt-4 text-xs cursor-pointer active:scale-95"
               >
-                {isSubmitting ? 'Submitting Request...' : 'Submit Leave Request'}
+                {isSubmitting 
+                  ? (isArabic ? 'جاري إرسال الطلب...' : 'Submitting Request...') 
+                  : (isArabic ? 'إرسال طلب الإجازة' : 'Submit Leave Request')}
               </button>
             </form>
           </motion.div>

@@ -70,6 +70,12 @@ export const TRANSLATIONS = {
     days: 'days',
     uploadSuccess: 'Leave request submitted successfully! Pending HR approval.',
     uploadFailed: 'Failed to submit leave request. Please try again.',
+    medicalReportOptional: 'Medical Report / Certificate (Optional)',
+    uploadMedicalReportDesc: 'Attach doctor note or clinic certificate (PDF or image - max 5MB)',
+    clickToUpload: 'Click to select file',
+    changeFile: 'Change',
+    removeFile: 'Remove',
+    omaniComplianceSubtitle: 'Omani Labor Law Compliance System',
 
     // Timesheet & Feed
     livePunch: 'Live Punch',
@@ -178,6 +184,12 @@ export const TRANSLATIONS = {
     days: 'أيام',
     uploadSuccess: 'تم تقديم طلب الإجازة بنجاح! في انتظار موافقة الموارد البشرية.',
     uploadFailed: 'فشل في إرسال طلب الإجازة. يرجى المحاولة مرة أخرى.',
+    medicalReportOptional: 'التقرير الطبي / الشهادة الطبية (اختياري)',
+    uploadMedicalReportDesc: 'إرفاق التقرير الطبي أو إجازة العيادة (PDF أو صورة - حتى 5 ميجابايت)',
+    clickToUpload: 'اضغط لاختيار الملف',
+    changeFile: 'تغيير',
+    removeFile: 'إزالة',
+    omaniComplianceSubtitle: 'نظام الامتثال لقانون العمل العُماني',
 
     // Timesheet & Feed
     livePunch: 'البصمة المباشرة',
