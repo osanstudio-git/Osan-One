@@ -183,16 +183,20 @@ export function DashboardLayout({ children, title, links }: DashboardLayoutProps
           isCollapsed ? 'w-20' : 'w-64'
         }`}
       >
-        <div className="p-5 flex items-center justify-between border-b border-slate-100 dark:border-white/5 h-20">
+        <div className={`flex items-center ${isCollapsed ? 'px-3 justify-between gap-1' : 'p-5 justify-between'} border-b border-slate-100 dark:border-white/5 h-20`}>
           {!isCollapsed && <OsanLogo size="sm" />}
           {isCollapsed && (
-            <div className="mx-auto w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-black">
-              O
+            <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200/70 dark:border-white/10 flex items-center justify-center p-1.5 shadow-xs overflow-hidden shrink-0" title="Osan Group">
+              <img
+                src="/osan-logo.png"
+                alt="Osan Logo"
+                className="w-full h-full object-contain mix-blend-multiply dark:brightness-150 transition-all"
+              />
             </div>
           )}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors shrink-0"
             title={isCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
