@@ -719,10 +719,6 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
       <!-- 3. Official Company Seal & Stamp -->
       <div class="sig-box stamp-seal-box">
         <div class="sig-title" style="color: #64748b; border-bottom-color: #cbd5e1;">3. Official Company Seal</div>
-        <div class="seal-inner-area">
-          OFFICIAL COMPANY SEAL &amp; STAMP AREA<br>
-          <strong>${companyName || 'OSAN STUDIO'}</strong>
-        </div>
       </div>
     </div>
 
