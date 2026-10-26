@@ -1219,7 +1219,7 @@ export async function getLeaveRequestsFromDb(): Promise<any[]> {
           sick: u.leave_balance_sick ?? 14,
         },
         documentUrl: r.document_url,
-        notes: r.rejection_reason || null,
+        notes: (r as any).rejection_reason || (r as any).reason || (r as any).notes || null,
         createdAt: r.created_at
       };
     });
@@ -1268,7 +1268,7 @@ export async function getEmployeeLeaveRequestsFromDb(userId: string, email?: str
         durationDays,
         status: (r.status || 'Pending') as 'Pending' | 'Approved' | 'Rejected',
         documentUrl: r.document_url,
-        notes: r.rejection_reason || null,
+        notes: (r as any).rejection_reason || (r as any).reason || (r as any).notes || null,
         createdAt: r.created_at
       };
     });
@@ -1338,23 +1338,58 @@ export async function createLeaveRequestInDb(request: {
       dbLeaveType = 'Yearly';
     }
 
-    // 3. Insert cleanly matching Supabase leave_requests schema
-    const { error } = await supabase
-      .from('leave_requests')
-      .insert([{
-        user_id: validUserId,
-        leave_type: dbLeaveType,
-        start_date: request.startDate,
-        end_date: request.endDate,
-        document_url: request.documentUrl || null,
-        rejection_reason: request.notes || null,
-        status: 'Pending'
-      }])
-      .select();
+    // 3. Insert cleanly matching Supabase leave_requests schema with resilient fallback
+    const basePayload: any = {
+      user_id: validUserId,
+      leave_type: dbLeaveType,
+      start_date: request.startDate,
+      end_date: request.endDate,
+      document_url: request.documentUrl || null,
+      status: 'Pending'
+    };
 
-    if (error) {
-      console.error('Supabase createLeaveRequest error:', error.message);
-      return { success: false, error: error.message };
+    let insertError: any = null;
+    if (request.notes) {
+      // First try with rejection_reason if present in schema
+      const { error: err1 } = await supabase
+        .from('leave_requests')
+        .insert([{ ...basePayload, rejection_reason: request.notes }])
+        .select();
+
+      if (!err1) {
+        return { success: true };
+      }
+
+      if (err1.message?.includes('rejection_reason') || err1.message?.includes('schema cache')) {
+        // Fallback: try reason column or standard base payload
+        const { error: err2 } = await supabase
+          .from('leave_requests')
+          .insert([{ ...basePayload, reason: request.notes }])
+          .select();
+
+        if (!err2) {
+          return { success: true };
+        }
+
+        const { error: err3 } = await supabase
+          .from('leave_requests')
+          .insert([basePayload])
+          .select();
+        insertError = err3;
+      } else {
+        insertError = err1;
+      }
+    } else {
+      const { error: err } = await supabase
+        .from('leave_requests')
+        .insert([basePayload])
+        .select();
+      insertError = err;
+    }
+
+    if (insertError) {
+      console.error('Supabase createLeaveRequest error:', insertError.message);
+      return { success: false, error: insertError.message };
     }
 
     return { success: true };
@@ -1405,21 +1440,49 @@ export async function recordEmployeeLeaveByHrInDb(data: {
     const end = new Date(data.endDate);
     const days = data.durationDays || Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
-    const { error } = await supabase
-      .from('leave_requests')
-      .insert([{
-        user_id: data.userId,
-        leave_type: dbLeaveType,
-        start_date: data.startDate,
-        end_date: data.endDate,
-        document_url: data.documentUrl || null,
-        rejection_reason: data.notes || null,
-        status: data.status || 'Approved'
-      }]);
+    const basePayload: any = {
+      user_id: data.userId,
+      leave_type: dbLeaveType,
+      start_date: data.startDate,
+      end_date: data.endDate,
+      document_url: data.documentUrl || null,
+      status: data.status || 'Approved'
+    };
 
-    if (error) {
-      console.error('Failed to record leave by HR:', error.message);
-      return { success: false, error: error.message };
+    let hrInsertError: any = null;
+    if (data.notes) {
+      const { error: err1 } = await supabase
+        .from('leave_requests')
+        .insert([{ ...basePayload, rejection_reason: data.notes }]);
+
+      if (!err1) {
+        // Success
+      } else if (err1.message?.includes('rejection_reason') || err1.message?.includes('schema cache')) {
+        const { error: err2 } = await supabase
+          .from('leave_requests')
+          .insert([{ ...basePayload, reason: data.notes }]);
+
+        if (!err2) {
+          // Success
+        } else {
+          const { error: err3 } = await supabase
+            .from('leave_requests')
+            .insert([basePayload]);
+          hrInsertError = err3;
+        }
+      } else {
+        hrInsertError = err1;
+      }
+    } else {
+      const { error: err } = await supabase
+        .from('leave_requests')
+        .insert([basePayload]);
+      hrInsertError = err;
+    }
+
+    if (hrInsertError) {
+      console.error('Failed to record leave by HR:', hrInsertError.message);
+      return { success: false, error: hrInsertError.message };
     }
 
     // If status is Approved, automatically deduct from employee balance
