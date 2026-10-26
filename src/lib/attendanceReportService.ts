@@ -68,6 +68,17 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
   const todayDateFormatted = acknowledgedDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   const effectiveAckBy = acknowledgedBy || 'Eklas Said Al Nairi';
 
+  let stampDateAndDay = '';
+  try {
+    const dObj = acknowledgedDate ? new Date(acknowledgedDate) : new Date();
+    const validD = isNaN(dObj.getTime()) ? new Date() : dObj;
+    const dateStr = validD.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+    const dayStr = validD.toLocaleDateString('en-GB', { weekday: 'long' }).toUpperCase();
+    stampDateAndDay = `${dateStr} &bull; ${dayStr}`;
+  } catch {
+    stampDateAndDay = `${todayDateFormatted.toUpperCase()}`;
+  }
+
   const monthName = MONTH_NAMES[monthIndex];
   const refCode = `OSAN-ATT-${year}${String(monthIndex + 1).padStart(2, '0')}-${employee.id.substring(0, 6).toUpperCase()}`;
 
@@ -415,7 +426,7 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
       margin-top: 2px;
     }
 
-    /* Green Rubber Stamp Approved Styling (Authentic Ink Watermark Touch with Background Text Visible) */
+    /* Green Rubber Stamp Approved Styling (Light Green Ink Watermark Touch with Background Text Visible) */
     .hr-stamp-wrapper {
       display: none;
       position: absolute;
@@ -425,7 +436,7 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
       pointer-events: none;
       z-index: 10;
       mix-blend-mode: multiply;
-      opacity: 0.90;
+      opacity: 0.88;
     }
     .hr-stamp-wrapper.stamped {
       display: block;
@@ -433,15 +444,15 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
     .rubber-stamp {
       display: inline-block;
       padding: 2.5px;
-      border: 3px solid #15803d;
+      border: 3px solid #22c55e;
       border-radius: 9px;
       background: transparent;
-      box-shadow: inset 0 0 0 1px rgba(21, 128, 61, 0.35), 0 0 0 1px rgba(21, 128, 61, 0.2);
+      box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.4), 0 0 0 1px rgba(34, 197, 94, 0.25);
     }
     .rubber-stamp-inner {
-      border: 1.5px solid #15803d;
+      border: 1.5px solid #22c55e;
       border-radius: 6px;
-      padding: 2px 10px;
+      padding: 3px 12px;
       text-align: center;
       display: flex;
       flex-direction: column;
@@ -453,31 +464,25 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
       font-family: Impact, "Arial Black", "Trebuchet MS", sans-serif;
       font-size: 21px;
       font-weight: 900;
-      color: #15803d;
+      color: #16a34a;
       letter-spacing: 2.5px;
       line-height: 1;
       text-transform: uppercase;
-      margin: 1px 0;
-      text-shadow: 0 0 0.5px rgba(21, 128, 61, 0.7);
+      margin: 1px 0 2px 0;
+      text-shadow: 0 0 0.5px rgba(22, 163, 74, 0.6);
     }
-    .stamp-text-sub {
-      font-size: 7px;
-      font-weight: 900;
-      color: #15803d;
-      letter-spacing: 1px;
-      text-transform: uppercase;
-      border-top: 1.5px solid #15803d;
-      padding-top: 1.5px;
-      margin-top: 1.5px;
-      width: 100%;
-    }
-    .stamp-text-meta {
-      font-size: 6.5px;
+    .stamp-text-date {
+      font-size: 7.5px;
       font-weight: 800;
-      color: #15803d;
-      letter-spacing: 0.6px;
+      color: #16a34a;
+      letter-spacing: 0.8px;
       text-transform: uppercase;
-      margin-top: 1.5px;
+      border-top: 1.5px solid #22c55e;
+      padding-top: 2.5px;
+      margin-top: 1px;
+      width: 100%;
+      text-align: center;
+      white-space: nowrap;
     }
     .stamp-box {
       border: 2px dashed #cbd5e1;
@@ -554,7 +559,7 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
         id="stampToggleBtn" 
         class="stamp-toggle-btn" 
         onclick="toggleHrStamp()"
-        style="background: ${isHrAcknowledged ? '#15803d' : '#0284c7'}; color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; font-weight: 800; font-size: 11.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
+        style="background: ${isHrAcknowledged ? '#16a34a' : '#0284c7'}; color: #ffffff; border: 1px solid rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 6px; font-weight: 800; font-size: 11.5px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;"
       >
         <span>${isHrAcknowledged ? '✓ HR Stamped (Click to Remove)' : '✓ Acknowledge & Stamp HR'}</span>
       </button>
@@ -691,8 +696,7 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
           <div class="rubber-stamp">
             <div class="rubber-stamp-inner">
               <div class="stamp-text-approved">APPROVED</div>
-              <div class="stamp-text-sub">HR &bull; LABOUR COMPLIANCE</div>
-              <div class="stamp-text-meta">${todayDateFormatted} &bull; ${effectiveAckBy.toUpperCase()}</div>
+              <div class="stamp-text-date">${stampDateAndDay}</div>
             </div>
           </div>
         </div>
@@ -741,7 +745,7 @@ export function generateMonthlyAttendanceReport(options: AttendanceReportOptions
         btn.innerHTML = '<span>✓ Acknowledge & Stamp HR</span>';
       } else {
         stamp.classList.add('stamped');
-        btn.style.background = '#15803d';
+        btn.style.background = '#16a34a';
         btn.innerHTML = '<span>✓ HR Stamped (Click to Remove)</span>';
       }
     }
