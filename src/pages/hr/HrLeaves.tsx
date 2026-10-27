@@ -9,6 +9,7 @@ export function HrLeaves() {
   const [leaves, setLeaves] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewDoc, setPreviewDoc] = useState<string | null>(null);
+  const [selectedDocIndex, setSelectedDocIndex] = useState(0);
   const [activeSection, setActiveSection] = useState<'requests' | 'holidays'>('requests');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
     if (typeof window !== 'undefined') {
@@ -23,7 +24,7 @@ export function HrLeaves() {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
   const [employeesList, setEmployeesList] = useState<any[]>([]);
   const [isSubmittingRecord, setIsSubmittingRecord] = useState(false);
-  const [recordFile, setRecordFile] = useState<File | null>(null);
+  const [recordFiles, setRecordFiles] = useState<File[]>([]);
   const [recordForm, setRecordForm] = useState({
     userId: '',
     leaveType: 'Yearly',
@@ -192,19 +193,57 @@ export function HrLeaves() {
     }
   };
 
-  const handleUploadMedicalForLeave = async (leaveId: string, file: File) => {
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const success = await attachMedicalReportToLeaveInDb(leaveId, base64);
-        if (success) {
-          await loadLeaves();
-        } else {
-          alert('Failed to attach medical report. Please try again.');
+  const parseAttachedDocuments = (rawUrl?: string | null): Array<{ name: string; url: string; size?: number }> => {
+    if (!rawUrl) return [];
+    const trimmed = rawUrl.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item, idx) => {
+            if (typeof item === 'string') return { name: `Attachment ${idx + 1}`, url: item };
+            return { name: item.name || `Attachment ${idx + 1}`, url: item.url || item.dataUrl || '', size: item.size };
+          }).filter(item => Boolean(item.url));
         }
-      };
-      reader.readAsDataURL(file);
+      } catch {}
+    }
+    return [{ name: 'Attachment 1', url: rawUrl }];
+  };
+
+  const handleUploadMedicalForLeave = async (leaveId: string, files: FileList | File[] | File) => {
+    try {
+      const fileArr = files instanceof FileList ? Array.from(files) : Array.isArray(files) ? files : [files];
+      if (fileArr.length === 0) return;
+
+      let documentUrl = '';
+      if (fileArr.length === 1) {
+        documentUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(fileArr[0]);
+        });
+      } else {
+        const converted = await Promise.all(fileArr.map(async (file) => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+        })));
+        documentUrl = JSON.stringify(converted);
+      }
+
+      const success = await attachMedicalReportToLeaveInDb(leaveId, documentUrl);
+      if (success) {
+        await loadLeaves();
+      } else {
+        alert('Failed to attach medical report. Please try again.');
+      }
     } catch (err) {
       console.error('Error uploading medical doc:', err);
       alert('Error uploading document.');
@@ -220,13 +259,26 @@ export function HrLeaves() {
     setIsSubmittingRecord(true);
     try {
       let docUrl: string | undefined = undefined;
-      if (recordFile) {
+      if (recordFiles.length === 1) {
         docUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.onerror = reject;
-          reader.readAsDataURL(recordFile);
+          reader.readAsDataURL(recordFiles[0]);
         });
+      } else if (recordFiles.length > 1) {
+        const converted = await Promise.all(recordFiles.map(async (file) => ({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url: await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          })
+        })));
+        docUrl = JSON.stringify(converted);
       }
 
       const res = await recordEmployeeLeaveByHrInDb({
@@ -240,7 +292,7 @@ export function HrLeaves() {
       });
       if (res.success) {
         setIsRecordModalOpen(false);
-        setRecordFile(null);
+        setRecordFiles([]);
         setRecordForm({
           userId: '',
           leaveType: 'Yearly',
@@ -530,38 +582,46 @@ export function HrLeaves() {
                   );
                 })()}
 
-                {leave.documentUrl ? (
-                  <div className="mt-3 flex items-center gap-1.5">
-                    <button
-                      onClick={() => setPreviewDoc(leave.documentUrl)}
-                      className="flex-1 py-2 px-3 bg-blue-50/80 hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10 text-[#1D70B8] dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-200/60 dark:border-white/10 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    >
-                      <FileText className="w-3.5 h-3.5" /> View Attached Document
-                    </button>
-                    <label className="p-2 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer transition-colors" title="Replace / Update document">
-                      <UploadCloud className="w-3.5 h-3.5" />
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept="image/*,.pdf"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) handleUploadMedicalForLeave(leave.id, f);
-                        }}
-                      />
-                    </label>
-                  </div>
-                ) : ((leave.type || '').toLowerCase().includes('sick') || (leave.type || '').toLowerCase().includes('maternity')) ? (
+                {leave.documentUrl ? (() => {
+                  const docs = parseAttachedDocuments(leave.documentUrl);
+                  return (
+                    <div className="mt-3 flex items-center gap-1.5">
+                      <button
+                        onClick={() => { setPreviewDoc(leave.documentUrl); setSelectedDocIndex(0); }}
+                        className="flex-1 py-2 px-3 bg-blue-50/80 hover:bg-blue-100 dark:bg-white/5 dark:hover:bg-white/10 text-[#1D70B8] dark:text-blue-400 rounded-xl text-xs font-bold border border-blue-200/60 dark:border-white/10 flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>{docs.length > 1 ? `View Docs (${docs.length})` : 'View Attached Document'}</span>
+                      </button>
+                      <label className="p-2 rounded-xl border border-slate-200 dark:border-white/10 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer transition-colors" title="Attach or update documents (multi-selection)">
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          accept="image/*,.pdf"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                              handleUploadMedicalForLeave(leave.id, e.target.files);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                  );
+                })() : ((leave.type || '').toLowerCase().includes('sick') || (leave.type || '').toLowerCase().includes('maternity')) ? (
                   <label className="mt-3 w-full py-2 px-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-xl text-xs font-bold border border-amber-500/30 flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-2xs" title="Upload official doctor or hospital certificate">
                     <UploadCloud className="w-3.5 h-3.5" />
                     <span>+ Upload Medical Certificate</span>
                     <input
                       type="file"
+                      multiple
                       className="hidden"
                       accept="image/*,.pdf"
                       onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) handleUploadMedicalForLeave(leave.id, f);
+                        if (e.target.files && e.target.files.length > 0) {
+                          handleUploadMedicalForLeave(leave.id, e.target.files);
+                        }
                       }}
                     />
                   </label>
@@ -750,38 +810,46 @@ export function HrLeaves() {
                       <strong className="text-[#1D70B8] text-sm">{leave.balances?.yearly ?? 30}d</strong> <span className="text-xs text-slate-400">remaining</span>
                     </td>
                     <td className="p-4">
-                      {leave.documentUrl ? (
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            onClick={() => setPreviewDoc(leave.documentUrl)}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 rounded-lg text-[11px] font-bold border border-blue-200/60 dark:border-white/10 flex items-center gap-1 cursor-pointer transition-all"
-                          >
-                            <FileText className="w-3 h-3" /> View Doc
-                          </button>
-                          <label className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Replace / Update document">
-                            <UploadCloud className="w-3 h-3" />
-                            <input
-                              type="file"
-                              className="hidden"
-                              accept="image/*,.pdf"
-                              onChange={(e) => {
-                                const f = e.target.files?.[0];
-                                if (f) handleUploadMedicalForLeave(leave.id, f);
-                              }}
-                            />
-                          </label>
-                        </div>
-                      ) : ((leave.type || '').toLowerCase().includes('sick') || (leave.type || '').toLowerCase().includes('maternity')) ? (
+                      {leave.documentUrl ? (() => {
+                        const docs = parseAttachedDocuments(leave.documentUrl);
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => { setPreviewDoc(leave.documentUrl); setSelectedDocIndex(0); }}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 rounded-lg text-[11px] font-bold border border-blue-200/60 dark:border-white/10 flex items-center gap-1 cursor-pointer transition-all"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>{docs.length > 1 ? `Docs (${docs.length})` : 'View Doc'}</span>
+                            </button>
+                            <label className="p-1 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Attach or update documents (multi-selection)">
+                              <UploadCloud className="w-3 h-3" />
+                              <input
+                                type="file"
+                                multiple
+                                className="hidden"
+                                accept="image/*,.pdf"
+                                onChange={(e) => {
+                                  if (e.target.files && e.target.files.length > 0) {
+                                    handleUploadMedicalForLeave(leave.id, e.target.files);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        );
+                      })() : ((leave.type || '').toLowerCase().includes('sick') || (leave.type || '').toLowerCase().includes('maternity')) ? (
                         <label className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 rounded-lg text-[11px] font-bold border border-amber-500/30 inline-flex items-center gap-1 cursor-pointer transition-all shadow-2xs" title="Upload official medical certificate">
                           <UploadCloud className="w-3 h-3" />
                           <span>+ Attach Cert</span>
                           <input
                             type="file"
+                            multiple
                             className="hidden"
                             accept="image/*,.pdf"
                             onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) handleUploadMedicalForLeave(leave.id, f);
+                              if (e.target.files && e.target.files.length > 0) {
+                                handleUploadMedicalForLeave(leave.id, e.target.files);
+                              }
                             }}
                           />
                         </label>
@@ -1179,39 +1247,75 @@ export function HrLeaves() {
       )}
 
       {/* Attached Document Preview Modal */}
-      {previewDoc && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                <span>Document Attachment Preview</span>
-              </h3>
-              <button onClick={() => setPreviewDoc(null)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-50 dark:bg-black/30">
-              {previewDoc.startsWith('data:image') || previewDoc.match(/\.(png|jpe?g|webp)$/i) ? (
-                <img src={previewDoc} alt="Attachment" className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-sm" />
-              ) : (
-                <iframe src={previewDoc} className="w-full h-[60vh] rounded-xl border-0" title="Attached Document" />
+      {previewDoc && (() => {
+        const docs = parseAttachedDocuments(previewDoc);
+        const currentDoc = docs[selectedDocIndex] || docs[0] || { name: 'Attachment', url: previewDoc };
+        const isImg = currentDoc.url.startsWith('data:image') || currentDoc.url.match(/\.(png|jpe?g|webp)$/i);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10">
+              <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <FileText className="w-4 h-4 text-primary shrink-0" />
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                    {currentDoc.name || 'Document Attachment Preview'}
+                  </h3>
+                  {docs.length > 1 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-primary shrink-0">
+                      {selectedDocIndex + 1} of {docs.length}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setPreviewDoc(null); setSelectedDocIndex(0); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {docs.length > 1 && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 overflow-x-auto">
+                  {docs.map((doc, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedDocIndex(idx)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                        selectedDocIndex === idx
+                          ? 'bg-[#1D70B8] text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:text-slate-900 border border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span className="max-w-[120px] truncate">{doc.name || `Document ${idx + 1}`}</span>
+                    </button>
+                  ))}
+                </div>
               )}
-            </div>
-            <div className="p-3 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-white/5">
-              <a
-                href={previewDoc}
-                download="leave_attachment"
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 bg-[#1D70B8] hover:bg-[#155994] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
-              >
-                Download / Open Full
-              </a>
+
+              <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-50 dark:bg-black/30">
+                {isImg ? (
+                  <img src={currentDoc.url} alt={currentDoc.name} className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-sm" />
+                ) : (
+                  <iframe src={currentDoc.url} className="w-full h-[60vh] rounded-xl border-0" title={currentDoc.name} />
+                )}
+              </div>
+              <div className="p-3 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-white/5">
+                <a
+                  href={currentDoc.url}
+                  download={currentDoc.name || 'leave_attachment'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-[#1D70B8] hover:bg-[#155994] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
+                >
+                  Download / Open Full
+                </a>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ACTION NOTICE (WHATSAPP MODAL PROMPT UPON APPROVE / REJECT) */}
       {actionModalNotice && (
@@ -1330,7 +1434,7 @@ export function HrLeaves() {
               <button
                 onClick={() => {
                   setIsRecordModalOpen(false);
-                  setRecordFile(null);
+                  setRecordFiles([]);
                 }}
                 className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-400 cursor-pointer"
               >
@@ -1420,37 +1524,85 @@ export function HrLeaves() {
                   )}
                 </div>
 
-                {recordFile ? (
-                  <div className="flex items-center justify-between p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <FileText className="w-4 h-4 shrink-0 text-emerald-600" />
-                      <span className="text-xs font-bold truncate">{recordFile.name}</span>
-                      <span className="text-[10px] opacity-75 shrink-0">({(recordFile.size / 1024).toFixed(0)} KB)</span>
+                {recordFiles.length > 0 ? (
+                  <div className="space-y-2 bg-slate-50 dark:bg-white/5 p-3 rounded-2xl border border-slate-200 dark:border-white/10">
+                    <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-gray-300 pb-1 border-b border-slate-200/60 dark:border-white/5">
+                      <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-extrabold">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>{recordFiles.length} file{recordFiles.length > 1 ? 's' : ''} selected</span>
+                      </span>
+                      <label className="text-xs font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer">
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>+ Add more files</span>
+                        <input
+                          type="file"
+                          multiple
+                          className="hidden"
+                          accept="image/*,.pdf"
+                          onChange={(e) => {
+                            if (e.target.files) {
+                              const newFiles = Array.from(e.target.files);
+                              setRecordFiles(prev => [...prev, ...newFiles]);
+                            }
+                          }}
+                        />
+                      </label>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setRecordFile(null)}
-                      className="p-1 rounded-lg hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 cursor-pointer"
-                      title="Remove file"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
+
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {recordFiles.map((file, idx) => (
+                        <div
+                          key={`${file.name}-${idx}`}
+                          className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl group hover:border-emerald-500/40 transition-colors"
+                        >
+                          <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+                            <div className="w-6 h-6 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 text-xs font-black">
+                              {idx + 1}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {file.name}
+                              </p>
+                              <p className="text-[10px] text-slate-400 dark:text-gray-400 font-medium">
+                                {(file.size / 1024).toFixed(0)} KB
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setRecordFiles(prev => prev.filter((_, i) => i !== idx))}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                            title="Remove file"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (
-                  <label className="relative flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer group">
+                  <label className="relative flex flex-col items-center justify-center p-3.5 border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl bg-slate-50/50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer group text-center">
                     <input
                       type="file"
+                      multiple
                       className="hidden"
                       accept="image/*,.pdf"
-                      onChange={(e) => setRecordFile(e.target.files?.[0] || null)}
+                      onChange={(e) => {
+                        if (e.target.files) {
+                          setRecordFiles(Array.from(e.target.files));
+                        }
+                      }}
                     />
                     <UploadCloud className="w-6 h-6 text-slate-400 group-hover:text-primary transition-colors mb-1" />
                     <span className="text-xs font-bold text-slate-700 dark:text-gray-300">
                       {recordForm.leaveType === 'Sick' || recordForm.leaveType === 'Maternity'
                         ? 'Attach Clinic / Hospital Sick Leave Certificate'
-                        : 'Attach Medical Report or Official Document'}
+                        : 'Attach Medical Reports or Official Documents'}
                     </span>
-                    <span className="text-[10px] text-slate-400 dark:text-gray-500">Supports PDF, JPG, PNG (Max 10MB)</span>
+                    <span className="text-[10px] text-slate-400 dark:text-gray-500">Supports multiple PDF, JPG, PNG (Max 10MB each)</span>
+                    <span className="mt-1.5 text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                      Multi-selection enabled
+                    </span>
                   </label>
                 )}
               </div>
@@ -1518,7 +1670,7 @@ export function HrLeaves() {
                   type="button"
                   onClick={() => {
                     setIsRecordModalOpen(false);
-                    setRecordFile(null);
+                    setRecordFiles([]);
                   }}
                   className="flex-1 py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-gray-300 font-bold text-xs rounded-xl cursor-pointer"
                 >

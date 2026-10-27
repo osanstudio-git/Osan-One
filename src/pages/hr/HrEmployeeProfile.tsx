@@ -1766,9 +1766,33 @@ export function HrEmployeeProfile() {
                             </span>
                           </td>
                           <td className="p-3.5 sm:p-4 pr-4 sm:pr-6">
-                            {req.documentUrl ? (
-                              <button className="text-primary hover:underline font-semibold cursor-pointer">Download Certificate</button>
-                            ) : (
+                            {req.documentUrl ? (() => {
+                              let docList: Array<{ name?: string; url?: string }> = [];
+                              try {
+                                if (req.documentUrl.startsWith('[')) {
+                                  docList = JSON.parse(req.documentUrl);
+                                }
+                              } catch {}
+                              if (!docList.length) {
+                                docList = [{ name: 'Medical Certificate', url: req.documentUrl }];
+                              }
+                              return (
+                                <div className="flex flex-col gap-1">
+                                  {docList.map((d, i) => (
+                                    <a
+                                      key={i}
+                                      href={d.url}
+                                      download={d.name || 'leave_document'}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-primary hover:underline font-semibold text-xs inline-flex items-center gap-1"
+                                    >
+                                      {docList.length > 1 ? `Doc ${i + 1}: ${d.name || 'Certificate'}` : 'Download Certificate'}
+                                    </a>
+                                  ))}
+                                </div>
+                              );
+                            })() : (
                               <span className="text-slate-400 dark:text-gray-500">None</span>
                             )}
                           </td>

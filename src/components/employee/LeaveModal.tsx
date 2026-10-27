@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar, ChevronDown, ShieldAlert, UploadCloud, FileText, CheckCircle2, Trash2 } from 'lucide-react';
+import { X, Calendar, ChevronDown, ShieldAlert, UploadCloud, FileText, CheckCircle2, Trash2, Plus } from 'lucide-react';
 import type { LeaveType } from '../../types';
 import { useLanguage } from '../../contexts/LanguageContext';
 
@@ -21,7 +21,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [notes, setNotes] = useState('');
-  const [medicalFile, setMedicalFile] = useState<File | null>(null);
+  const [medicalFiles, setMedicalFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Derive user details based on registered employee profile in database
@@ -103,6 +103,34 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
     return text;
   }, [leaveType, requestDurationDays]);
 
+  const handleFilesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = e.target.files;
+    if (!fileList || fileList.length === 0) return;
+
+    const newFiles: File[] = [];
+    const maxFileSize = 10 * 1024 * 1024; // 10MB per file
+
+    for (let i = 0; i < fileList.length; i++) {
+      const f = fileList[i];
+      if (f.size > maxFileSize) {
+        alert(isArabic ? `الملف ${f.name} يتجاوز 10 ميجابايت` : `File "${f.name}" exceeds 10MB limit`);
+        continue;
+      }
+      if (!medicalFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+        newFiles.push(f);
+      }
+    }
+
+    if (newFiles.length > 0) {
+      setMedicalFiles(prev => [...prev, ...newFiles]);
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleRemoveFile = (index: number) => {
+    setMedicalFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!startDate || !endDate) return;
@@ -151,9 +179,10 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
         endDate,
         durationDays: requestDurationDays,
         notes,
-        file: leaveType === 'Sick' ? (medicalFile || undefined) : undefined,
+        files: leaveType === 'Sick' ? medicalFiles : [],
+        file: leaveType === 'Sick' ? (medicalFiles[0] || undefined) : undefined,
       });
-      setMedicalFile(null);
+      setMedicalFiles([]);
       setStartDate('');
       setEndDate('');
       setNotes('');
@@ -166,7 +195,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
   };
 
   const handleClose = () => {
-    setMedicalFile(null);
+    setMedicalFiles([]);
     onClose();
   };
 
@@ -332,87 +361,80 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                     </span>
                   </div>
 
-                  {!medicalFile ? (
+                  {/* Hidden multi-file input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,image/*"
+                    className="hidden"
+                    onChange={handleFilesChange}
+                  />
+
+                  {medicalFiles.length === 0 ? (
                     <div
                       onClick={() => fileInputRef.current?.click()}
                       className="group relative border-2 border-dashed border-slate-300 dark:border-white/15 hover:border-emerald-500/60 dark:hover:border-emerald-500/60 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all bg-slate-50/60 dark:bg-slate-950/40 hover:bg-emerald-500/5"
                     >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".pdf,image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) {
-                            if (f.size > 5 * 1024 * 1024) {
-                              alert(isArabic ? 'حجم الملف يجب ألا يتجاوز 5 ميجابايت' : 'File size should not exceed 5MB');
-                              return;
-                            }
-                            setMedicalFile(f);
-                          }
-                        }}
-                      />
                       <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-1.5 group-hover:scale-110 transition-transform">
                         <UploadCloud className="w-5 h-5" />
                       </div>
                       <p className="text-xs font-bold text-slate-800 dark:text-gray-200">
-                        {t('clickToUpload')}
+                        {t('clickToUploadMulti') || 'Click to select files (Multi-selection enabled)'}
                       </p>
                       <p className="text-[11px] text-slate-400 dark:text-gray-500 mt-0.5">
-                        {t('uploadMedicalReportDesc')}
+                        {t('uploadMedicalReportDesc') || 'Attach doctor note or clinic certificate (PDF or image - max 10MB per file)'}
                       </p>
+                      <span className="mt-2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                        {isArabic ? 'يدعم اختيار عدة ملفات معاً' : 'Select multiple documents'}
+                      </span>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between p-3.5 bg-emerald-500/10 border border-emerald-500/25 rounded-2xl">
-                      <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
-                          <CheckCircle2 className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                            {medicalFile.name}
-                          </p>
-                          <p className="text-[10px] text-slate-500 dark:text-gray-400 font-medium">
-                            {(medicalFile.size / 1024).toFixed(0)} KB • {isArabic ? 'جاهز للإرفاق' : 'Ready to attach'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="space-y-2 bg-slate-50 dark:bg-white/5 p-3 rounded-2xl border border-slate-200 dark:border-white/10">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-gray-300 pb-1 border-b border-slate-200/60 dark:border-white/5">
+                        <span className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-extrabold">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>{medicalFiles.length} {t('filesAttached') || 'files selected'}</span>
+                        </span>
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="px-2.5 py-1 text-xs font-bold text-slate-600 dark:text-gray-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                          className="text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 flex items-center gap-1 hover:underline cursor-pointer"
                         >
-                          {t('changeFile')}
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>{t('addMoreFiles') || '+ Add more files'}</span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setMedicalFile(null);
-                            if (fileInputRef.current) fileInputRef.current.value = '';
-                          }}
-                          className="p-1.5 text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer"
-                          title={t('removeFile')}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept=".pdf,image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) {
-                              if (f.size > 5 * 1024 * 1024) {
-                                alert(isArabic ? 'حجم الملف يجب ألا يتجاوز 5 ميجابايت' : 'File size should not exceed 5MB');
-                                return;
-                              }
-                              setMedicalFile(f);
-                            }
-                          }}
-                        />
+                      </div>
+
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                        {medicalFiles.map((file, idx) => (
+                          <div
+                            key={`${file.name}-${idx}`}
+                            className="flex items-center justify-between p-2.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-white/10 rounded-xl group hover:border-emerald-500/40 transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 overflow-hidden min-w-0">
+                              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 text-xs font-black">
+                                {idx + 1}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                  {file.name}
+                                </p>
+                                <p className="text-[10px] text-slate-400 dark:text-gray-400 font-medium">
+                                  {(file.size / 1024).toFixed(0)} KB • {isArabic ? 'جاهز للإرفاق' : 'Ready to attach'}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFile(idx)}
+                              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer shrink-0"
+                              title={t('removeFile') || 'Remove file'}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )}

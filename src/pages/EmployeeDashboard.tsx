@@ -347,6 +347,7 @@ export function EmployeeDashboard() {
   const [loadingLeaves, setLoadingLeaves] = useState(false);
   const [isLeavesModalOpen, setIsLeavesModalOpen] = useState(false);
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
+  const [selectedDocIndex, setSelectedDocIndex] = useState(0);
 
   // Live employee balances directly synchronized with database
   const [liveBalances, setLiveBalances] = useState<{ yearly: number; sick: number; pregnancy: number }>({
@@ -470,15 +471,58 @@ export function EmployeeDashboard() {
     });
   };
 
+  const parseAttachedDocuments = (rawUrl?: string | null): Array<{ name: string; url: string; size?: number }> => {
+    if (!rawUrl) return [];
+    const trimmed = rawUrl.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item, idx) => {
+            if (typeof item === 'string') {
+              return { name: `Attachment ${idx + 1}`, url: item };
+            }
+            return {
+              name: item.name || `Attachment ${idx + 1}`,
+              url: item.url || item.dataUrl || '',
+              size: item.size
+            };
+          }).filter(item => Boolean(item.url));
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return [{ name: 'Attachment 1', url: rawUrl }];
+  };
+
   const handleLeaveSubmit = async (data: any) => {
     if (!profile?.id) return;
     try {
       let documentUrl: string | undefined = undefined;
-      if (data.file) {
+      const filesToUpload: File[] = (data.files && data.files.length > 0)
+        ? data.files
+        : (data.file ? [data.file] : []);
+
+      if (filesToUpload.length === 1) {
         try {
-          documentUrl = await convertFileToBase64(data.file);
+          documentUrl = await convertFileToBase64(filesToUpload[0]);
         } catch (e) {
           console.error('Failed to convert document file to base64:', e);
+        }
+      } else if (filesToUpload.length > 1) {
+        try {
+          const converted = await Promise.all(
+            filesToUpload.map(async (f) => ({
+              name: f.name,
+              size: f.size,
+              type: f.type,
+              url: await convertFileToBase64(f)
+            }))
+          );
+          documentUrl = JSON.stringify(converted);
+        } catch (e) {
+          console.error('Failed to convert multiple document files to base64:', e);
         }
       }
 
@@ -506,12 +550,33 @@ export function EmployeeDashboard() {
     }
   };
 
-  const handleUploadMedicalDoc = async (leaveId: string, file: File) => {
+  const handleUploadMedicalDoc = async (leaveId: string, files: FileList | File[] | File) => {
     try {
-      const base64 = await convertFileToBase64(file);
-      const success = await attachMedicalReportToLeaveInDb(leaveId, base64);
+      const fileArr: File[] = files instanceof File 
+        ? [files] 
+        : Array.from(files as any);
+      if (fileArr.length === 0) return;
+
+      let documentUrl = '';
+      if (fileArr.length === 1) {
+        documentUrl = await convertFileToBase64(fileArr[0]);
+      } else {
+        const converted = await Promise.all(
+          fileArr.map(async (f) => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            url: await convertFileToBase64(f)
+          }))
+        );
+        documentUrl = JSON.stringify(converted);
+      }
+
+      const success = await attachMedicalReportToLeaveInDb(leaveId, documentUrl);
       if (success) {
-        alert('Medical report uploaded successfully! HR can now review it.');
+        alert(fileArr.length > 1 
+          ? `${fileArr.length} medical reports uploaded successfully! HR can now review them.` 
+          : 'Medical report uploaded successfully! HR can now review it.');
         await loadEmployeeLeaves();
       } else {
         alert('Failed to upload medical report. Please try again.');
@@ -1120,29 +1185,34 @@ export function EmployeeDashboard() {
                           {/* Action Button: Medical Report */}
                           <div className="pt-1 flex items-center justify-between border-t border-slate-200/60 dark:border-white/5">
                             <span className="text-[11px] font-semibold text-slate-400">Medical Document</span>
-                            {l.documentUrl ? (
-                              <div className="inline-flex items-center gap-2">
-                                <button
-                                  onClick={() => setPreviewDocUrl(l.documentUrl)}
-                                  className="px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 text-[#1D70B8] dark:text-blue-400 font-bold text-xs border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1.5 cursor-pointer"
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  <span>View Report</span>
-                                </button>
-                                <label className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer" title="Replace / Update">
-                                  <UploadCloud className="w-4 h-4" />
-                                  <input
-                                    type="file"
-                                    className="hidden"
-                                    accept="image/*,.pdf"
-                                    onChange={(e) => {
-                                      const f = e.target.files?.[0];
-                                      if (f) handleUploadMedicalDoc(l.id, f);
-                                    }}
-                                  />
-                                </label>
-                              </div>
-                            ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
+                            {l.documentUrl ? (() => {
+                              const docs = parseAttachedDocuments(l.documentUrl);
+                              return (
+                                <div className="inline-flex items-center gap-2">
+                                  <button
+                                    onClick={() => { setPreviewDocUrl(l.documentUrl); setSelectedDocIndex(0); }}
+                                    className="px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 text-[#1D70B8] dark:text-blue-400 font-bold text-xs border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1.5 cursor-pointer"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    <span>{docs.length > 1 ? `View Reports (${docs.length})` : 'View Report'}</span>
+                                  </button>
+                                  <label className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer" title="Upload more / Replace medical reports">
+                                    <UploadCloud className="w-4 h-4" />
+                                    <input
+                                      type="file"
+                                      multiple
+                                      className="hidden"
+                                      accept="image/*,.pdf"
+                                      onChange={(e) => {
+                                        if (e.target.files && e.target.files.length > 0) {
+                                          handleUploadMedicalDoc(l.id, e.target.files);
+                                        }
+                                      }}
+                                    />
+                                  </label>
+                                </div>
+                              );
+                            })() : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
                               <label className={`px-3 py-1.5 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer shadow-2xs ${l.status === 'Approved'
                                 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                                 : 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30'
@@ -1229,29 +1299,34 @@ export function EmployeeDashboard() {
 
                               {/* Medical Report / Document: 1 line */}
                               <td className="py-3.5 px-4 text-right rtl:text-left whitespace-nowrap">
-                                {l.documentUrl ? (
-                                  <div className="inline-flex items-center gap-2 justify-end">
-                                    <button
-                                      onClick={() => setPreviewDocUrl(l.documentUrl)}
-                                      className="px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 font-bold text-xs border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
-                                    >
-                                      <FileText className="w-3.5 h-3.5" />
-                                      <span>View Report</span>
-                                    </button>
-                                    <label className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Replace / Update medical report">
-                                      <UploadCloud className="w-3.5 h-3.5" />
-                                      <input
-                                        type="file"
-                                        className="hidden"
-                                        accept="image/*,.pdf"
-                                        onChange={(e) => {
-                                          const f = e.target.files?.[0];
-                                          if (f) handleUploadMedicalDoc(l.id, f);
-                                        }}
-                                      />
-                                    </label>
-                                  </div>
-                                ) : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
+                                {l.documentUrl ? (() => {
+                                  const docs = parseAttachedDocuments(l.documentUrl);
+                                  return (
+                                    <div className="inline-flex items-center gap-2 justify-end">
+                                      <button
+                                        onClick={() => { setPreviewDocUrl(l.documentUrl); setSelectedDocIndex(0); }}
+                                        className="px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-white/10 dark:hover:bg-white/20 text-[#1D70B8] dark:text-blue-400 font-bold text-xs border border-blue-200/60 dark:border-white/10 inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs whitespace-nowrap"
+                                      >
+                                        <FileText className="w-3.5 h-3.5" />
+                                        <span>{docs.length > 1 ? `View Reports (${docs.length})` : 'View Report'}</span>
+                                      </button>
+                                      <label className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10 cursor-pointer transition-colors" title="Upload more / Replace medical reports">
+                                        <UploadCloud className="w-3.5 h-3.5" />
+                                        <input
+                                          type="file"
+                                          multiple
+                                          className="hidden"
+                                          accept="image/*,.pdf"
+                                          onChange={(e) => {
+                                            if (e.target.files && e.target.files.length > 0) {
+                                              handleUploadMedicalDoc(l.id, e.target.files);
+                                            }
+                                          }}
+                                        />
+                                      </label>
+                                    </div>
+                                  );
+                                })() : ((l.leaveType || '').toLowerCase().includes('sick') || (l.leaveType || '').toLowerCase().includes('maternity')) ? (
                                   <label className={`px-3 py-1 rounded-lg font-bold text-xs border inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs whitespace-nowrap ${l.status === 'Approved'
                                     ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 ring-2 ring-emerald-500/10'
                                     : 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border-amber-500/30'
@@ -1260,11 +1335,13 @@ export function EmployeeDashboard() {
                                     <span>+ Upload Medical Report</span>
                                     <input
                                       type="file"
+                                      multiple
                                       className="hidden"
                                       accept="image/*,.pdf"
                                       onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        if (f) handleUploadMedicalDoc(l.id, f);
+                                        if (e.target.files && e.target.files.length > 0) {
+                                          handleUploadMedicalDoc(l.id, e.target.files);
+                                        }
                                       }}
                                     />
                                   </label>
@@ -1286,42 +1363,75 @@ export function EmployeeDashboard() {
       )}
 
       {/* DOCUMENT PREVIEW MODAL */}
-      {previewDocUrl && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10">
-            <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
-                <FileText className="w-4 h-4 text-primary" />
-                <span>Document Attachment Preview</span>
-              </h3>
-              <button
-                onClick={() => setPreviewDocUrl(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-50 dark:bg-black/30">
-              {previewDocUrl.startsWith('data:image') || previewDocUrl.match(/\.(png|jpe?g|webp)$/i) ? (
-                <img src={previewDocUrl} alt="Attachment" className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-sm" />
-              ) : (
-                <iframe src={previewDocUrl} className="w-full h-[60vh] rounded-xl border-0" title="Attached Document" />
+      {previewDocUrl && (() => {
+        const docs = parseAttachedDocuments(previewDocUrl);
+        const currentDoc = docs[selectedDocIndex] || docs[0] || { name: 'Attachment', url: previewDocUrl };
+        const isImg = currentDoc.url.startsWith('data:image') || currentDoc.url.match(/\.(png|jpe?g|webp)$/i);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10">
+              <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <FileText className="w-4 h-4 text-primary shrink-0" />
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                    {currentDoc.name || 'Document Attachment Preview'}
+                  </h3>
+                  {docs.length > 1 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-primary shrink-0">
+                      {selectedDocIndex + 1} of {docs.length}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => { setPreviewDocUrl(null); setSelectedDocIndex(0); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {docs.length > 1 && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 overflow-x-auto">
+                  {docs.map((doc, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setSelectedDocIndex(idx)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                        selectedDocIndex === idx
+                          ? 'bg-[#1D70B8] text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:text-slate-900 border border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span className="max-w-[120px] truncate">{doc.name || `Document ${idx + 1}`}</span>
+                    </button>
+                  ))}
+                </div>
               )}
-            </div>
-            <div className="p-3 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-white/5">
-              <a
-                href={previewDocUrl}
-                download="leave_attachment"
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 bg-[#1D70B8] hover:bg-[#155994] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
-              >
-                Download / Open Full
-              </a>
+
+              <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-50 dark:bg-black/30">
+                {isImg ? (
+                  <img src={currentDoc.url} alt={currentDoc.name} className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-sm" />
+                ) : (
+                  <iframe src={currentDoc.url} className="w-full h-[60vh] rounded-xl border-0" title={currentDoc.name} />
+                )}
+              </div>
+              <div className="p-3 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-white/5">
+                <a
+                  href={currentDoc.url}
+                  download={currentDoc.name || 'leave_attachment'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-[#1D70B8] hover:bg-[#155994] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs"
+                >
+                  Download / Open Full
+                </a>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <LeaveModal
         isOpen={isLeaveModalOpen}
