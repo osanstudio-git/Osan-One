@@ -174,14 +174,6 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
 
       await onAdd(submissionData);
       
-      setCreatedEmpInfo({
-        name: submissionData.name,
-        email: submissionData.email,
-        phone: submissionData.phone,
-        company: submissionData.company,
-        pin: generatedPin
-      });
-
       setFormData({
         name: '',
         email: '',
@@ -225,9 +217,12 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
       setContractFile(null);
       setAcademicFile(null);
       setExperienceFile(null);
-    } catch (error) {
+
+      // Close the Add New Employee Form
+      onClose();
+    } catch (error: any) {
       console.error(error);
-      alert('Failed to add employee. Please check inputs.');
+      alert('Failed to add employee: ' + (error?.message || 'Please check inputs.'));
     } finally {
       setIsSubmitting(false);
     }

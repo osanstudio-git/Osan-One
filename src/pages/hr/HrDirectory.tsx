@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, UserCircle2, Users, MessageSquare, LayoutGrid, List, ArrowRight } from 'lucide-react';
+import { Search, Filter, Download, UserCircle2, Users, MessageSquare, LayoutGrid, List, ArrowRight, Check, Copy, CheckCheck, Smartphone, Mail } from 'lucide-react';
 import { AddEmployeeModal } from '../../components/hr/AddEmployeeModal';
 import type { UserStatus, User } from '../../types';
 import { getEmployees, createEmployeeInDb, getCompanies, invalidateEmployeeCache, getAllLocalAvatars, syncAvatarToCloud } from '../../lib/databaseService';
@@ -12,6 +12,15 @@ export function HrDirectory() {
   const [employees, setEmployees] = useState<User[]>([]);
   const [companiesList, setCompaniesList] = useState<string[]>([]);
   const [isAddEmployeeOpen, setIsAddEmployeeOpen] = useState(false);
+  const [createdSuccessInfo, setCreatedSuccessInfo] = useState<{
+    name: string;
+    email: string;
+    phone?: string;
+    company: string;
+    pin: string;
+    jobTitle?: string;
+  } | null>(null);
+  const [copiedPin, setCopiedPin] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string>('All');
   const [genderFilter, setGenderFilter] = useState<string>('All');
@@ -91,11 +100,25 @@ export function HrDirectory() {
     setEmployees(prev => [optimisticUser, ...prev]);
 
     try {
-      await createEmployeeInDb(newEmp);
+      const created = await createEmployeeInDb(newEmp);
       await loadData(true);
+
+      // Close the Add New Employee form modal
+      setIsAddEmployeeOpen(false);
+
+      // Open the Success Modal
+      setCreatedSuccessInfo({
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        company: data.company,
+        pin: data.pin || (created as any)?.pin || '123456',
+        jobTitle: data.job_title || data.jobTitle || 'Officer'
+      });
     } catch (e) {
       console.error('Failed to add employee:', e);
       await loadData(true);
+      throw e;
     }
   };
 
@@ -426,6 +449,106 @@ export function HrDirectory() {
         companies={companiesList.length > 0 ? companiesList.map(name => ({ name } as any)) : [{ name: 'Default Company' } as any]}
         onAdd={handleAddEmployee}
       />
+
+      {/* STANDALONE EMPLOYEE CREATED SUCCESS MODAL */}
+      {createdSuccessInfo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div 
+            className="absolute inset-0 transition-opacity" 
+            onClick={() => setCreatedSuccessInfo(null)} 
+          />
+          
+          <div className="relative bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-center overflow-hidden">
+            {/* Green Animated Badge */}
+            <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+              <Check className="w-8 h-8 stroke-[2.5]" />
+            </div>
+
+            <h2 className="text-xl font-black text-slate-900 dark:text-white mb-1">Employee Added Successfully!</h2>
+            <p className="text-xs text-slate-500 dark:text-gray-400 mb-5">
+              Electronic file & credentials active for <strong className="text-slate-900 dark:text-white">{createdSuccessInfo.name}</strong>
+            </p>
+
+            {/* Credentials Summary Box */}
+            <div className="bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 text-left text-xs space-y-3 mb-5">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/5">
+                <span className="text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px]">Company / Branch</span>
+                <span className="text-slate-900 dark:text-white font-bold">{createdSuccessInfo.company}</span>
+              </div>
+
+              {createdSuccessInfo.phone && (
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/5">
+                  <span className="text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                    <Smartphone className="w-3 h-3 text-emerald-500" /> Mobile / Login
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-mono font-bold">{createdSuccessInfo.phone}</span>
+                </div>
+              )}
+
+              {createdSuccessInfo.email && (
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-white/5">
+                  <span className="text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider text-[10px] flex items-center gap-1">
+                    <Mail className="w-3 h-3 text-blue-500" /> Email
+                  </span>
+                  <span className="text-slate-900 dark:text-white font-mono font-bold truncate max-w-[180px]">{createdSuccessInfo.email}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-0.5">
+                <div>
+                  <span className="text-slate-500 dark:text-gray-400 block font-bold uppercase tracking-wider text-[10px]">6-Digit Security PIN</span>
+                  <span className="text-slate-400 text-[10px]">For PWA clock-in & portal</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-emerald-700 dark:text-emerald-400 font-mono font-black text-base tracking-widest bg-emerald-500/15 px-2.5 py-1 rounded-xl border border-emerald-500/30">
+                    {createdSuccessInfo.pin}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdSuccessInfo.pin);
+                      setCopiedPin(true);
+                      setTimeout(() => setCopiedPin(false), 2000);
+                    }}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-white/10 rounded-lg transition-colors cursor-pointer"
+                    title="Copy PIN"
+                  >
+                    {copiedPin ? <CheckCheck className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  sendEmployeeWhatsAppInvite({
+                    name: createdSuccessInfo.name,
+                    phone: createdSuccessInfo.phone,
+                    email: createdSuccessInfo.email,
+                    company: createdSuccessInfo.company,
+                    pin: createdSuccessInfo.pin
+                  });
+                }}
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-extrabold rounded-2xl transition-all shadow-lg shadow-emerald-600/25 text-xs flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Share Credentials via WhatsApp</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCreatedSuccessInfo(null)}
+                className="w-full py-2.5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
+              >
+                Done & View in Directory
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
