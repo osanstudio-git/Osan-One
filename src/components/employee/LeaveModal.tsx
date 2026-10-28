@@ -54,7 +54,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
     if (!startDate || !endDate) return 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     let daysCount = 0;
     const current = new Date(start);
     while (current <= end) {
@@ -83,7 +83,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
   // Enforce Sick Leave Wage structure warning
   const sickLeaveWageInfo = useMemo(() => {
     if (leaveType !== 'Sick' || requestDurationDays <= 0) return null;
-    
+
     // First 21 days: 100% pay
     // 22 to 35: 75% pay
     // 36 to 70: 50% pay
@@ -210,7 +210,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
             onClick={handleClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
-          
+
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -226,8 +226,8 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                   {t('omaniComplianceSubtitle') || 'Omani Labor Law Compliance System'}
                 </p>
               </div>
-              <button 
-                onClick={handleClose} 
+              <button
+                onClick={handleClose}
                 className="p-2 hover:bg-slate-200 dark:hover:bg-white/10 rounded-full transition-colors text-slate-400 hover:text-slate-700 dark:hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -257,7 +257,7 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                   >
                     <option value="Yearly" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Yearly Leave (30 Days)</option>
                     <option value="Sick" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Sick Leave (Paid Scale)</option>
-                    
+
                     {/* FEMALE ONLY LEAVES */}
                     {gender === 'Female' && (
                       <option value="Maternity" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Maternity Leave (98 Days)</option>
@@ -267,24 +267,24 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                     {gender === 'Male' && (
                       <option value="Paternity" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Paternity Leave (7 Days)</option>
                     )}
-                    
+
                     <option value="Marriage" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Marriage Leave (3 Days)</option>
-                    
+
                     <option value="Bereavement_Immediate" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Bereavement - Immediate Family (3 Days)</option>
                     <option value="Bereavement_Extended" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Bereavement - Extended Family (2 Days)</option>
-                    
+
                     {/* Spouse Bereavement: Males get 10 Days, Muslim Females get 130 Days Iddah Mourning */}
                     {gender === 'Male' && (
                       <option value="Bereavement_Spouse" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Bereavement - Spouse (10 Days)</option>
                     )}
-                    
+
                     {gender === 'Female' && religion === 'Muslim' && (
                       <option value="Mourning_Muslim" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Mourning Leave - Muslim Female / Iddah (130 Days)</option>
                     )}
                     {gender === 'Female' && religion === 'Non-Muslim' && (
                       <option value="Mourning_NonMuslim" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Mourning Leave - Non-Muslim Female (14 Days)</option>
                     )}
-                    
+
                     <option value="Hajj" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Hajj Leave (15 Days - Once per Service)</option>
                     <option value="Exam" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Examination Leave (15 Days)</option>
                     <option value="Unpaid" className="bg-white text-slate-900 dark:bg-slate-900 dark:text-white">Unpaid Leave</option>
@@ -461,8 +461,8 @@ export function LeaveModal({ isOpen, onClose, onSubmit, userProfile }: LeaveModa
                 disabled={isSubmitting || (leaveType === 'Yearly' && !isEligibleForYearly)}
                 className="w-full bg-primary hover:bg-emerald-600 disabled:opacity-50 text-white font-extrabold py-3.5 rounded-2xl transition-all shadow-lg shadow-primary/20 mt-4 text-xs cursor-pointer active:scale-95"
               >
-                {isSubmitting 
-                  ? (isArabic ? 'جاري إرسال الطلب...' : 'Submitting Request...') 
+                {isSubmitting
+                  ? (isArabic ? 'جاري إرسال الطلب...' : 'Submitting Request...')
                   : (isArabic ? 'إرسال طلب الإجازة' : 'Submit Leave Request')}
               </button>
             </form>
