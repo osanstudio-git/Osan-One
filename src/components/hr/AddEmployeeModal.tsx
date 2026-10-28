@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { X, UserPlus, Loader2, DollarSign, Calendar, Compass, GraduationCap, Briefcase, Paperclip, Phone, Mail, Check, MessageSquare } from 'lucide-react';
+import { X, UserPlus, Loader2, DollarSign, Calendar, Compass, GraduationCap, Briefcase, Paperclip, Phone, Mail } from 'lucide-react';
 import type { Role, Nationality, User } from '../../types';
-import { sendEmployeeWhatsAppInvite } from '../../lib/whatsappService';
 
 interface AddEmployeeModalProps {
   isOpen: boolean;
@@ -65,23 +64,15 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
   const experienceRef = useRef<HTMLInputElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [createdEmpInfo, setCreatedEmpInfo] = useState<{
-    name: string;
-    email: string;
-    phone?: string;
-    company: string;
-    pin: string;
-  } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setFormData(prev => ({
         ...prev,
-        company: companies[0]?.name || ''
+        company: prev.company || companies[0]?.name || ''
       }));
-      setCreatedEmpInfo(null);
     }
-  }, [isOpen, companies]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -228,88 +219,7 @@ export function AddEmployeeModal({ isOpen, onClose, companies, onAdd }: AddEmplo
     }
   };
 
-  if (createdEmpInfo) {
-    const isPhoneAuth = activeCompanyPolicy === 'phone' || (activeCompanyPolicy === 'both' && createdEmpInfo.phone);
 
-    const handleWhatsAppShare = () => {
-      sendEmployeeWhatsAppInvite({
-        name: createdEmpInfo.name,
-        phone: createdEmpInfo.phone,
-        email: createdEmpInfo.email,
-        company: createdEmpInfo.company,
-        pin: createdEmpInfo.pin
-      });
-    };
-
-    const handleCloseAll = () => {
-      setCreatedEmpInfo(null);
-      onClose();
-    };
-
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div className="absolute inset-0 transition-opacity" onClick={handleCloseAll} />
-        
-        <div className="relative bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-center overflow-hidden">
-          <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30">
-            <Check className="w-8 h-8" />
-          </div>
-
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Employee Profile Created!</h2>
-          <p className="text-xs text-slate-500 dark:text-gray-400 mb-6">Credentials generated successfully for {createdEmpInfo.name}</p>
-
-          <div className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/5 rounded-xl p-4 text-left text-xs space-y-3 mb-6">
-            <div>
-              <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Access Method</span>
-              <span className="text-slate-900 dark:text-white font-bold">{isPhoneAuth ? 'Phone Number & Security PIN' : 'Email & Security PIN / Google Auth'}</span>
-            </div>
-            
-            {createdEmpInfo.phone && (
-              <div>
-                <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Registered Phone</span>
-                <span className="text-slate-900 dark:text-white font-mono font-bold text-sm">{createdEmpInfo.phone}</span>
-              </div>
-            )}
-
-            {createdEmpInfo.email && (
-              <div>
-                <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">Registered Email</span>
-                <span className="text-slate-900 dark:text-white font-mono font-bold">{createdEmpInfo.email}</span>
-              </div>
-            )}
-
-            <div>
-              <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">6-Digit Security PIN</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-mono font-bold text-base tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 inline-block">{createdEmpInfo.pin}</span>
-            </div>
-
-            <div>
-              <span className="text-slate-500 dark:text-gray-400 block mb-0.5 font-bold uppercase tracking-wider text-[10px]">PWA Portal URL</span>
-              <span className="text-blue-600 dark:text-blue-400 font-mono break-all font-semibold">https://one.osangroupoman.com</span>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={handleWhatsAppShare}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all shadow-lg shadow-emerald-600/20 text-xs flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-            >
-              <MessageSquare className="w-4 h-4" /> Share Credentials via WhatsApp
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCloseAll}
-              className="w-full py-2.5 text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white text-xs font-bold hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-colors cursor-pointer"
-            >
-              Done & Close
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">

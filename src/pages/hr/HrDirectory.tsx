@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, Download, UserCircle2, Users, MessageSquare, LayoutGrid, List, ArrowRight, Check, Copy, CheckCheck, Smartphone, Mail } from 'lucide-react';
+import { Search, Filter, Download, UserCircle2, Users, MessageSquare, LayoutGrid, List, ArrowRight, Check, Copy, CheckCheck, Smartphone, Mail, X } from 'lucide-react';
 import { AddEmployeeModal } from '../../components/hr/AddEmployeeModal';
 import type { UserStatus, User } from '../../types';
 import { getEmployees, createEmployeeInDb, getCompanies, invalidateEmployeeCache, getAllLocalAvatars, syncAvatarToCloud } from '../../lib/databaseService';
@@ -21,6 +21,12 @@ export function HrDirectory() {
     jobTitle?: string;
   } | null>(null);
   const [copiedPin, setCopiedPin] = useState(false);
+
+  const companiesProp = useMemo(() => {
+    return companiesList.length > 0
+      ? companiesList.map(name => ({ name } as any))
+      : [{ name: 'Default Company' } as any];
+  }, [companiesList]);
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState<string>('All');
   const [genderFilter, setGenderFilter] = useState<string>('All');
@@ -99,14 +105,13 @@ export function HrDirectory() {
     const optimisticUser: User = { ...newEmp, id: tempId } as User;
     setEmployees(prev => [optimisticUser, ...prev]);
 
+    // 1. Immediately close the Add Employee Form so it never lingers
+    setIsAddEmployeeOpen(false);
+
     try {
       const created = await createEmployeeInDb(newEmp);
-      await loadData(true);
 
-      // Close the Add New Employee form modal
-      setIsAddEmployeeOpen(false);
-
-      // Open the Success Modal
+      // 2. Open Success Modal with credentials
       setCreatedSuccessInfo({
         name: data.name,
         email: data.email,
@@ -115,9 +120,15 @@ export function HrDirectory() {
         pin: data.pin || (created as any)?.pin || '123456',
         jobTitle: data.job_title || data.jobTitle || 'Officer'
       });
-    } catch (e) {
+
+      // 3. Reload directory data in background
+      loadData(true);
+    } catch (e: any) {
       console.error('Failed to add employee:', e);
+      // Re-open form if error occurs
+      setIsAddEmployeeOpen(true);
       await loadData(true);
+      alert('Error creating employee: ' + (e?.message || 'Please check inputs.'));
       throw e;
     }
   };
@@ -446,19 +457,24 @@ export function HrDirectory() {
       <AddEmployeeModal
         isOpen={isAddEmployeeOpen}
         onClose={() => setIsAddEmployeeOpen(false)}
-        companies={companiesList.length > 0 ? companiesList.map(name => ({ name } as any)) : [{ name: 'Default Company' } as any]}
+        companies={companiesProp}
         onAdd={handleAddEmployee}
       />
 
       {/* STANDALONE EMPLOYEE CREATED SUCCESS MODAL */}
       {createdSuccessInfo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div 
-            className="absolute inset-0 transition-opacity" 
-            onClick={() => setCreatedSuccessInfo(null)} 
-          />
-          
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="relative bg-white dark:bg-slate-900 w-full max-w-md p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in fade-in zoom-in-95 duration-200 text-center overflow-hidden">
+            {/* Top Close Button */}
+            <button
+              type="button"
+              onClick={() => setCreatedSuccessInfo(null)}
+              className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
             {/* Green Animated Badge */}
             <div className="w-16 h-16 bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
               <Check className="w-8 h-8 stroke-[2.5]" />
