@@ -749,43 +749,70 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     emergency_contacts: employeeData.emergency_contacts || [],
   };
 
-  let { data, error } = await supabase.from('users').insert([fullPayload]).select().single();
+  let currentPayload: any = { ...fullPayload };
+  let insertRes = await supabase.from('users').insert([currentPayload]).select().single();
+  let data = insertRes.data;
+  let error = insertRes.error;
 
-  // If nationality enum error occurs (e.g. before SQL alter column migration), simplify to 'Expat'/'Omani'
-  if (error && (error.message?.includes('user_nationality') || error.message?.includes('enum'))) {
-    console.warn('Supabase nationality enum error. Retrying with simplified category...', error.message);
-    fullPayload.nationality = (fullPayload.nationality || 'OMAN').startsWith('Expat') ? 'Expat' : 'Omani';
-    const retryEnumRes = await supabase.from('users').insert([fullPayload]).select().single();
-    data = retryEnumRes.data;
-    error = retryEnumRes.error;
-  }
+  // Dynamic resilience loop: handle nationality enums, missing columns (e.g. date_of_birth, bank fields, etc.)
+  let attempts = 0;
+  while (error && attempts < 15) {
+    attempts++;
+    const errMsg = error.message || '';
 
-  // If column error occurs (e.g. missing optional bank/housing columns in Supabase schema), fallback to core columns
-  if (error && error.message?.includes('column')) {
-    console.warn('Supabase schema missing optional columns. Retrying with core payload...', error.message);
-    const corePayload = {
-      id: fullPayload.id,
-      name: fullPayload.name,
-      email: fullPayload.email,
-      phone: fullPayload.phone,
-      pin: fullPayload.pin,
-      role: fullPayload.role,
-      company_id: fullPayload.company_id,
-      nationality: fullPayload.nationality,
-      gender: fullPayload.gender,
-      religion: fullPayload.religion,
-      status: fullPayload.status,
-      join_date: fullPayload.join_date,
-      date_of_birth: fullPayload.date_of_birth,
-      job_title: fullPayload.job_title,
-      department: fullPayload.department,
-      base_salary: fullPayload.base_salary,
-      allowances: fullPayload.allowances
-    };
+    // Handle nationality enum constraint (simplify to Expat or Omani)
+    if (errMsg.includes('user_nationality') || errMsg.includes('enum')) {
+      console.warn('Supabase nationality enum error. Retrying with simplified category...', errMsg);
+      currentPayload.nationality = (currentPayload.nationality || 'OMAN').startsWith('Expat') ? 'Expat' : 'Omani';
+      insertRes = await supabase.from('users').insert([currentPayload]).select().single();
+      data = insertRes.data;
+      error = insertRes.error;
+      continue;
+    }
 
-    const retryRes = await supabase.from('users').insert([corePayload]).select().single();
-    data = retryRes.data;
-    error = retryRes.error;
+    // Handle missing column errors dynamically (e.g. "Could not find the 'date_of_birth' column of 'users' in the schema cache")
+    const match = errMsg.match(/Could not find the '([^']+)' column/i) 
+      || errMsg.match(/column "([^"]+)" of relation "users"/i)
+      || errMsg.match(/column "([^"]+)" does not exist/i);
+
+    if (match && match[1]) {
+      const missingColumn = match[1];
+      console.warn(`Supabase schema missing '${missingColumn}'. Stripping and retrying insert...`);
+      delete currentPayload[missingColumn];
+      insertRes = await supabase.from('users').insert([currentPayload]).select().single();
+      data = insertRes.data;
+      error = insertRes.error;
+      continue;
+    }
+
+    // Fallback: If generic column error without regex match, retry with stripped core columns
+    if (errMsg.includes('column') && attempts === 1) {
+      console.warn('Supabase schema missing optional columns. Retrying with stripped core payload...', errMsg);
+      currentPayload = {
+        id: fullPayload.id,
+        name: fullPayload.name,
+        email: fullPayload.email,
+        phone: fullPayload.phone,
+        pin: fullPayload.pin,
+        role: fullPayload.role,
+        company_id: fullPayload.company_id,
+        nationality: (fullPayload.nationality || 'OMAN').startsWith('Expat') ? 'Expat' : 'Omani',
+        gender: fullPayload.gender,
+        religion: fullPayload.religion,
+        status: fullPayload.status,
+        join_date: fullPayload.join_date,
+        job_title: fullPayload.job_title,
+        department: fullPayload.department,
+        base_salary: fullPayload.base_salary,
+        allowances: fullPayload.allowances
+      };
+      insertRes = await supabase.from('users').insert([currentPayload]).select().single();
+      data = insertRes.data;
+      error = insertRes.error;
+      continue;
+    }
+
+    break;
   }
 
   if (error) {
@@ -793,7 +820,7 @@ export async function createEmployeeInDb(employeeData: Partial<User>): Promise<U
     throw new Error(error.message || 'Failed to create employee in database');
   }
   invalidateEmployeeCache();
-  return data as User;
+  return { ...fullPayload, ...data } as User;
 }
 
 export async function updateEmployeeInDb(employeeId: string, updates: Partial<User>): Promise<boolean> {
@@ -903,11 +930,31 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
       .update(payload)
       .eq('id', employeeId);
 
-    if (error && (error.message?.includes('user_nationality') || error.message?.includes('enum'))) {
-      console.warn('Supabase nationality enum constraint detected. Retrying with simplified category...');
-      payload.nationality = (updates.nationality || 'Omani').startsWith('Expat') ? 'Expat' : 'Omani';
-      const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
-      error = retryRes.error;
+    let attempts = 0;
+    while (error && attempts < 10) {
+      attempts++;
+      const errMsg = error.message || '';
+
+      if (errMsg.includes('user_nationality') || errMsg.includes('enum')) {
+        console.warn('Supabase nationality enum constraint detected. Retrying with simplified category...');
+        payload.nationality = (updates.nationality || 'Omani').startsWith('Expat') ? 'Expat' : 'Omani';
+        const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
+        error = retryRes.error;
+        continue;
+      }
+
+      const match = errMsg.match(/Could not find the '([^']+)' column/i) 
+        || errMsg.match(/column "([^"]+)" of relation "users"/i)
+        || errMsg.match(/column "([^"]+)" does not exist/i);
+
+      if (match && match[1]) {
+        delete payload[match[1]];
+        const retryRes = await supabase.from('users').update(payload).eq('id', employeeId);
+        error = retryRes.error;
+        continue;
+      }
+
+      break;
     }
 
     if (error) {
