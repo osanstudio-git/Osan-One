@@ -1505,15 +1505,33 @@ export async function recordEmployeeLeaveByHrInDb(data: {
     }
 
     const lowerType = (data.leaveType || '').toLowerCase();
-    let dbLeaveType: 'Yearly' | 'Sick' | 'Maternity' | 'Unpaid' = 'Yearly';
+    let dbLeaveType: any = 'Yearly';
     if (lowerType.includes('sick')) {
       dbLeaveType = 'Sick';
     } else if (lowerType.includes('maternity') || lowerType.includes('pregnancy')) {
       dbLeaveType = 'Maternity';
+    } else if (lowerType.includes('paternity')) {
+      dbLeaveType = 'Paternity';
+    } else if (lowerType.includes('marriage')) {
+      dbLeaveType = 'Marriage';
+    } else if (lowerType.includes('bereavement_immediate')) {
+      dbLeaveType = 'Bereavement_Immediate';
+    } else if (lowerType.includes('bereavement_extended')) {
+      dbLeaveType = 'Bereavement_Extended';
+    } else if (lowerType.includes('bereavement_spouse')) {
+      dbLeaveType = 'Bereavement_Spouse';
+    } else if (lowerType.includes('mourning_muslim')) {
+      dbLeaveType = 'Mourning_Muslim';
+    } else if (lowerType.includes('mourning_nonmuslim')) {
+      dbLeaveType = 'Mourning_NonMuslim';
+    } else if (lowerType.includes('hajj')) {
+      dbLeaveType = 'Hajj';
+    } else if (lowerType.includes('exam')) {
+      dbLeaveType = 'Exam';
     } else if (lowerType.includes('unpaid')) {
       dbLeaveType = 'Unpaid';
     } else {
-      dbLeaveType = 'Yearly';
+      dbLeaveType = data.leaveType || 'Yearly';
     }
 
     const start = new Date(data.startDate);

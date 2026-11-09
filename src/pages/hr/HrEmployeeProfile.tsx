@@ -551,7 +551,7 @@ export function HrEmployeeProfile() {
   const [isSubmittingPastLeave, setIsSubmittingPastLeave] = useState(false);
   const [pastLeaveFiles, setPastLeaveFiles] = useState<File[]>([]);
   const [pastLeaveForm, setPastLeaveForm] = useState({
-    leaveType: 'Yearly' as 'Yearly' | 'Sick' | 'Maternity' | 'Unpaid',
+    leaveType: 'Yearly' as string,
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
     durationDays: 1,
@@ -3330,40 +3330,35 @@ export function HrEmployeeProfile() {
             </div>
 
             <form onSubmit={handleRecordPastLeave} className="space-y-4 text-xs">
-              {/* Leave Type Select */}
+              {/* Leave Type Select (All Leaves from Omani Labor Law) */}
               <div>
                 <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1.5">
-                  Leave Type *
+                  Select Leave Type *
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { id: 'Yearly', label: 'Annual Leave', icon: '🌴', sub: 'Deducts from yearly 30d' },
-                    { id: 'Sick', label: 'Sick Leave', icon: '🤒', sub: 'Adds to sick days used' },
-                    { id: 'Maternity', label: 'Maternity Leave', icon: '👶', sub: 'Eligible female staff' },
-                    { id: 'Unpaid', label: 'Unpaid Leave', icon: '💼', sub: 'No allowance impact' }
-                  ].map((lt) => {
-                    const isSelected = pastLeaveForm.leaveType === lt.id;
-                    return (
-                      <button
-                        key={lt.id}
-                        type="button"
-                        onClick={() => setPastLeaveForm(prev => ({ ...prev, leaveType: lt.id as any }))}
-                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs'
-                            : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-slate-700 dark:text-gray-300 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-1.5 text-xs">
-                          <span>{lt.icon}</span>
-                          <span className="truncate">{lt.label}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-normal mt-0.5 truncate">
-                          {lt.sub}
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div className="relative">
+                  <select
+                    value={pastLeaveForm.leaveType}
+                    onChange={(e) => setPastLeaveForm(prev => ({ ...prev, leaveType: e.target.value }))}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-slate-900 dark:text-white outline-none focus:border-primary font-bold cursor-pointer text-xs"
+                  >
+                    <optgroup label="Core Statutory Balances" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold">
+                      <option value="Yearly">🌴 Annual Leave (Deducts from yearly 30d allowance)</option>
+                      <option value="Sick">🤒 Sick Leave (Adds to recorded sick days used)</option>
+                      <option value="Maternity">👶 Maternity Leave (98 Days - Female Staff)</option>
+                      <option value="Paternity">👨‍🍼 Paternity Leave (7 Days - Male Staff)</option>
+                      <option value="Unpaid">💼 Unpaid Leave (No allowance impact)</option>
+                    </optgroup>
+                    <optgroup label="Official Special & Family Leaves (Omani Labor Law)" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold">
+                      <option value="Marriage">💍 Marriage Leave (3 Days)</option>
+                      <option value="Bereavement_Immediate">🕊️ Bereavement - Immediate Family (3 Days)</option>
+                      <option value="Bereavement_Extended">🕊️ Bereavement - Extended Family (2 Days)</option>
+                      <option value="Bereavement_Spouse">🕊️ Bereavement - Spouse (10 Days)</option>
+                      <option value="Mourning_Muslim">🧕 Mourning Leave - Muslim Female / Iddah (130 Days)</option>
+                      <option value="Mourning_NonMuslim">🕊️ Mourning Leave - Non-Muslim Female (14 Days)</option>
+                      <option value="Hajj">🕋 Hajj Leave (15 Days - Once per service)</option>
+                      <option value="Exam">📝 Examination Leave (15 Days)</option>
+                    </optgroup>
+                  </select>
                 </div>
               </div>
 
@@ -3451,6 +3446,12 @@ export function HrEmployeeProfile() {
                 {pastLeaveForm.leaveType === 'Unpaid' && (
                   <div className="text-slate-500 text-xs">
                     Recorded as Unpaid Leave. Paid balances are not affected.
+                  </div>
+                )}
+                {pastLeaveForm.leaveType !== 'Yearly' && pastLeaveForm.leaveType !== 'Sick' && pastLeaveForm.leaveType !== 'Maternity' && pastLeaveForm.leaveType !== 'Unpaid' && (
+                  <div className="text-slate-500 dark:text-gray-400 text-xs flex items-center justify-between">
+                    <span>Recorded as official <strong>{pastLeaveForm.leaveType.replace(/_/g, ' ')} Leave</strong>.</span>
+                    <span className="font-semibold text-emerald-600 dark:text-emerald-400">Paid Leave &bull; Yearly balance intact</span>
                   </div>
                 )}
               </div>
