@@ -131,6 +131,27 @@ export function HrEmployeeProfile() {
   const [renewalDocTarget, setRenewalDocTarget] = useState<{ id: string; name: string; type: string; expiryDate?: string; number?: string } | null>(null);
   const [viewingDoc, setViewingDoc] = useState<any | null>(null);
 
+  // Leave Document Preview states
+  const [previewLeaveDoc, setPreviewLeaveDoc] = useState<string | null>(null);
+  const [selectedLeaveDocIndex, setSelectedLeaveDocIndex] = useState(0);
+
+  const parseLeaveDocuments = (rawUrl?: string | null): Array<{ name: string; url: string; size?: number }> => {
+    if (!rawUrl) return [];
+    const trimmed = rawUrl.trim();
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item, idx) => {
+            if (typeof item === 'string') return { name: `Attachment ${idx + 1}`, url: item };
+            return { name: item.name || `Attachment ${idx + 1}`, url: item.url || (item as any).dataUrl || '', size: item.size };
+          }).filter(item => Boolean(item.url));
+        }
+      } catch {}
+    }
+    return [{ name: 'Medical Certificate', url: rawUrl }];
+  };
+
   const handleProfileDocRenew = async (docId: string, newExpiryDate: string, newNumber?: string, attachedFile?: string) => {
     if (!employee) return;
     await renewEmployeeDocumentInDb(employee.id, docId, newExpiryDate, newNumber, attachedFile);
@@ -1939,33 +1960,38 @@ export function HrEmployeeProfile() {
                             </td>
                             <td className="p-3.5 sm:p-4 pr-4 sm:pr-6">
                               {req.documentUrl ? (() => {
-                                let docList: Array<{ name?: string; url?: string }> = [];
-                                try {
-                                  if (req.documentUrl.startsWith('[')) {
-                                    docList = JSON.parse(req.documentUrl);
-                                  }
-                                } catch {}
-                                if (!docList.length) {
-                                  docList = [{ name: 'Medical Certificate', url: req.documentUrl }];
+                                const docs = parseLeaveDocuments(req.documentUrl);
+                                if (!docs.length) {
+                                  return <span className="text-slate-400 dark:text-gray-500 text-xs">None</span>;
                                 }
                                 return (
-                                  <div className="flex flex-col gap-1">
-                                    {docList.map((d, i) => (
-                                      <a
-                                        key={i}
-                                        href={d.url}
-                                        download={d.name || 'leave_document'}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-primary hover:underline font-semibold text-xs inline-flex items-center gap-1"
-                                      >
-                                        {docList.length > 1 ? `Doc ${i + 1}: ${d.name || 'Certificate'}` : 'Download Certificate'}
-                                      </a>
-                                    ))}
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setPreviewLeaveDoc(req.documentUrl);
+                                        setSelectedLeaveDocIndex(0);
+                                      }}
+                                      className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-xs font-semibold border border-emerald-200/60 dark:border-emerald-500/20 inline-flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                                      title="View Document Attachment"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                      <span>{docs.length > 1 ? `View Doc (${docs.length})` : 'View Certificate'}</span>
+                                    </button>
+                                    <a
+                                      href={docs[0].url}
+                                      download={docs[0].name || 'leave_document'}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors cursor-pointer inline-flex items-center justify-center"
+                                      title={`Download ${docs[0].name || 'document'}`}
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                    </a>
                                   </div>
                                 );
                               })() : (
-                                <span className="text-slate-400 dark:text-gray-500">None</span>
+                                <span className="text-slate-400 dark:text-gray-500 text-xs">None</span>
                               )}
                             </td>
                           </tr>
@@ -3680,6 +3706,88 @@ export function HrEmployeeProfile() {
           </div>
         </div>
       )}
+
+      {/* 10. Interactive Leave Attachment Document Preview Modal */}
+      {previewLeaveDoc && (() => {
+        const docs = parseLeaveDocuments(previewLeaveDoc);
+        const currentDoc = docs[selectedLeaveDocIndex] || docs[0] || { name: 'Leave Document', url: previewLeaveDoc };
+        const isImg = currentDoc.url.startsWith('data:image') || currentDoc.url.match(/\.(png|jpe?g|webp|gif)(\?.*)?$/i);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-2xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl border border-slate-200 dark:border-white/10">
+              <div className="flex items-center justify-between p-4 border-b border-slate-100 dark:border-white/5 bg-slate-50 dark:bg-white/5">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <FileText className="w-4 h-4 text-primary shrink-0" />
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white truncate">
+                    {currentDoc.name || 'Leave Document Attachment'}
+                  </h3>
+                  {docs.length > 1 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary shrink-0">
+                      {selectedLeaveDocIndex + 1} of {docs.length}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setPreviewLeaveDoc(null); setSelectedLeaveDocIndex(0); }}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {docs.length > 1 && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5 overflow-x-auto">
+                  {docs.map((doc, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setSelectedLeaveDocIndex(idx)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                        selectedLeaveDocIndex === idx
+                          ? 'bg-primary text-white shadow-xs'
+                          : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:text-slate-900 border border-slate-200 dark:border-white/10'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span className="max-w-[120px] truncate">{doc.name || `Document ${idx + 1}`}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <div className="p-4 flex-1 overflow-auto flex items-center justify-center bg-slate-100/60 dark:bg-black/30 min-h-[300px]">
+                {isImg ? (
+                  <img src={currentDoc.url} alt={currentDoc.name} className="max-w-full max-h-[60vh] object-contain rounded-xl shadow-sm" />
+                ) : (
+                  <iframe src={currentDoc.url} className="w-full h-[60vh] rounded-xl border-0 bg-white" title={currentDoc.name} />
+                )}
+              </div>
+
+              <div className="p-3 border-t border-slate-100 dark:border-white/5 flex justify-end gap-2 bg-slate-50 dark:bg-white/5">
+                <a
+                  href={currentDoc.url}
+                  download={currentDoc.name || 'leave_attachment'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-4 py-2 bg-primary hover:bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-xs transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download / Open Full
+                </a>
+                <button
+                  type="button"
+                  onClick={() => { setPreviewLeaveDoc(null); setSelectedLeaveDocIndex(0); }}
+                  className="px-4 py-2 bg-slate-200 dark:bg-white/10 hover:bg-slate-300 dark:hover:bg-white/20 text-slate-800 dark:text-white rounded-xl font-semibold text-xs cursor-pointer transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
