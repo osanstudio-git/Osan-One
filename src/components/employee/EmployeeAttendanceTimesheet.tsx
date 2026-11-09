@@ -5,7 +5,12 @@ import {
   Palmtree, Sparkles, FilterX, Download
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { isDatePublicHoliday } from '../../lib/holidayService';
+import { 
+  isDatePublicHoliday, 
+  getPublicHolidays, 
+  syncPublicHolidaysFromDb, 
+  type PublicHoliday 
+} from '../../lib/holidayService';
 import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
 
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -57,7 +62,41 @@ export function EmployeeAttendanceTimesheet({
 
   const [dbLogs, setDbLogs] = useState<any[]>([]);
   const [dbLeaves, setDbLeaves] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<PublicHoliday[]>(() => getPublicHolidays());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Sync public holidays dynamically from Supabase database & Realtime
+  useEffect(() => {
+    let isMounted = true;
+    syncPublicHolidaysFromDb().then(data => {
+      if (isMounted && data && data.length > 0) {
+        setHolidays(data);
+      }
+    });
+
+    const holidayChannel = supabase
+      .channel(`employee-timesheet-holidays-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'public_holidays' }, async () => {
+        const live = await syncPublicHolidaysFromDb();
+        if (isMounted && live && live.length > 0) {
+          setHolidays(live);
+        }
+      })
+      .subscribe();
+
+    const handleHolidaysUpdated = (e: any) => {
+      if (isMounted && e.detail && Array.isArray(e.detail)) {
+        setHolidays(e.detail);
+      }
+    };
+    window.addEventListener('osan_holidays_updated', handleHolidaysUpdated);
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(holidayChannel);
+      window.removeEventListener('osan_holidays_updated', handleHolidaysUpdated);
+    };
+  }, []);
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -157,7 +196,7 @@ export function EmployeeAttendanceTimesheet({
       // Omani weekend is Friday & Saturday; Expat weekend is Friday
       const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);
 
-      const publicHoliday = isDatePublicHoliday(dateStr);
+      const publicHoliday = isDatePublicHoliday(dateStr, holidays);
       const isFuture = dateStr > todayStr;
 
       // Real attendance log
@@ -295,10 +334,12 @@ export function EmployeeAttendanceTimesheet({
         shiftDurationText,
         totalMinutesWorked,
         lateMinutes,
-        holidayName: publicHoliday?.name
+        holidayName: publicHoliday?.name,
+        holidayType: publicHoliday?.type || 'National',
+        holidayNotes: publicHoliday?.notes
       };
     });
-  }, [selectedYear, selectedMonth, daysInSelectedMonth, nationality, todayStr, dbLogs, dbLeaves, joinDate, scheduledShiftStart]);
+  }, [selectedYear, selectedMonth, daysInSelectedMonth, nationality, todayStr, dbLogs, dbLeaves, joinDate, scheduledShiftStart, holidays]);
 
   // Aggregate monthly KPIs
   const monthlyStats = useMemo(() => {
@@ -322,12 +363,21 @@ export function EmployeeAttendanceTimesheet({
     };
   }, [monthlyHeatmapData]);
 
-  const getHeatmapColor = (status: string) => {
+  const getHeatmapColor = (status: string, holidayType?: string) => {
     switch (status) {
       case 'present': return 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-xs';
       case 'late': return 'bg-amber-500 hover:bg-amber-400 text-white shadow-xs';
       case 'absent': return 'bg-rose-500 hover:bg-rose-400 text-white shadow-xs';
-      case 'holiday': return 'bg-purple-600 hover:bg-purple-500 text-white font-bold shadow-xs';
+      case 'holiday': {
+        if (holidayType === 'National') {
+          return 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-xs';
+        }
+        if (holidayType === 'Company') {
+          return 'bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-xs';
+        }
+        // Religious
+        return 'bg-purple-600 hover:bg-purple-500 text-white font-bold shadow-xs';
+      }
       case 'leave': return 'bg-blue-500 hover:bg-blue-400 text-white shadow-xs';
       case 'weekend': return 'bg-slate-100 dark:bg-white/5 text-slate-500 dark:text-gray-400 border border-slate-200/60 dark:border-white/5';
       case 'upcoming': return 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-gray-500 border border-dashed border-slate-300/80 dark:border-white/10';
@@ -553,12 +603,21 @@ export function EmployeeAttendanceTimesheet({
                     key={i}
                     type="button"
                     onClick={() => setSelectedCalendarDate(isSelected ? null : data.dateStr)}
-                    title={isArabic ? `${data.dateStr}: ${data.status} (اضغط للتفاصيل)` : `${data.dateStr}: ${data.status.toUpperCase()} (Click to inspect day)`}
-                    className={`aspect-square rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${getHeatmapColor(data.status)} ${
+                    title={
+                      data.status === 'holiday'
+                        ? `${data.dateStr}: ${data.holidayName || 'Holiday'} (${data.holidayType || 'National'} Holiday - OFF Paid)`
+                        : isArabic
+                        ? `${data.dateStr}: ${data.status} (اضغط للتفاصيل)`
+                        : `${data.dateStr}: ${data.status.toUpperCase()} (Click to inspect day)`
+                    }
+                    className={`relative aspect-square rounded-xl text-xs font-bold transition-all cursor-pointer flex flex-col items-center justify-center ${getHeatmapColor(data.status, data.holidayType)} ${
                       isSelected ? 'ring-3 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-105 z-10' : ''
                     }`}
                   >
                     <span>{data.dayNum}</span>
+                    {data.status === 'holiday' && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/90 absolute bottom-1 shadow-xs" />
+                    )}
                   </button>
                 );
               })}
@@ -566,11 +625,12 @@ export function EmployeeAttendanceTimesheet({
           </div>
 
           {/* Heatmap Legend */}
-          <div className="pt-4 border-t border-slate-100 dark:border-white/5 grid grid-cols-3 gap-2 text-[10px] font-bold text-slate-600 dark:text-gray-400">
+          <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center gap-x-3.5 gap-y-2 text-[10px] font-bold text-slate-600 dark:text-gray-400">
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" /> {t('present')}</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" /> {t('late')}</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" /> {t('absent')}</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-purple-600 shrink-0" /> {t('holiday')}</span>
+            <span className="flex items-center gap-1.5" title="National Government Holiday"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600 shrink-0" /> {isArabic ? 'عطلة وطنية' : 'National Holiday'}</span>
+            <span className="flex items-center gap-1.5" title="Religious Holiday (Eid/Hijri)"><span className="w-2.5 h-2.5 rounded-full bg-purple-600 shrink-0" /> {isArabic ? 'عطلة دينية' : 'Religious Holiday'}</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" /> {t('leave')}</span>
             <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700 shrink-0" /> {t('off')}</span>
           </div>
@@ -683,9 +743,19 @@ export function EmployeeAttendanceTimesheet({
                             </span>
                           )}
                           {log.status === 'holiday' && (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
-                              <Sparkles className="w-3 h-3 text-purple-500" />
-                              {t('holiday')}
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${
+                              log.holidayType === 'National'
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
+                                : log.holidayType === 'Company'
+                                ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                                : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                            }`}>
+                              <Sparkles className={`w-3 h-3 ${
+                                log.holidayType === 'National' ? 'text-emerald-600 dark:text-emerald-400' :
+                                log.holidayType === 'Company' ? 'text-blue-600 dark:text-blue-400' :
+                                'text-purple-600 dark:text-purple-400'
+                              }`} />
+                              <span>{log.holidayName || (isArabic ? 'عطلة رسمية' : t('holiday'))}</span>
                             </span>
                           )}
                           {log.status === 'leave' && (

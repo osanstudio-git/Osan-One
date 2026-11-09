@@ -2022,12 +2022,18 @@ export async function getPublicHolidaysFromDb(): Promise<any[]> {
       } else if (h.days_count) {
         daysCount = h.days_count;
       }
+      const rawCategory = (h.category || h.type || '').toString().toLowerCase();
+      const type: 'National' | 'Religious' | 'Company' = 
+        rawCategory.includes('relig') ? 'Religious' :
+        rawCategory.includes('comp') ? 'Company' :
+        'National';
+
       return {
         id: h.id,
         name: h.title || h.name || '',
         date: h.holiday_date || h.date || '',
         daysCount,
-        type: h.category || h.type || 'National',
+        type,
         notes: notesStr.replace(/\[\d+\s*Days?\]\s*/i, '').trim()
       };
     });

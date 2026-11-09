@@ -20,7 +20,7 @@ import {
   getSavedLocalAvatar
 } from '../../lib/databaseService';
 import { supabase } from '../../lib/supabase';
-import { isDatePublicHoliday } from '../../lib/holidayService';
+import { isDatePublicHoliday, getPublicHolidays, syncPublicHolidaysFromDb, type PublicHoliday } from '../../lib/holidayService';
 import { 
   sendEmployeeWhatsAppInvite,
   getLateWarningWhatsAppUrl,
@@ -48,6 +48,34 @@ export function HrEmployeeProfile() {
   const [employee, setEmployee] = useState<UserType | null>(null);
   const [dbLogs, setDbLogs] = useState<any[]>([]);
   const [dbLeaves, setDbLeaves] = useState<any[]>([]);
+  const [holidays, setHolidays] = useState<PublicHoliday[]>(() => getPublicHolidays());
+
+  // Real-time dynamic sync of public holidays
+  useEffect(() => {
+    let isMounted = true;
+    syncPublicHolidaysFromDb().then(data => {
+      if (isMounted && data && data.length > 0) setHolidays(data);
+    });
+
+    const holidayChannel = supabase
+      .channel(`hr-profile-holidays-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'public_holidays' }, async () => {
+        const live = await syncPublicHolidaysFromDb();
+        if (isMounted && live && live.length > 0) setHolidays(live);
+      })
+      .subscribe();
+
+    const handleHolidaysUpdated = (e: any) => {
+      if (isMounted && e.detail && Array.isArray(e.detail)) setHolidays(e.detail);
+    };
+    window.addEventListener('osan_holidays_updated', handleHolidaysUpdated);
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(holidayChannel);
+      window.removeEventListener('osan_holidays_updated', handleHolidaysUpdated);
+    };
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -612,7 +640,7 @@ export function HrEmployeeProfile() {
     const dayOfWeek = dateObj.getDay();
     const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);
 
-    const publicHoliday = isDatePublicHoliday(dateStr);
+    const publicHoliday = isDatePublicHoliday(dateStr, holidays);
     const isFuture = dateStr > todayStr;
 
     // Find real attendance log row from Supabase
@@ -750,6 +778,8 @@ export function HrEmployeeProfile() {
       shiftDurationText,
       totalMinutesWorked,
       holidayName: publicHoliday?.name,
+      holidayType: publicHoliday?.type || 'National',
+      holidayNotes: publicHoliday?.notes,
       lateOccurrence,
       isLateWarning,
       lateMinutes
@@ -764,12 +794,16 @@ export function HrEmployeeProfile() {
     totalHours: (monthlyHeatmapData.filter(d => d.status === 'present' || d.status === 'late').length) * 8
   };
 
-  const getHeatmapColor = (status: string, isLateWarning?: boolean) => {
+  const getHeatmapColor = (status: string, holidayType?: string, isLateWarning?: boolean) => {
     switch (status) {
       case 'present': return 'bg-emerald-500/80 hover:bg-emerald-400 text-white';
       case 'late': return isLateWarning ? 'bg-amber-500/80 hover:bg-amber-400 text-white shadow-xs' : 'bg-slate-400/80 hover:bg-slate-300 text-white';
       case 'absent': return 'bg-red-500/80 hover:bg-red-400 text-white';
-      case 'holiday': return 'bg-purple-600/90 hover:bg-purple-500 text-white font-bold shadow-xs';
+      case 'holiday': {
+        if (holidayType === 'National') return 'bg-emerald-600/90 hover:bg-emerald-500 text-white font-bold shadow-xs';
+        if (holidayType === 'Company') return 'bg-blue-600/90 hover:bg-blue-500 text-white font-bold shadow-xs';
+        return 'bg-purple-600/90 hover:bg-purple-500 text-white font-bold shadow-xs';
+      }
       case 'weekend': return 'bg-slate-200 dark:bg-white/5 hover:bg-slate-300 dark:hover:bg-white/10';
       case 'upcoming': return 'bg-slate-100 dark:bg-white/5 text-slate-400 dark:text-gray-500 border border-dashed border-slate-300/80 dark:border-white/10';
       default: return 'bg-slate-200 dark:bg-white/5';
@@ -1965,12 +1999,19 @@ export function HrEmployeeProfile() {
                         <div
                           key={i}
                           onClick={() => setSelectedCalendarDate(isSelectedDate ? null : data.dateStr)}
-                          title={`${data.dateStr}: ${data.status.toUpperCase()}${data.isLateWarning ? ` (Late Warning #${data.lateOccurrence})` : data.status === 'late' ? ` (Late ${data.lateOccurrence}/3)` : ''} (Click to filter log feed)`}
-                          className={`aspect-square rounded-lg border flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${getHeatmapColor(data.status, data.isLateWarning)} ${
+                          title={
+                            data.status === 'holiday'
+                              ? `${data.dateStr}: ${data.holidayName || 'Holiday'} (${data.holidayType || 'National'} Holiday - OFF Paid)`
+                              : `${data.dateStr}: ${data.status.toUpperCase()}${data.isLateWarning ? ` (Late Warning #${data.lateOccurrence})` : data.status === 'late' ? ` (Late ${data.lateOccurrence}/3)` : ''} (Click to filter log feed)`
+                          }
+                          className={`relative aspect-square rounded-lg border flex flex-col items-center justify-center text-xs font-bold transition-all cursor-pointer ${getHeatmapColor(data.status, data.holidayType, data.isLateWarning)} ${
                             isSelectedDate ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-110' : ''
                           }`}
                         >
                           <span>{data.dayNum}</span>
+                          {data.status === 'holiday' && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/90 absolute bottom-1 shadow-xs" />
+                          )}
                         </div>
                       );
                     })}
@@ -1978,12 +2019,13 @@ export function HrEmployeeProfile() {
                 </div>
 
                 {/* Heatmap Status Legend */}
-                <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center justify-between text-[10px] font-semibold text-slate-500 dark:text-gray-400">
+                <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] font-semibold text-slate-500 dark:text-gray-400">
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Present</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span> Late (1-3)</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Late Warning (&gt;3)</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Absent</span>
-                  <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span> Public Holiday</span>
+                  <span className="flex items-center gap-1" title="National Government Holiday"><span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> National Holiday</span>
+                  <span className="flex items-center gap-1" title="Religious Holiday (Eid/Hijri)"><span className="w-2.5 h-2.5 rounded-full bg-purple-600"></span> Religious Holiday</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span> Leave</span>
                   <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-700"></span> Off</span>
                 </div>
@@ -2132,8 +2174,14 @@ export function HrEmployeeProfile() {
                                     Absent
                                   </span>
                                 ) : log.status === 'holiday' ? (
-                                  <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                    {log.holidayName || 'Public Holiday'}
+                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${
+                                    log.holidayType === 'National'
+                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                      : log.holidayType === 'Company'
+                                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                                      : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                                  }`}>
+                                    ✨ {log.holidayName || 'Public Holiday'}
                                   </span>
                                 ) : (
                                   <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">

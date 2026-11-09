@@ -14,7 +14,7 @@ export const DEFAULT_OMAN_HOLIDAYS: PublicHoliday[] = [
   { id: 'hol-4', name: 'Arafat Day & Eid Al Adha', date: '2026-05-27', daysCount: 4, type: 'Religious', notes: 'Paid Government Holiday' },
   { id: 'hol-5', name: 'Islamic New Year (Hijri 1448)', date: '2026-06-16', daysCount: 1, type: 'Religious', notes: '1st Muharram' },
   { id: 'hol-6', name: "Prophet Muhammad's Birthday", date: '2026-08-25', daysCount: 1, type: 'Religious', notes: '12th Rabi-al-Awwal' },
-  { id: 'hol-7', name: '56th Oman National Day', date: '2026-11-18', daysCount: 2, type: 'National', notes: 'Official National Celebration' },
+  { id: 'hol-7', name: '56th Oman National Day', date: '2026-11-25', daysCount: 2, type: 'National', notes: 'Oman National Day 25 th & 26 th' },
 ];
 
 const STORAGE_KEY = 'osan_public_holidays';
@@ -23,7 +23,15 @@ export function getPublicHolidays(): PublicHoliday[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      return JSON.parse(saved);
+      const parsed: PublicHoliday[] = JSON.parse(saved);
+      // Migrate old dummy 18-Nov National Day if present in cached storage
+      const sanitized = parsed.map(h => {
+        if (h.name.includes('National Day') && h.date === '2026-11-18') {
+          return { ...h, date: '2026-11-25', notes: 'Oman National Day 25 th & 26 th' };
+        }
+        return h;
+      });
+      return sanitized;
     }
   } catch (err) {
     console.error('Failed to read public holidays:', err);
@@ -34,6 +42,9 @@ export function getPublicHolidays(): PublicHoliday[] {
 export function savePublicHolidays(holidays: PublicHoliday[]) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(holidays));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('osan_holidays_updated', { detail: holidays }));
+    }
   } catch (err) {
     console.error('Failed to save public holidays:', err);
   }
@@ -86,16 +97,18 @@ export async function deletePublicHoliday(id: string): Promise<PublicHoliday[]> 
   return updated;
 }
 
-export function isDatePublicHoliday(dateStr: string): PublicHoliday | undefined {
-  const holidays = getPublicHolidays();
+export function isDatePublicHoliday(dateStr: string, customList?: PublicHoliday[]): PublicHoliday | undefined {
+  const holidays = (customList && customList.length > 0) ? customList : getPublicHolidays();
   return holidays.find(h => {
     if (h.date === dateStr) return true;
-    // Check multi-day holiday ranges
+    // Check multi-day holiday ranges (using UTC to prevent timezone offsets)
     if (h.daysCount > 1) {
-      const startDate = new Date(h.date);
-      const targetDate = new Date(dateStr);
-      const diffTime = targetDate.getTime() - startDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      const [sy, sm, sd] = h.date.split('-').map(Number);
+      const [ty, tm, td] = dateStr.split('-').map(Number);
+      if (!sy || !sm || !sd || !ty || !tm || !td) return false;
+      const startUtc = Date.UTC(sy, sm - 1, sd);
+      const targetUtc = Date.UTC(ty, tm - 1, td);
+      const diffDays = Math.round((targetUtc - startUtc) / 86400000);
       return diffDays >= 0 && diffDays < h.daysCount;
     }
     return false;
