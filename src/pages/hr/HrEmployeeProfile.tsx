@@ -4,7 +4,7 @@ import {
   ArrowLeft, MapPin, Mail, Calendar, Clock, FileText, Download, X, Eye,
   User, ShieldAlert, Award, AlertCircle, Settings, Trash2, UserCheck, UserX,
   Briefcase, GraduationCap, Users, DollarSign, Home, Building2, RefreshCw, CreditCard, Edit3, Landmark, CheckCircle2,
-  ChevronLeft, ChevronRight, Plus, MessageSquare, Camera
+  ChevronLeft, ChevronRight, Plus, MessageSquare, Camera, UploadCloud
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
@@ -14,6 +14,7 @@ import {
   updateEmployeeInDb, 
   getEmployeeAttendanceLogsFromDb, 
   getEmployeeLeaveRequestsFromDb,
+  recordEmployeeLeaveByHrInDb,
   addEmployeeDocumentToDb,
   deleteEmployeeDocumentFromDb,
   renewEmployeeDocumentInDb,
@@ -545,6 +546,104 @@ export function HrEmployeeProfile() {
     }
   };
 
+  // 9. Record Past / Taken Leave Modal State
+  const [isPastLeaveModalOpen, setIsPastLeaveModalOpen] = useState(false);
+  const [isSubmittingPastLeave, setIsSubmittingPastLeave] = useState(false);
+  const [pastLeaveFiles, setPastLeaveFiles] = useState<File[]>([]);
+  const [pastLeaveForm, setPastLeaveForm] = useState({
+    leaveType: 'Yearly' as 'Yearly' | 'Sick' | 'Maternity' | 'Unpaid',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date().toISOString().split('T')[0],
+    durationDays: 1,
+    notes: ''
+  });
+
+  const calcDiffDays = (sStr: string, eStr: string) => {
+    const s = new Date(sStr);
+    const e = new Date(eStr);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return 1;
+    return Math.max(1, Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+  };
+
+  const handleStartDateChange = (val: string) => {
+    let end = pastLeaveForm.endDate;
+    if (end < val) end = val;
+    const days = calcDiffDays(val, end);
+    setPastLeaveForm(prev => ({ ...prev, startDate: val, endDate: end, durationDays: days }));
+  };
+
+  const handleEndDateChange = (val: string) => {
+    let start = pastLeaveForm.startDate;
+    if (val < start) start = val;
+    const days = calcDiffDays(start, val);
+    setPastLeaveForm(prev => ({ ...prev, startDate: start, endDate: val, durationDays: days }));
+  };
+
+  const handleRecordPastLeave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee?.id) return;
+    setIsSubmittingPastLeave(true);
+    try {
+      let docUrl: string | undefined = undefined;
+      if (pastLeaveFiles.length > 0) {
+        const converted = await Promise.all(
+          pastLeaveFiles.map(async (file) => ({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            url: await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            })
+          }))
+        );
+        docUrl = JSON.stringify(converted);
+      }
+
+      const res = await recordEmployeeLeaveByHrInDb({
+        userId: employee.id,
+        leaveType: pastLeaveForm.leaveType,
+        startDate: pastLeaveForm.startDate,
+        endDate: pastLeaveForm.endDate,
+        durationDays: pastLeaveForm.durationDays,
+        status: 'Approved',
+        notes: pastLeaveForm.notes.trim() || 'Historical leave recorded by HR',
+        documentUrl: docUrl
+      });
+
+      if (res.success) {
+        setIsPastLeaveModalOpen(false);
+        setPastLeaveFiles([]);
+        setPastLeaveForm({
+          leaveType: 'Yearly',
+          startDate: new Date().toISOString().split('T')[0],
+          endDate: new Date().toISOString().split('T')[0],
+          durationDays: 1,
+          notes: ''
+        });
+
+        // Refresh leaves and employee details from database
+        const [updatedLeaves, updatedEmp] = await Promise.all([
+          getEmployeeLeaveRequestsFromDb(employee.id),
+          getEmployeeById(employee.id)
+        ]);
+        if (updatedLeaves) setDbLeaves(updatedLeaves);
+        if (updatedEmp) setEmployee(updatedEmp);
+
+        // Notify app components (timesheet, dashboard, etc.)
+        window.dispatchEvent(new CustomEvent('osan_leaves_updated'));
+      } else {
+        alert(res.error || 'Failed to record past leave.');
+      }
+    } catch (err: any) {
+      alert('Error recording past leave: ' + (err?.message || 'Unknown error'));
+    } finally {
+      setIsSubmittingPastLeave(false);
+    }
+  };
+
   const handleUpdateStatus = () => {
     if (!employee) return;
     const updated = {
@@ -811,14 +910,14 @@ export function HrEmployeeProfile() {
   };
 
   const userLeaves = dbLeaves.length > 0
-    ? dbLeaves.filter(l => l.user_id === employee?.id || l.user_id === id || l.employee === employee?.name)
+    ? dbLeaves.filter(l => (l.user_id || l.userId) === employee?.id || (l.user_id || l.userId) === id || l.employee === employee?.name)
     : MOCK_LEAVES.filter(l => l.employee === employee?.name);
 
   const approvedSickDays = userLeaves
     .filter(l => (l.status === 'Approved' || !l.status) && (l.type || l.leaveType || l.leave_type || '').toLowerCase().includes('sick'))
     .reduce((sum, l) => {
-      const s = l.start_date || l.start;
-      const e = l.end_date || l.end;
+      const s = l.start_date || l.startDate || l.start;
+      const e = l.end_date || l.endDate || l.end;
       const duration = l.durationDays || l.duration_days || (s && e ? Math.max(1, Math.ceil((new Date(e).getTime() - new Date(s).getTime()) / (1000 * 60 * 60 * 24)) + 1) : 0);
       return sum + duration;
     }, 0);
@@ -1737,7 +1836,26 @@ export function HrEmployeeProfile() {
         {/* 7. LEAVES TAB */}
         {activeTab === 'leaves' && (
           <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white mb-2 sm:mb-4">Active Leaves & Balances</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white dark:bg-white/5 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none">
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  Active Leaves & Balances
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                  Record past offline leaves, view real-time allowances, and track approval history.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPastLeaveModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Record Past Leave</span>
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6">
 
               <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
@@ -1783,55 +1901,76 @@ export function HrEmployeeProfile() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                     {userLeaves.length > 0 ? (
-                      userLeaves.map((req) => (
-                        <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs">
-                          <td className="p-3.5 sm:p-4 pl-4 sm:pl-6">
-                            <div className="font-semibold text-slate-900 dark:text-white">{req.type} Leave</div>
-                          </td>
-                          <td className="p-3.5 sm:p-4">
-                            <div className="text-slate-600 dark:text-gray-300">{req.start} to {req.end}</div>
-                          </td>
-                          <td className="p-3.5 sm:p-4">
-                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
-                              req.status === 'Rejected' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
+                      userLeaves.map((req) => {
+                        const leaveType = req.type || req.leaveType || 'Yearly';
+                        const startDate = req.start || req.startDate;
+                        const endDate = req.end || req.endDate;
+                        const duration = req.durationDays || req.duration_days;
+                        const notes = req.notes || req.rejection_reason || req.reason;
+
+                        return (
+                          <tr key={req.id} className="hover:bg-slate-50 dark:hover:bg-white/5 transition-colors text-xs">
+                            <td className="p-3.5 sm:p-4 pl-4 sm:pl-6">
+                              <div className="font-semibold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <span>{leaveType} Leave</span>
+                                {duration ? (
+                                  <span className="text-[10px] text-slate-400 font-normal">({duration}d)</span>
+                                ) : null}
+                              </div>
+                              {notes && (
+                                <div className="text-[11px] text-slate-400 truncate max-w-[200px] mt-0.5" title={notes}>
+                                  {notes}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3.5 sm:p-4">
+                              <div className="text-slate-600 dark:text-gray-300 font-medium">
+                                {startDate} {endDate && endDate !== startDate ? `to ${endDate}` : ''}
+                              </div>
+                            </td>
+                            <td className="p-3.5 sm:p-4">
+                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
+                                req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                                req.status === 'Rejected' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
                                 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                               }`}>
-                              {req.status}
-                            </span>
-                          </td>
-                          <td className="p-3.5 sm:p-4 pr-4 sm:pr-6">
-                            {req.documentUrl ? (() => {
-                              let docList: Array<{ name?: string; url?: string }> = [];
-                              try {
-                                if (req.documentUrl.startsWith('[')) {
-                                  docList = JSON.parse(req.documentUrl);
+                                {req.status || 'Approved'}
+                              </span>
+                            </td>
+                            <td className="p-3.5 sm:p-4 pr-4 sm:pr-6">
+                              {req.documentUrl ? (() => {
+                                let docList: Array<{ name?: string; url?: string }> = [];
+                                try {
+                                  if (req.documentUrl.startsWith('[')) {
+                                    docList = JSON.parse(req.documentUrl);
+                                  }
+                                } catch {}
+                                if (!docList.length) {
+                                  docList = [{ name: 'Medical Certificate', url: req.documentUrl }];
                                 }
-                              } catch {}
-                              if (!docList.length) {
-                                docList = [{ name: 'Medical Certificate', url: req.documentUrl }];
-                              }
-                              return (
-                                <div className="flex flex-col gap-1">
-                                  {docList.map((d, i) => (
-                                    <a
-                                      key={i}
-                                      href={d.url}
-                                      download={d.name || 'leave_document'}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-primary hover:underline font-semibold text-xs inline-flex items-center gap-1"
-                                    >
-                                      {docList.length > 1 ? `Doc ${i + 1}: ${d.name || 'Certificate'}` : 'Download Certificate'}
-                                    </a>
-                                  ))}
-                                </div>
-                              );
-                            })() : (
-                              <span className="text-slate-400 dark:text-gray-500">None</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))
+                                return (
+                                  <div className="flex flex-col gap-1">
+                                    {docList.map((d, i) => (
+                                      <a
+                                        key={i}
+                                        href={d.url}
+                                        download={d.name || 'leave_document'}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-primary hover:underline font-semibold text-xs inline-flex items-center gap-1"
+                                      >
+                                        {docList.length > 1 ? `Doc ${i + 1}: ${d.name || 'Certificate'}` : 'Download Certificate'}
+                                      </a>
+                                    ))}
+                                  </div>
+                                );
+                              })() : (
+                                <span className="text-slate-400 dark:text-gray-500">None</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td className="p-6 pl-6 text-slate-400 dark:text-gray-500" colSpan={4}>No recent leave logs.</td>
@@ -3156,6 +3295,249 @@ export function HrEmployeeProfile() {
                 </button>
                 <button type="submit" disabled={isSavingDoc} className="px-5 py-2.5 rounded-xl bg-primary text-white font-bold cursor-pointer disabled:opacity-50 shadow-md shadow-primary/20">
                   {isSavingDoc ? 'Uploading...' : 'Save & Attach Document'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Record Past / Historical Leave Modal */}
+      {isPastLeaveModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-white/10 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-slate-200 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-primary/10 text-primary rounded-xl">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                    Record Past Leave
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-gray-400">
+                    {employee?.name} &bull; Adjust taken balances & log history
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPastLeaveModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleRecordPastLeave} className="space-y-4 text-xs">
+              {/* Leave Type Select */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1.5">
+                  Leave Type *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { id: 'Yearly', label: 'Annual Leave', icon: '🌴', sub: 'Deducts from yearly 30d' },
+                    { id: 'Sick', label: 'Sick Leave', icon: '🤒', sub: 'Adds to sick days used' },
+                    { id: 'Maternity', label: 'Maternity Leave', icon: '👶', sub: 'Eligible female staff' },
+                    { id: 'Unpaid', label: 'Unpaid Leave', icon: '💼', sub: 'No allowance impact' }
+                  ].map((lt) => {
+                    const isSelected = pastLeaveForm.leaveType === lt.id;
+                    return (
+                      <button
+                        key={lt.id}
+                        type="button"
+                        onClick={() => setPastLeaveForm(prev => ({ ...prev, leaveType: lt.id as any }))}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-primary bg-primary/10 text-primary font-bold shadow-xs'
+                            : 'border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/5 text-slate-700 dark:text-gray-300 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span>{lt.icon}</span>
+                          <span className="truncate">{lt.label}</span>
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-normal mt-0.5 truncate">
+                          {lt.sub}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Date Pickers */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">
+                    From (Start Date) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={pastLeaveForm.startDate}
+                    onChange={(e) => handleStartDateChange(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">
+                    To (End Date) *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={pastLeaveForm.endDate}
+                    onChange={(e) => handleEndDateChange(e.target.value)}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary font-semibold"
+                  />
+                </div>
+              </div>
+
+              {/* Duration Days */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="font-semibold text-slate-700 dark:text-gray-300">
+                    Total Days Taken *
+                  </label>
+                  <span className="text-[10px] text-slate-400">
+                    (Auto-calculated, or override if needed)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    required
+                    value={pastLeaveForm.durationDays}
+                    onChange={(e) => setPastLeaveForm(prev => ({ ...prev, durationDays: Number(e.target.value) || 1 }))}
+                    className="w-28 bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white font-bold text-center outline-none focus:border-primary"
+                  />
+                  <span className="text-xs font-semibold text-slate-500">Days</span>
+                </div>
+              </div>
+
+              {/* Balance Impact Live Indicator */}
+              <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-200/80 dark:border-white/10 space-y-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+                  Live Balance Impact
+                </span>
+                {pastLeaveForm.leaveType === 'Yearly' && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 dark:text-gray-400">Annual Leave Available:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {employee?.leave_balances?.yearly ?? 30}d → <strong className="text-primary">{Math.max(0, (employee?.leave_balances?.yearly ?? 30) - pastLeaveForm.durationDays)}d remaining</strong>
+                    </span>
+                  </div>
+                )}
+                {pastLeaveForm.leaveType === 'Sick' && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 dark:text-gray-400">Total Sick Days Used:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {approvedSickDays}d → <strong className="text-amber-600 dark:text-amber-400">{approvedSickDays + pastLeaveForm.durationDays}d used</strong>
+                    </span>
+                  </div>
+                )}
+                {pastLeaveForm.leaveType === 'Maternity' && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-600 dark:text-gray-400">Maternity Balance:</span>
+                    <span className="font-bold text-slate-900 dark:text-white">
+                      {employee?.leave_balances?.pregnancy ?? 98}d → <strong className="text-blue-500">{Math.max(0, (employee?.leave_balances?.pregnancy ?? 98) - pastLeaveForm.durationDays)}d remaining</strong>
+                    </span>
+                  </div>
+                )}
+                {pastLeaveForm.leaveType === 'Unpaid' && (
+                  <div className="text-slate-500 text-xs">
+                    Recorded as Unpaid Leave. Paid balances are not affected.
+                  </div>
+                )}
+              </div>
+
+              {/* Reason / Notes */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">
+                  Reason / Notes
+                </label>
+                <input
+                  type="text"
+                  value={pastLeaveForm.notes}
+                  onChange={(e) => setPastLeaveForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="e.g. Offline medical leave in March, or leave taken prior to system onboarding"
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white outline-none focus:border-primary"
+                />
+              </div>
+
+              {/* File Upload (Multi-file) */}
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">
+                  Attach Documents (Optional)
+                </label>
+                <div className="relative border-2 border-dashed border-slate-200 dark:border-white/10 hover:border-primary dark:hover:border-primary rounded-xl p-3 text-center transition-colors bg-slate-50/50 dark:bg-white/5 cursor-pointer">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*,application/pdf"
+                    onChange={(e) => {
+                      if (e.target.files) {
+                        const newFiles = Array.from(e.target.files);
+                        setPastLeaveFiles(prev => [...prev, ...newFiles]);
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <div className="flex flex-col items-center justify-center gap-1 text-slate-500 dark:text-gray-400">
+                    <UploadCloud className="w-5 h-5 text-primary" />
+                    <span className="text-[11px] font-semibold text-slate-700 dark:text-gray-300">
+                      Upload Medical Certificate / Signed Paper Slip
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      PDF, JPG, PNG &bull; Multiple files supported
+                    </span>
+                  </div>
+                </div>
+
+                {pastLeaveFiles.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {pastLeaveFiles.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between bg-slate-100 dark:bg-white/10 px-2.5 py-1 rounded-lg text-xs">
+                        <span className="truncate max-w-[220px] font-medium text-slate-700 dark:text-gray-300">{file.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setPastLeaveFiles(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-red-500 hover:text-red-700 ml-2 cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2.5 pt-3 border-t border-slate-200 dark:border-white/10 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsPastLeaveModalOpen(false)}
+                  className="px-4 py-2 rounded-xl text-slate-700 dark:text-gray-300 bg-slate-100 dark:bg-white/5 hover:bg-slate-200 font-semibold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingPastLeave}
+                  className="px-5 py-2 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold cursor-pointer disabled:opacity-50 shadow-md shadow-primary/20 flex items-center gap-2"
+                >
+                  {isSubmittingPastLeave ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <span>Record & Adjust Balance</span>
+                  )}
                 </button>
               </div>
             </form>

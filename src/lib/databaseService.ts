@@ -1481,13 +1481,35 @@ export async function recordEmployeeLeaveByHrInDb(data: {
   notes?: string;
   documentUrl?: string;
 }): Promise<{ success: boolean; error?: string }> {
-  if (!isLiveSupabaseConfigured()) return { success: true };
+  if (!isLiveSupabaseConfigured()) {
+    MOCK_LEAVES.unshift({
+      id: `leave-${Date.now()}`,
+      employee: 'Employee',
+      user_id: data.userId,
+      type: data.leaveType,
+      start: data.startDate,
+      end: data.endDate,
+      status: data.status || 'Approved',
+      documentUrl: data.documentUrl,
+      notes: data.notes
+    } as any);
+    return { success: true };
+  }
 
   try {
+    let validUserId = data.userId;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(validUserId);
+    if (!isUuid) {
+      const { data: userRec } = await supabase.from('users').select('id').eq('email', data.userId).maybeSingle();
+      if (userRec?.id) validUserId = userRec.id;
+    }
+
     const lowerType = (data.leaveType || '').toLowerCase();
-    let dbLeaveType: 'Yearly' | 'Sick' | 'Unpaid' = 'Yearly';
+    let dbLeaveType: 'Yearly' | 'Sick' | 'Maternity' | 'Unpaid' = 'Yearly';
     if (lowerType.includes('sick')) {
       dbLeaveType = 'Sick';
+    } else if (lowerType.includes('maternity') || lowerType.includes('pregnancy')) {
+      dbLeaveType = 'Maternity';
     } else if (lowerType.includes('unpaid')) {
       dbLeaveType = 'Unpaid';
     } else {
@@ -1499,7 +1521,7 @@ export async function recordEmployeeLeaveByHrInDb(data: {
     const days = data.durationDays || Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1);
 
     const basePayload: any = {
-      user_id: data.userId,
+      user_id: validUserId,
       leave_type: dbLeaveType,
       start_date: data.startDate,
       end_date: data.endDate,
@@ -1547,17 +1569,20 @@ export async function recordEmployeeLeaveByHrInDb(data: {
     if (data.status === 'Approved') {
       const { data: userRecord } = await supabase
         .from('users')
-        .select('leave_balance_yearly, leave_balance_sick')
-        .eq('id', data.userId)
+        .select('leave_balance_yearly, leave_balance_sick, leave_balance_maternity')
+        .eq('id', validUserId)
         .maybeSingle();
 
       if (userRecord) {
         if (dbLeaveType === 'Yearly') {
           const newBal = Math.max(0, (userRecord.leave_balance_yearly ?? 30) - days);
-          await supabase.from('users').update({ leave_balance_yearly: newBal }).eq('id', data.userId);
+          await supabase.from('users').update({ leave_balance_yearly: newBal }).eq('id', validUserId);
         } else if (dbLeaveType === 'Sick') {
           const newBal = Math.max(0, (userRecord.leave_balance_sick ?? 14) - days);
-          await supabase.from('users').update({ leave_balance_sick: newBal }).eq('id', data.userId);
+          await supabase.from('users').update({ leave_balance_sick: newBal }).eq('id', validUserId);
+        } else if (dbLeaveType === 'Maternity') {
+          const newBal = Math.max(0, (userRecord.leave_balance_maternity ?? 98) - days);
+          await supabase.from('users').update({ leave_balance_maternity: newBal }).eq('id', validUserId);
         }
       }
     }
