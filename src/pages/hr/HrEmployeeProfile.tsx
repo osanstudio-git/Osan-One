@@ -1877,7 +1877,7 @@ export function HrEmployeeProfile() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-6">
 
               <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
                 <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center mb-3 sm:mb-4 border-4 border-primary">
@@ -1895,15 +1895,6 @@ export function HrEmployeeProfile() {
                 </div>
                 <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white mb-1">Sick Leave</h4>
                 <p className="text-xs text-slate-500 dark:text-gray-400">Total sick days taken this year</p>
-              </div>
-
-              <div className="bg-white dark:bg-white/5 p-5 sm:p-6 rounded-2xl border border-slate-200/80 dark:border-white/5 shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full flex flex-col items-center justify-center mb-3 sm:mb-4 border-4 border-blue-400">
-                  <span className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">{employee.leave_balances.pregnancy}</span>
-                  <span className="text-[9px] text-slate-500 dark:text-gray-400 font-bold uppercase tracking-wider">Days Available</span>
-                </div>
-                <h4 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white mb-1">Maternity Leave</h4>
-                <p className="text-xs text-slate-500 dark:text-gray-400">Eligible female employees only</p>
               </div>
 
             </div>
