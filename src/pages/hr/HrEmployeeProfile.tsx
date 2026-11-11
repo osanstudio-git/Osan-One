@@ -303,6 +303,7 @@ export function HrEmployeeProfile() {
     job_title: '',
     department: '',
     supervisor_name: '',
+    join_date: '',
     base_salary: 800,
     allowances: 150,
   });
@@ -313,6 +314,7 @@ export function HrEmployeeProfile() {
       job_title: employee.job_title || '',
       department: employee.department || '',
       supervisor_name: employee.supervisor_name || '',
+      join_date: (employee.join_date || '').split('T')[0],
       base_salary: employee.base_salary || 800,
       allowances: employee.allowances || 150,
     });
@@ -2786,7 +2788,7 @@ export function HrEmployeeProfile() {
                 <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Briefcase className="w-5 h-5 text-primary" /> Edit Placement & Wage Structure
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-gray-400">Update designation, department, and salary for {employee.name}</p>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Update designation, department, joining date, and salary for {employee.name}</p>
               </div>
               <button onClick={() => setIsJobModalOpen(false)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg cursor-pointer">
                 <X className="w-5 h-5" />
@@ -2818,15 +2820,28 @@ export function HrEmployeeProfile() {
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Immediate Supervisor</label>
-                <input
-                  type="text"
-                  value={jobForm.supervisor_name}
-                  onChange={(e) => setJobForm({ ...jobForm, supervisor_name: e.target.value })}
-                  placeholder="Supervisor's Full Name"
-                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-4 py-2.5 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Immediate Supervisor</label>
+                  <input
+                    type="text"
+                    value={jobForm.supervisor_name}
+                    onChange={(e) => setJobForm({ ...jobForm, supervisor_name: e.target.value })}
+                    placeholder="Supervisor's Full Name"
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Joining Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={jobForm.join_date}
+                    onChange={(e) => setJobForm({ ...jobForm, join_date: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs outline-none focus:border-primary"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 pt-2">

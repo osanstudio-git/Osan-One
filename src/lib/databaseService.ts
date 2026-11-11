@@ -915,6 +915,8 @@ export async function updateEmployeeInDb(employeeId: string, updates: Partial<Us
     }
     if (updates.job_title !== undefined) payload.job_title = updates.job_title;
     if (updates.department !== undefined) payload.department = updates.department;
+    if (updates.supervisor_name !== undefined) payload.supervisor_name = updates.supervisor_name;
+    if (updates.join_date) payload.join_date = updates.join_date;
     if (updates.base_salary !== undefined) payload.base_salary = updates.base_salary;
     if (updates.allowances !== undefined) payload.allowances = updates.allowances;
     if (updates.bank_name !== undefined) payload.bank_name = updates.bank_name;
