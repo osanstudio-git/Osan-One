@@ -291,8 +291,13 @@ export function EmployeeAttendanceTimesheet({
             }
           }
         } else {
-          clockOutText = 'Active Shift';
-          shiftDurationText = 'In Progress';
+          if (dateStr === todayStr) {
+            clockOutText = 'Active Shift';
+            shiftDurationText = 'In Progress';
+          } else {
+            clockOutText = 'Missed Punch Out';
+            shiftDurationText = 'Incomplete';
+          }
         }
       } else if (isWeekend) {
         status = 'weekend';
@@ -410,6 +415,7 @@ export function EmployeeAttendanceTimesheet({
     if (txt === 'OFF (Paid)') return 'عطلة رسمية (مدفوعة)';
     if (txt === 'Weekend Off') return t('weekend');
     if (txt === 'Active Shift') return 'وردية نشطة';
+    if (txt === 'Missed Punch Out') return 'لم يسجل خروج';
     if (txt === 'Scheduled Shift') return t('scheduled');
     if (txt === 'Not Checked In Yet') return 'لم يسجل دخول بعد';
     return txt;
@@ -423,6 +429,7 @@ export function EmployeeAttendanceTimesheet({
     if (txt === 'Approved Leave') return t('approvedLeave');
     if (txt === 'Off') return t('off');
     if (txt === 'In Progress') return 'قيد العمل';
+    if (txt === 'Incomplete') return 'غير مكتمل';
     return txt.replace('h', ` ${t('hours')} `).replace('m', ` ${t('minutes')}`);
   };
 

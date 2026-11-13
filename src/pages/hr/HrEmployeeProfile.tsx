@@ -837,8 +837,13 @@ export function HrEmployeeProfile() {
           totalMinutesWorked = 480;
         }
       } else {
-        clockOutText = 'Active Shift';
-        shiftDurationText = 'Active Shift';
+        if (dateStr === todayStr) {
+          clockOutText = 'Active Shift';
+          shiftDurationText = 'Active Shift';
+        } else {
+          clockOutText = 'Missed Punch Out';
+          shiftDurationText = 'Incomplete';
+        }
       }
     } else if (isWeekend) {
       status = 'weekend';
