@@ -18,7 +18,8 @@ import {
   addEmployeeDocumentToDb,
   deleteEmployeeDocumentFromDb,
   renewEmployeeDocumentInDb,
-  getSavedLocalAvatar
+  getSavedLocalAvatar,
+  getCompanies
 } from '../../lib/databaseService';
 import { supabase } from '../../lib/supabase';
 import { isDatePublicHoliday, getPublicHolidays, syncPublicHolidaysFromDb, type PublicHoliday } from '../../lib/holidayService';
@@ -30,7 +31,7 @@ import {
 } from '../../lib/whatsappService';
 import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
 import { compressAndResizeAvatar } from '../../lib/imageUtils';
-import type { User as UserType, Nationality } from '../../types';
+import type { User as UserType, Nationality, Company } from '../../types';
 
 type EmployeeTabType =
   | 'profile'          // Personal info, family, emergency contacts
@@ -299,7 +300,9 @@ export function HrEmployeeProfile() {
   // 2. Job & Placement Edit
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [isSavingJob, setIsSavingJob] = useState(false);
+  const [companiesList, setCompaniesList] = useState<Company[]>([]);
   const [jobForm, setJobForm] = useState({
+    company_id: '',
     job_title: '',
     department: '',
     supervisor_name: '',
@@ -308,9 +311,17 @@ export function HrEmployeeProfile() {
     allowances: 150,
   });
 
+  useEffect(() => {
+    getCompanies().then(comps => {
+      if (comps && comps.length > 0) setCompaniesList(comps);
+    }).catch(console.error);
+  }, []);
+
   const openJobModal = () => {
     if (!employee) return;
+    const currentCompId = employee.company_id || (companiesList.find(c => c.name === employee.company)?.id) || '';
     setJobForm({
+      company_id: currentCompId,
       job_title: employee.job_title || '',
       department: employee.department || '',
       supervisor_name: employee.supervisor_name || '',
@@ -326,9 +337,19 @@ export function HrEmployeeProfile() {
     if (!employee) return;
     setIsSavingJob(true);
     try {
-      const updated = { ...employee, ...jobForm };
+      const selectedComp = companiesList.find(c => c.id === jobForm.company_id);
+      const newCompanyName = selectedComp?.name || employee.company;
+      const updated = {
+        ...employee,
+        ...jobForm,
+        company: newCompanyName,
+        company_id: jobForm.company_id || employee.company_id
+      };
       setEmployee(updated);
-      await updateEmployeeInDb(employee.id, jobForm);
+      await updateEmployeeInDb(employee.id, {
+        ...jobForm,
+        company_id: jobForm.company_id
+      });
       setIsJobModalOpen(false);
     } catch (err) {
       console.error('Error saving job details:', err);
@@ -2808,6 +2829,28 @@ export function HrEmployeeProfile() {
             </div>
 
             <form onSubmit={handleSaveJob} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-primary" />
+                  <span>Company / Office Entity</span>
+                </label>
+                <select
+                  value={jobForm.company_id}
+                  onChange={(e) => setJobForm({ ...jobForm, company_id: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-white/5 border border-slate-300 dark:border-white/10 rounded-xl px-3 py-2 text-slate-900 dark:text-white text-xs font-semibold outline-none focus:border-primary cursor-pointer"
+                >
+                  <option value="" disabled>Select Office / Company Entity</option>
+                  {companiesList.map(comp => (
+                    <option key={comp.id} value={comp.id} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                      {comp.name}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  Assigns the correct office branch, geofenced WiFi, and shift schedule without affecting employee ID or past history.
+                </span>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block font-semibold text-slate-700 dark:text-gray-300 mb-1">Job Designation</label>
