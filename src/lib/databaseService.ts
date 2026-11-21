@@ -1778,8 +1778,8 @@ export async function recordPunchInDb(
           isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 15);
         }
       } else {
-        // Standard Corporate: 08:30 AM
-        isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 30);
+        // Standard Corporate: 08:30 AM (15m grace window -> 08:45 AM)
+        isLate = now.getHours() > 8 || (now.getHours() === 8 && now.getMinutes() > 45);
       }
 
       const status = isLate ? 'Late' : 'Present';

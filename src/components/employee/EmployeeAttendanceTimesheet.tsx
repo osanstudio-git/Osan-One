@@ -1,15 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
-import { 
-  ChevronLeft, ChevronRight, Calendar, Clock, 
-  CheckCircle2, AlertTriangle, AlertCircle, 
+import {
+  ChevronLeft, ChevronRight, Calendar, Clock,
+  CheckCircle2, AlertTriangle, AlertCircle,
   Palmtree, Sparkles, FilterX, Download
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { 
-  isDatePublicHoliday, 
-  getPublicHolidays, 
-  syncPublicHolidaysFromDb, 
-  type PublicHoliday 
+import {
+  isDatePublicHoliday,
+  getPublicHolidays,
+  syncPublicHolidaysFromDb,
+  type PublicHoliday
 } from '../../lib/holidayService';
 import { generateMonthlyAttendanceReport } from '../../lib/attendanceReportService';
 
@@ -238,28 +238,29 @@ export function EmployeeAttendanceTimesheet({
         const rawStatus = (realLog.status || '').toLowerCase();
         const isInLate = rawStatus.includes('late');
 
-        if (isInLate) {
-          status = 'late';
-        } else {
-          status = 'present';
-        }
-
         if (realLog.clock_in_time) {
           const inDate = new Date(realLog.clock_in_time);
           clockInText = inDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-          // Calculate approximate late arrival if marked late
-          if (isInLate) {
-            const [shiftH, shiftM] = scheduledShiftStart.replace(/[^0-9:]/g, '').split(':').map(Number);
-            const isPM = scheduledShiftStart.toUpperCase().includes('PM') && shiftH < 12;
-            const targetH = isPM ? shiftH + 12 : shiftH;
-            const scheduledStartToday = new Date(inDate);
-            scheduledStartToday.setHours(targetH || 8, shiftM || 30, 0, 0);
+          const [shiftH, shiftM] = scheduledShiftStart.replace(/[^0-9:]/g, '').split(':').map(Number);
+          const isPM = scheduledShiftStart.toUpperCase().includes('PM') && shiftH < 12;
+          const targetH = isPM ? shiftH + 12 : shiftH;
+          const scheduledStartToday = new Date(inDate);
+          scheduledStartToday.setHours(targetH || 8, shiftM || 30, 0, 0);
 
-            const diffMins = Math.floor((inDate.getTime() - scheduledStartToday.getTime()) / (1000 * 60));
-            lateMinutes = Math.max(1, diffMins);
+          const diffMins = Math.floor((inDate.getTime() - scheduledStartToday.getTime()) / (1000 * 60));
+
+          // 15-Minute Grace Period:
+          // Arrivals within 15 minutes of shift start are excused as 'present' (On Time)
+          if (diffMins > 15) {
+            status = 'late';
+            lateMinutes = diffMins;
+          } else {
+            status = 'present';
+            lateMinutes = 0;
           }
         } else {
+          status = isInLate ? 'late' : 'present';
           clockInText = '08:00 AM';
         }
 
@@ -435,7 +436,7 @@ export function EmployeeAttendanceTimesheet({
 
   return (
     <div className="w-full max-w-5xl space-y-6 animate-in fade-in duration-300">
-      
+
       {/* Month Selector Bar */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3">
@@ -447,7 +448,7 @@ export function EmployeeAttendanceTimesheet({
               {currentMonthName} {selectedYear}
             </h2>
             <p className="text-xs text-slate-500 dark:text-gray-400 font-medium">
-              {(companyName || '').toLowerCase().includes('asas') 
+              {(companyName || '').toLowerCase().includes('asas')
                 ? `${userName ? `${userName} • ` : ''}${isArabic ? 'الأحد–الأربعاء: 08:00–17:00 / 12:00–20:00 • الخميس: 08:00–15:00' : 'Sun–Wed: 08:00–17:00 / 12:00–20:00 • Thu: 08:00–15:00'}`
                 : `${userName ? `${userName} • ` : ''}${t('scheduledHours')}: ${scheduledShiftStart} – ${scheduledShiftEnd}`}
             </p>
@@ -614,12 +615,11 @@ export function EmployeeAttendanceTimesheet({
                       data.status === 'holiday'
                         ? `${data.dateStr}: ${data.holidayName || 'Holiday'} (${data.holidayType || 'National'} Holiday - OFF Paid)`
                         : isArabic
-                        ? `${data.dateStr}: ${data.status} (اضغط للتفاصيل)`
-                        : `${data.dateStr}: ${data.status.toUpperCase()} (Click to inspect day)`
+                          ? `${data.dateStr}: ${data.status} (اضغط للتفاصيل)`
+                          : `${data.dateStr}: ${data.status.toUpperCase()} (Click to inspect day)`
                     }
-                    className={`relative aspect-square rounded-xl text-xs font-bold transition-all cursor-pointer flex flex-col items-center justify-center ${getHeatmapColor(data.status, data.holidayType)} ${
-                      isSelected ? 'ring-3 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-105 z-10' : ''
-                    }`}
+                    className={`relative aspect-square rounded-xl text-xs font-bold transition-all cursor-pointer flex flex-col items-center justify-center ${getHeatmapColor(data.status, data.holidayType)} ${isSelected ? 'ring-3 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-105 z-10' : ''
+                      }`}
                   >
                     <span>{data.dayNum}</span>
                     {data.status === 'holiday' && (
@@ -700,20 +700,19 @@ export function EmployeeAttendanceTimesheet({
                   </tr>
                 ) : (
                   filteredFeedData.map((log) => {
-                    const formattedDate = log.date.toLocaleDateString(isArabic ? 'ar-OM' : 'en-GB', { 
-                      day: '2-digit', 
-                      month: 'short', 
-                      year: 'numeric' 
+                    const formattedDate = log.date.toLocaleDateString(isArabic ? 'ar-OM' : 'en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric'
                     });
                     const weekdayName = log.date.toLocaleDateString(isArabic ? 'ar-OM' : 'en-GB', { weekday: 'short' });
                     const isSelectedRow = selectedCalendarDate === log.dateStr;
 
                     return (
-                      <tr 
-                        key={log.dateStr} 
-                        className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${
-                          isSelectedRow ? 'bg-primary/5 dark:bg-primary/10' : ''
-                        }`}
+                      <tr
+                        key={log.dateStr}
+                        className={`hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${isSelectedRow ? 'bg-primary/5 dark:bg-primary/10' : ''
+                          }`}
                       >
                         <td className="py-3.5 px-4 ltr:pl-6 rtl:pr-6 font-bold text-slate-900 dark:text-white">
                           <div>{formattedDate}</div>
@@ -750,18 +749,16 @@ export function EmployeeAttendanceTimesheet({
                             </span>
                           )}
                           {log.status === 'holiday' && (
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${
-                              log.holidayType === 'National'
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-extrabold border ${log.holidayType === 'National'
                                 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30'
                                 : log.holidayType === 'Company'
-                                ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
-                                : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
-                            }`}>
-                              <Sparkles className={`w-3 h-3 ${
-                                log.holidayType === 'National' ? 'text-emerald-600 dark:text-emerald-400' :
-                                log.holidayType === 'Company' ? 'text-blue-600 dark:text-blue-400' :
-                                'text-purple-600 dark:text-purple-400'
-                              }`} />
+                                  ? 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30'
+                                  : 'bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30'
+                              }`}>
+                              <Sparkles className={`w-3 h-3 ${log.holidayType === 'National' ? 'text-emerald-600 dark:text-emerald-400' :
+                                  log.holidayType === 'Company' ? 'text-blue-600 dark:text-blue-400' :
+                                    'text-purple-600 dark:text-purple-400'
+                                }`} />
                               <span>{log.holidayName || (isArabic ? 'عطلة رسمية' : t('holiday'))}</span>
                             </span>
                           )}

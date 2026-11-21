@@ -172,7 +172,8 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
           const shiftStartMins = (sH || 8) * 60 + (sM || 30);
           const inDate = new Date(l.clock_in_time);
           const inMins = inDate.getHours() * 60 + inDate.getMinutes();
-          if (inMins > shiftStartMins) isLateEntry = true;
+          // 15-Minute Grace Period: only flag as late if arrived after 15m grace window
+          if (inMins > (shiftStartMins + 15)) isLateEntry = true;
         }
       }
       if (isLateEntry && l.date) {
@@ -251,13 +252,15 @@ export function CompanyAttendanceModal({ isOpen, onClose, company }: CompanyAtte
           const clockInM = (earliestClockIn as Date).getMinutes();
           const clockInMins = clockInH * 60 + clockInM;
           
-          if (clockInMins > shiftStartMins) {
+          // 15-Minute Grace Period:
+          if (clockInMins > (shiftStartMins + 15)) {
             isLate = true;
             lateMinutes = clockInMins - shiftStartMins;
+          } else {
+            isLate = false;
+            lateMinutes = 0;
           }
-        }
-
-        if (userLogs.some(l => l.status === 'Late')) {
+        } else if (userLogs.some(l => l.status === 'Late')) {
           isLate = true;
         }
 

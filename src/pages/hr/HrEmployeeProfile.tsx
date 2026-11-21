@@ -8,11 +8,11 @@ import {
 } from 'lucide-react';
 import { MOCK_EMPLOYEES, MOCK_LEAVES } from './mockData';
 import { DocumentRenewalModal } from '../../components/hr/DocumentRenewalModal';
-import { 
-  getEmployeeById, 
-  deleteEmployeeInDb, 
-  updateEmployeeInDb, 
-  getEmployeeAttendanceLogsFromDb, 
+import {
+  getEmployeeById,
+  deleteEmployeeInDb,
+  updateEmployeeInDb,
+  getEmployeeAttendanceLogsFromDb,
   getEmployeeLeaveRequestsFromDb,
   recordEmployeeLeaveByHrInDb,
   addEmployeeDocumentToDb,
@@ -22,7 +22,7 @@ import {
 } from '../../lib/databaseService';
 import { supabase } from '../../lib/supabase';
 import { isDatePublicHoliday, getPublicHolidays, syncPublicHolidaysFromDb, type PublicHoliday } from '../../lib/holidayService';
-import { 
+import {
   sendEmployeeWhatsAppInvite,
   getLateWarningWhatsAppUrl,
   getLateReminderWhatsAppUrl,
@@ -147,7 +147,7 @@ export function HrEmployeeProfile() {
             return { name: item.name || `Attachment ${idx + 1}`, url: item.url || (item as any).dataUrl || '', size: item.size };
           }).filter(item => Boolean(item.url));
         }
-      } catch {}
+      } catch { }
     }
     return [{ name: 'Medical Certificate', url: rawUrl }];
   };
@@ -158,9 +158,9 @@ export function HrEmployeeProfile() {
 
     const updatedDocs = (employee.documents || []).map(d => {
       if (d.id === docId) {
-        return { 
-          ...d, 
-          expiryDate: newExpiryDate, 
+        return {
+          ...d,
+          expiryDate: newExpiryDate,
           number: newNumber || d.number,
           attachedFile: attachedFile || d.attachedFile
         };
@@ -757,7 +757,7 @@ export function HrEmployeeProfile() {
     const mStr = String(selectedMonth + 1).padStart(2, '0');
     const dStr = String(dayNum).padStart(2, '0');
     const dateStr = `${selectedYear}-${mStr}-${dStr}`;
-    
+
     const isOmani = employee?.nationality === 'OMAN' || employee?.nationality === 'Omani';
     const dayOfWeek = dateObj.getDay();
     const isWeekend = isOmani ? (dayOfWeek === 5 || dayOfWeek === 6) : (dayOfWeek === 5);
@@ -791,6 +791,7 @@ export function HrEmployeeProfile() {
     let clockOutText = '--:--';
     let shiftDurationText = '0m';
     let totalMinutesWorked = 0;
+    let lateMinutes = 0;
 
     if (publicHoliday) {
       status = 'holiday';
@@ -803,17 +804,30 @@ export function HrEmployeeProfile() {
       clockOutText = `Leave (${realLeave.type || realLeave.leaveType || 'Approved'})`;
       shiftDurationText = 'Approved Leave';
     } else if (realLog) {
-      const rawStatus = (realLog.status || '').toLowerCase();
-      if (rawStatus.includes('late')) {
-        status = 'late';
-      } else {
-        status = 'present';
-      }
-
       if (realLog.clock_in_time) {
         const inDate = new Date(realLog.clock_in_time);
         clockInText = inDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        const isAsas = (employee?.company || '').toLowerCase().includes('asas') || (employee?.company || '').toLowerCase().includes('sanad');
+        const schedH = isAsas ? 8 : 8;
+        const schedM = isAsas ? 0 : 30;
+        const scheduledTime = new Date(inDate);
+        scheduledTime.setHours(schedH, schedM, 0, 0);
+
+        const diffMins = Math.round((inDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
+
+        // 15-Minute Grace Period:
+        // Arrivals within 15 minutes of shift start are excused as 'present' (On Time)
+        if (diffMins > 15) {
+          status = 'late';
+          lateMinutes = diffMins;
+        } else {
+          status = 'present';
+          lateMinutes = 0;
+        }
       } else {
+        const rawStatus = (realLog.status || '').toLowerCase();
+        status = rawStatus.includes('late') ? 'late' : 'present';
         clockInText = '08:00 AM';
       }
 
@@ -876,21 +890,13 @@ export function HrEmployeeProfile() {
     }
 
     let lateOccurrence = 0;
-    let lateMinutes = 0;
     if (status === 'late') {
       monthlyLateCounter++;
       lateOccurrence = monthlyLateCounter;
-      if (realLog?.late_minutes) {
+      if (!lateMinutes && realLog?.late_minutes) {
         lateMinutes = Number(realLog.late_minutes);
-      } else if (realLog?.clock_in_time) {
-        const inDate = new Date(realLog.clock_in_time);
-        const scheduledTime = new Date(realLog.clock_in_time);
-        scheduledTime.setHours(8, 30, 0, 0);
-        if (inDate.getTime() > scheduledTime.getTime()) {
-          lateMinutes = Math.round((inDate.getTime() - scheduledTime.getTime()) / (1000 * 60));
-        }
       }
-      if (!lateMinutes) lateMinutes = 15;
+      if (!lateMinutes) lateMinutes = 16;
     }
 
     const isLateWarning = status === 'late' && lateOccurrence > 3;
@@ -1948,11 +1954,10 @@ export function HrEmployeeProfile() {
                               </div>
                             </td>
                             <td className="p-3.5 sm:p-4">
-                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${
-                                req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
-                                req.status === 'Rejected' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
-                                'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                              }`}>
+                              <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold ${req.status === 'Approved' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' :
+                                  req.status === 'Rejected' ? 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20' :
+                                    'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+                                }`}>
                                 {req.status || 'Approved'}
                               </span>
                             </td>
@@ -2120,8 +2125,8 @@ export function HrEmployeeProfile() {
                   {monthlyStats.late}
                 </div>
                 <div className="text-[10px] sm:text-xs text-slate-400 dark:text-gray-500 mt-1">
-                  {monthlyStats.late > 3 
-                    ? `${monthlyStats.late - 3} warnings (exceeds 3 allowance)` 
+                  {monthlyStats.late > 3
+                    ? `${monthlyStats.late - 3} warnings (exceeds 3 allowance)`
                     : `${monthlyStats.late}/3 grace limit (no warning)`}
                 </div>
               </div>
@@ -2167,9 +2172,8 @@ export function HrEmployeeProfile() {
                               ? `${data.dateStr}: ${data.holidayName || 'Holiday'} (${data.holidayType || 'National'} Holiday - OFF Paid)`
                               : `${data.dateStr}: ${data.status.toUpperCase()}${data.isLateWarning ? ` (Late Warning #${data.lateOccurrence})` : data.status === 'late' ? ` (Late ${data.lateOccurrence}/3)` : ''} (Click to filter log feed)`
                           }
-                          className={`relative aspect-square rounded-lg border flex flex-col items-center justify-center text-xs font-bold transition-all cursor-pointer ${getHeatmapColor(data.status, data.holidayType, data.isLateWarning)} ${
-                            isSelectedDate ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-110' : ''
-                          }`}
+                          className={`relative aspect-square rounded-lg border flex flex-col items-center justify-center text-xs font-bold transition-all cursor-pointer ${getHeatmapColor(data.status, data.holidayType, data.isLateWarning)} ${isSelectedDate ? 'ring-2 ring-primary ring-offset-2 ring-offset-white dark:ring-offset-slate-900 scale-110' : ''
+                            }`}
                         >
                           <span>{data.dayNum}</span>
                           {data.status === 'holiday' && (
@@ -2337,13 +2341,12 @@ export function HrEmployeeProfile() {
                                     Absent
                                   </span>
                                 ) : log.status === 'holiday' ? (
-                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${
-                                    log.holidayType === 'National'
+                                  <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold border ${log.holidayType === 'National'
                                       ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                                       : log.holidayType === 'Company'
-                                      ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-                                      : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
-                                  }`}>
+                                        ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
+                                        : 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                                    }`}>
                                     ✨ {log.holidayName || 'Public Holiday'}
                                   </span>
                                 ) : (
@@ -2355,21 +2358,19 @@ export function HrEmployeeProfile() {
                               <td className="p-4 pr-6 text-right">
                                 {whatsappUrls ? (
                                   employee?.phone ? (
-                                    <div className={`inline-flex items-center rounded-lg border p-0.5 shadow-2xs ${
-                                      whatsappUrls.type === 'late-warning'
+                                    <div className={`inline-flex items-center rounded-lg border p-0.5 shadow-2xs ${whatsappUrls.type === 'late-warning'
                                         ? 'border-amber-500/30 bg-amber-500/10'
                                         : whatsappUrls.type === 'absent'
-                                        ? 'border-rose-500/30 bg-rose-500/10'
-                                        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
-                                    }`}>
+                                          ? 'border-rose-500/30 bg-rose-500/10'
+                                          : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'
+                                      }`}>
                                       <div className="px-1 py-0.5">
-                                        <MessageSquare className={`w-3.5 h-3.5 ${
-                                          whatsappUrls.type === 'late-warning'
+                                        <MessageSquare className={`w-3.5 h-3.5 ${whatsappUrls.type === 'late-warning'
                                             ? 'text-amber-600 dark:text-amber-400'
                                             : whatsappUrls.type === 'absent'
-                                            ? 'text-rose-600 dark:text-rose-400'
-                                            : 'text-slate-500 dark:text-gray-400'
-                                        }`} />
+                                              ? 'text-rose-600 dark:text-rose-400'
+                                              : 'text-slate-500 dark:text-gray-400'
+                                          }`} />
                                       </div>
                                       <a
                                         href={whatsappUrls.en}
@@ -2380,8 +2381,8 @@ export function HrEmployeeProfile() {
                                           whatsappUrls.type === 'late-warning'
                                             ? `Send WhatsApp Late Warning (#${log.lateOccurrence}) in English`
                                             : whatsappUrls.type === 'absent'
-                                            ? `Send WhatsApp Absence Notice for ${formattedDate} in English`
-                                            : `Send WhatsApp Shift Punctuality Reminder (${log.lateOccurrence}/3) in English`
+                                              ? `Send WhatsApp Absence Notice for ${formattedDate} in English`
+                                              : `Send WhatsApp Shift Punctuality Reminder (${log.lateOccurrence}/3) in English`
                                         }
                                       >
                                         EN
@@ -2391,19 +2392,18 @@ export function HrEmployeeProfile() {
                                         href={whatsappUrls.ar}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${
-                                          whatsappUrls.type === 'late-warning'
+                                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-black uppercase hover:bg-black/10 dark:hover:bg-white/10 transition-colors ${whatsappUrls.type === 'late-warning'
                                             ? 'text-amber-700 dark:text-amber-300'
                                             : whatsappUrls.type === 'absent'
-                                            ? 'text-rose-700 dark:text-rose-300'
-                                            : 'text-emerald-600 dark:text-emerald-400'
-                                        }`}
+                                              ? 'text-rose-700 dark:text-rose-300'
+                                              : 'text-emerald-600 dark:text-emerald-400'
+                                          }`}
                                         title={
                                           whatsappUrls.type === 'late-warning'
                                             ? `إرسال إنذار تأخير رسمي عبر الواتساب بالعربية`
                                             : whatsappUrls.type === 'absent'
-                                            ? `إرسال إشعار غياب عبر الواتساب بالعربية`
-                                            : `إرسال تذكير بمواعيد الدوام عبر الواتساب بالعربية`
+                                              ? `إرسال إشعار غياب عبر الواتساب بالعربية`
+                                              : `إرسال تذكير بمواعيد الدوام عبر الواتساب بالعربية`
                                         }
                                       >
                                         AR
@@ -2721,8 +2721,8 @@ export function HrEmployeeProfile() {
                     value={personalForm.nationality?.startsWith('Expat') ? 'Expat' : 'OMAN'}
                     onChange={(e) => {
                       const val = e.target.value;
-                      setPersonalForm({ 
-                        ...personalForm, 
+                      setPersonalForm({
+                        ...personalForm,
                         nationality: val === 'OMAN' ? 'OMAN' : (personalForm.nationality?.startsWith('Expat') ? personalForm.nationality : 'Expat')
                       });
                     }}
@@ -3755,11 +3755,10 @@ export function HrEmployeeProfile() {
                       key={idx}
                       type="button"
                       onClick={() => setSelectedLeaveDocIndex(idx)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                        selectedLeaveDocIndex === idx
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${selectedLeaveDocIndex === idx
                           ? 'bg-primary text-white shadow-xs'
                           : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-gray-300 hover:text-slate-900 border border-slate-200 dark:border-white/10'
-                      }`}
+                        }`}
                     >
                       <FileText className="w-3.5 h-3.5" />
                       <span className="max-w-[120px] truncate">{doc.name || `Document ${idx + 1}`}</span>
