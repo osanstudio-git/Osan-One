@@ -635,24 +635,39 @@ export function EmployeeDashboard() {
   const renderJourneyBar = () => {
     if (!profile) return null;
 
-    const [startHr, startMin] = (shiftStart || "08:30").split(':').map(Number);
-    const [endHr, endMin] = (shiftEnd || "17:00").split(':').map(Number);
+    let displayStart = shiftStart || "08:30";
+    let displayEnd = shiftEnd || "17:00";
 
-    const start = new Date(now);
-    start.setHours(startHr, startMin, 0, 0);
-    const end = new Date(now);
-    end.setHours(endHr, endMin, 0, 0);
+    // For Sanad / flexible shifts: if employee has checked in, dynamically adapt target to required shift hours
+    const isFlexible = isAsas || (companyName || profile?.company || '').toLowerCase().includes('sanad');
+    const effectiveCheckIn = firstCheckInTime || currentSessionStart;
 
-    const totalMs = end.getTime() - start.getTime();
-    const elapsedMs = now.getTime() - start.getTime();
+    let start = new Date(now);
+    let end = new Date(now);
+
+    if (isFlexible && effectiveCheckIn) {
+      const requiredHours = isThursday ? 7 : 9;
+      start = new Date(effectiveCheckIn);
+      end = new Date(effectiveCheckIn.getTime() + requiredHours * 60 * 60 * 1000);
+      displayStart = start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      displayEnd = end.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else {
+      const [startHr, startMin] = displayStart.split(':').map(Number);
+      const [endHr, endMin] = displayEnd.split(':').map(Number);
+      start.setHours(startHr, startMin, 0, 0);
+      end.setHours(endHr, endMin, 0, 0);
+    }
+
+    const totalMs = Math.max(1, end.getTime() - start.getTime());
+    const elapsedMs = Math.max(0, now.getTime() - start.getTime());
     let progress = (elapsedMs / totalMs) * 100;
     progress = Math.max(0, Math.min(100, progress));
 
     return (
       <div className="w-full max-w-md mt-8">
         <div className="flex justify-between text-xs text-slate-500 dark:text-gray-400 font-bold mb-2 px-1">
-          <span translate="no">{shiftStart} ({t('shiftStart')})</span>
-          <span translate="no">{shiftEnd} ({t('shiftEnd')})</span>
+          <span translate="no">{displayStart} ({t('shiftStart')})</span>
+          <span translate="no">{displayEnd} ({isFlexible && effectiveCheckIn ? (isThursday ? '7h Target' : '9h Target') : t('shiftEnd')})</span>
         </div>
         <div className="h-3 w-full bg-slate-200 dark:bg-slate-900 border border-slate-300 dark:border-white/10 rounded-full overflow-hidden shadow-inner">
           <div

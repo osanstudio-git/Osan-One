@@ -846,6 +846,13 @@ export function HrEmployeeProfile() {
           } else {
             shiftDurationText = `${mins}m`;
           }
+
+          // Flexible 9-Hour Target Rule (Sanad / Branches):
+          const isAsasComp = (employee?.company || '').toLowerCase().includes('asas') || (employee?.company || '').toLowerCase().includes('sanad');
+          const targetMins = (isAsasComp && dateObj.getDay() === 4) ? 420 : (isAsasComp ? 540 : 480);
+          if (totalMinutesWorked >= targetMins && status !== 'late') {
+            status = 'present';
+          }
         } else {
           shiftDurationText = '8h 0m';
           totalMinutesWorked = 480;

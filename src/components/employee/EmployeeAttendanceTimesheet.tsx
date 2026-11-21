@@ -280,6 +280,15 @@ export function EmployeeAttendanceTimesheet({
             } else {
               shiftDurationText = `${mins}m`;
             }
+
+            // Flexible 9-Hour Workday for Sanad & branch staff:
+            // If totalMinutesWorked reaches the required shift hours (9h normal, or 7h on Thursday for Asas),
+            // confirm the status as 'present' (Completed Shift / On Time)
+            const isAsasComp = (companyName || '').toLowerCase().includes('asas') || (companyName || '').toLowerCase().includes('sanad');
+            const targetMins = (isAsasComp && dateObj.getDay() === 4) ? 420 : (isAsasComp ? 540 : 480);
+            if (totalMinutesWorked >= targetMins && status !== 'late') {
+              status = 'present';
+            }
           } else {
             const isThu = dateObj.getDay() === 4;
             const isAsasComp = (companyName || '').toLowerCase().includes('asas');
