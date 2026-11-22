@@ -100,15 +100,15 @@ export function PunchRing({
   const { t } = useLanguage();
 
   return (
-    <div className="flex flex-col items-center justify-center gap-6 select-none touch-none">
-      <div className="relative w-64 h-64 flex items-center justify-center">
+    <div className="flex flex-col items-center justify-center gap-4 sm:gap-6 select-none touch-none w-full">
+      <div className="relative w-52 h-52 sm:w-64 sm:h-64 flex items-center justify-center shrink-0">
         {/* Background pulsing ring for active state */}
         {isCheckedIn && (
-          <div className="absolute inset-0 rounded-full border border-primary/30 animate-pulse scale-110" />
+          <div className="absolute inset-0 rounded-full border border-primary/30 animate-pulse scale-105 sm:scale-110" />
         )}
 
         {/* Progress SVG Ring */}
-        <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
+        <svg viewBox="0 0 256 256" className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none">
           <circle
             cx="128"
             cy="128"
@@ -137,21 +137,21 @@ export function PunchRing({
           onPointerUp={cancelPress}
           onPointerLeave={cancelPress}
           onContextMenu={(e) => e.preventDefault()}
-          className={`relative w-56 h-56 rounded-full border-4 ${ringColor} ${innerColor} shadow-xl dark:shadow-none flex flex-col items-center justify-center cursor-pointer overflow-hidden group`}
+          className={`relative w-44 h-44 sm:w-56 sm:h-56 rounded-full border-4 ${ringColor} ${innerColor} shadow-xl dark:shadow-none flex flex-col items-center justify-center cursor-pointer overflow-hidden group`}
         >
           {verifying ? (
-            <div className="flex flex-col items-center animate-pulse">
-              <MapPin className="w-8 h-8 mb-2 text-primary" />
-              <span className="text-sm font-medium text-slate-800 dark:text-white" translate="no">
+            <div className="flex flex-col items-center animate-pulse px-2 text-center">
+              <MapPin className="w-6 h-6 sm:w-8 sm:h-8 mb-1.5 sm:mb-2 text-primary" />
+              <span className="text-xs sm:text-sm font-medium text-slate-800 dark:text-white" translate="no">
                 {t('verifying')}
               </span>
             </div>
           ) : (
             <>
-              <span className="text-2xl font-bold tracking-wider uppercase mb-1 text-slate-900 dark:text-white" translate="no">
+              <span className="text-xl sm:text-2xl font-bold tracking-wider uppercase mb-1 text-slate-900 dark:text-white" translate="no">
                 {isCheckedIn ? t('checkOut') : t('checkIn')}
               </span>
-              <span className="text-xs text-slate-500 dark:text-gray-400 group-hover:text-primary transition-colors font-medium" translate="no">
+              <span className="text-[11px] sm:text-xs text-slate-500 dark:text-gray-400 group-hover:text-primary transition-colors font-medium px-2 text-center" translate="no">
                 {t('pressAndHold')}
               </span>
             </>
